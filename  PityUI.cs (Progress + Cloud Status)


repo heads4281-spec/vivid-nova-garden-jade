@@ -1,0 +1,58 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+public class PityUI : MonoBehaviour
+{
+    public Slider bar;
+    public TextMeshProUGUI pityText;
+    public TextMeshProUGUI trackText;
+    public Image fill;
+
+    public string tableID = "Boss_Vaelith";
+    public PityTrack track = PityTrack.Global;
+
+    public Color blue = new Color(0, 0.9f, 1);
+    public Color red = new Color(1, 0.15f, 0.25f);
+    public Color purple = new Color(0.7f, 0, 1);
+    public Color triune = new Color(1, 0.8f, 0.2f);
+
+    void OnEnable()
+    {
+        if (PitySystem.Instance) PitySystem.Instance.OnPityChanged += Refresh;
+        Refresh();
+    }
+
+    void OnDisable()
+    {
+        if (PitySystem.Instance) PitySystem.Instance.OnPityChanged -= Refresh;
+    }
+
+    public void Set(string id, PityTrack t)
+    {
+        tableID = id;
+        track = t;
+        Refresh();
+    }
+
+    void Refresh()
+    {
+        if (!PitySystem.Instance) return;
+        var c = PitySystem.Instance.GetCounter(tableID, track);
+        float p = PitySystem.Instance.GetPityProgress(tableID, track);
+
+        if (bar) bar.value = p;
+        if (pityText) pityText.text = $"{c.currentPity} / {c.hardPity}";
+        if (trackText) trackText.text = track.ToString().ToUpper();
+
+        if (fill)
+            fill.color = track switch
+            {
+                PityTrack.Blue => blue,
+                PityTrack.Red => red,
+                PityTrack.Purple => purple,
+                PityTrack.Triune => triune,
+                _ => Color.white
+            };
+    }
+}
