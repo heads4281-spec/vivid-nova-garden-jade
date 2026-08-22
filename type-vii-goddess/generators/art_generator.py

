@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""Type VII Goddess – Infinite Art & Weapon Prompt Generator"""
+import argparse, json
+from datetime import datetime
+
+PALETTE = {
+    "blue":   "cyan-blue energy network",
+    "red":    "crimson-red energy network",
+    "purple": "violet-purple energy network",
+    "mixed":  "blue-red-purple triune energy network"
+}
+
+def generate(asset: str, color: str, count: int = 10):
+    results = []
+    for i in range(count):
+        seed = int(datetime.now().timestamp()) + i
+        if asset == "palace":
+            prompt = f"TYPE VII GODDESS DARK GOTHIC PALACE, MULTI-LEVEL SANCTUM • {PALETTE[color].upper()}, identical isometric structure, floating rune stones, 1000x1000, ultra detailed game-ready"
+        elif asset == "weapon":
+            prompt = f"God of War Type VII Goddess {color} weapon, dark gothic, glowing runes, floating stones, 8k concept art"
+        else:
+            prompt = f"1000x1000 Type VII Goddess map, {PALETTE[color]}, six realms, logical layout"
+        results.append({"id": f"type7_{asset}_{color}_{seed}", "prompt": prompt, "seed": seed})
+    with open(f"output_{asset}_{color}.json", "w") as f:
+        json.dump(results, f, indent=2)
+    print(f"Generated {count} prompts → output_{asset}_{color}.json")
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--type", choices=["palace","weapon","map"], default="palace")
+    p.add_argument("--color", choices=["blue","red","purple","mixed"], default="mixed")
+    p.add_argument("--count", type=int, default=10)
+    args = p.parse_args()
+    generate(args.type, args.color, args.count)
