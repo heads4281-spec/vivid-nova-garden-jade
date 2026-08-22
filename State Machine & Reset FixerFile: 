@@ -1,0 +1,39 @@
+State Machine & Reset FixerFile: src/game/store.ts + resetGame() inside engine
+// store.ts – clean screen machine
+export type Screen = "title" | "briefing" | "playing" | "paused" | "dead" | "victory" | "codex" | "settings";
+
+export const useGame = create<GameStore>((set, get) => ({
+  screen: "title",
+  // ...
+  setScreen: (screen) => set({ screen }),
+  startRun: () => set({
+    screen: "playing",
+    runId: get().runId + 1,
+    hud: emptyHud(),          // full clean slate
+  }),
+  // ...
+}));Explicit reset inside CrimsonGame (call on death / zone change):resetGame() {
+  // clear all transient state – no memory leaks
+  this.enemies.forEach(e => { this.scene.remove(e.mesh); e.mesh = null; });
+  this.enemies.length = 0;
+  this.projectiles.length = 0;
+  this.particles.length = 0;
+  this.runes.clear();
+  this.health = 100;
+  this.kills = 0;
+  this.px = 0; this.py = 0.35; this.pz = 68;
+  this.vx = this.vy = this.vz = 0;
+  this.yaw = 0; this.pitch = -0.08;
+  this.yawObj.position.set(0, 1.58, 68);
+  this.yawObj.rotation.y = 0;
+  this.camera.rotation.set(-0.08, 0, 0);
+  this.ended = false;
+  this.currentMoment = null;
+  this.momentT = 0;
+  this.hash.rebuild(this.world.colliders);
+  this.spawnEnemies();
+  useGame.getState().setScreen("playing");
+  useGame.getState().setHud(emptyHud());
+  this.tell("You stand on the Threshold. The runes are watching.");
+}
+
