@@ -1,0 +1,189 @@
+// src/game/checkpoint-save.ts
+import * as THREE from "three";
+import { C } from "./palette";
+import { PlayerHealth } from "./player-health";
+
+export interface SavedCheckpoint {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  activated: boolean;
+}
+
+export interface GameSaveData {
+  slot: number;
+  lastCheckpointId: string | null;
+  checkpoints: SavedCheckpoint[];
+  playerHealth: number;
+  playerArmor: number;
+  currentWeaponIndex: number;
+  timestamp: number;
+}
+
+const SAVE_PREFIX = "crimson_sovereign_slot_";
+
+export class Checkpoint {
+  public mesh: THREE.Group;
+  public isActive = false;
+  private glow: THREE.PointLight;
+  private pulse = 0;
+
+  constructor(
+    public id: string,
+    public position: THREE.Vector3,
+    private scene: THREE.Scene
+  ) {
+    this.mesh = new THREE.Group();
+
+    const crystal = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.55, 0),
+      new THREE.MeshStandardMaterial({
+        color: C.blackCrystal,
+        emissive: C.crimson,
+        emissiveIntensity: 0.3,
+        metalness: 0.7,
+        roughness: 0.25,
+      })
+    );
+    crystal.position.y = 1.15;
+    this.mesh.add(crystal);
+
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.9, 0.22, 6),
+      new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8, roughness: 0.3 })
+    );
+    base.position.y = 0.11;
+    this.mesh.add(base);
+
+    this.glow = new THREE.PointLight(C.arterial, 0.9, 9);
+    this.glow.position.y = 1.5;
+    this.mesh.add(this.glow);
+
+    this.mesh.position.copy(position);
+    scene.add(this.mesh);
+  }
+
+  update(
+    dt: number,
+    playerPos: THREE.Vector3,
+    onActivate: (cp: Checkpoint) => void
+  ) {
+    this.pulse += dt * 2.4;
+    this.mesh.position.y = Math.sin(this.pulse) * 0.09;
+    this.mesh.children[0].rotation.y += dt * 0.7;
+
+    if (!this.isActive && this.mesh.position.distanceTo(playerPos) < 2.9) {
+      this.isActive = true;
+      onActivate(this);
+    }
+
+    if (this.isActive) {
+      this.glow.intensity = 1.8 + Math.sin(this.pulse * 2.2) * 0.7;
+      (this.mesh.children[0] as THREE.Mesh).material.emissiveIntensity = 0.85;
+    } else {
+      this.glow.intensity = 0.7;
+      (this.mesh.children[0] as THREE.Mesh).material.emissiveIntensity = 0.28;
+    }
+  }
+}
+
+export class CheckpointSaveSystem {
+  public checkpoints: Checkpoint[] = [];
+  public lastCheckpoint: Checkpoint | null = null;
+  public currentSlot = 1;
+
+  // Callback so GameApp can show notifications
+  public onNotify?: (message: string) => void;
+
+  constructor(private scene: THREE.Scene) {}
+
+  add(id: string, position: THREE.Vector3) {
+    const cp = new Checkpoint(id, position, this.scene);
+    this.checkpoints.push(cp);
+    return cp;
+  }
+
+  update(dt: number, playerPos: THREE.Vector3, playerHealth: PlayerHealth, weaponIndex: number) {
+    this.checkpoints.forEach((cp) => {
+      cp.update(dt, playerPos, (activated) => {
+        this.lastCheckpoint = activated;
+        this.save(playerHealth, weaponIndex);
+        this.onNotify?.(`CHECKPOINT ACTIVATED — ${activated.id}`);
+      });
+    });
+  }
+
+  save(playerHealth: PlayerHealth, weaponIndex: number, slot?: number) {
+    const useSlot = slot ?? this.currentSlot;
+
+    const data: GameSaveData = {
+      slot: useSlot,
+      lastCheckpointId: this.lastCheckpoint?.id || null,
+      checkpoints: this.checkpoints.map((cp) => ({
+        id: cp.id,
+        x: cp.position.x,
+        y: cp.position.y,
+        z: cp.position.z,
+        activated: cp.isActive,
+      })),
+      playerHealth: playerHealth.health,
+      playerArmor: playerHealth.armor,
+      currentWeaponIndex: weaponIndex,
+      timestamp: Date.now(),
+    };
+
+    localStorage.setItem(SAVE_PREFIX + useSlot, JSON.stringify(data));
+    this.onNotify?.(`GAME SAVED — SLOT ${useSlot}`);
+  }
+
+  load(playerHealth: PlayerHealth, playerPos: THREE.Vector3, slot = 1): number {
+    const raw = localStorage.getItem(SAVE_PREFIX + slot);
+    if (!raw) return 0;
+
+    try {
+      const data: GameSaveData = JSON.parse(raw);
+
+      data.checkpoints.forEach((saved) => {
+        const cp = this.checkpoints.find((c) => c.id === saved.id);
+        if (cp && saved.activated) {
+          cp.isActive = true;
+          this.lastCheckpoint = cp;
+        }
+      });
+
+      if (this.lastCheckpoint) {
+        playerPos.copy(this.lastCheckpoint.position);
+        playerPos.y = 1.7;
+        playerHealth.health = Math.max(40, data.playerHealth);
+        playerHealth.armor = data.playerArmor;
+        playerHealth.isDead = false;
+      }
+
+      this.currentSlot = slot;
+      this.onNotify?.(`GAME LOADED — SLOT ${slot}`);
+      return data.currentWeaponIndex ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  clearSlot(slot = 1) {
+    localStorage.removeItem(SAVE_PREFIX + slot);
+    this.onNotify?.(`SLOT ${slot} CLEARED`);
+  }
+
+  respawn(playerHealth: PlayerHealth, playerPos: THREE.Vector3) {
+    if (!this.lastCheckpoint) {
+      playerHealth.respawn(true);
+      playerPos.set(0, 1.7, 6);
+      return false;
+    }
+
+    playerHealth.respawn(false);
+    playerHealth.health = Math.max(40, playerHealth.health);
+    playerPos.copy(this.lastCheckpoint.position);
+    playerPos.y = 1.7;
+    return true;
+  }
+}
