@@ -1,0 +1,2 @@
+PUT  /api/typevii/pity/{playerId}   ← body = JSON
+GET  /api/typevii/pity/{playerId}   ← returns JSON
