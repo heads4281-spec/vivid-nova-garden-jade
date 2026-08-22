@@ -1,0 +1,7 @@
+FeaturesFloating black-crystal checkpoints with arterial red glow
+Automatically activates when the player walks near
+Saves current health + armor at the moment of activation
+On death → press R to respawn at the last activated checkpoint
+Falls back to the default spawn if no checkpoint has been activated yet
+Strong visual feedback when a checkpoint is activated
+
