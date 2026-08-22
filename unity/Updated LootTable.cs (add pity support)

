@@ -1,0 +1,8 @@
+// Add these two fields inside the LootTable class:
+
+[Header("Pity Integration")]
+public string pityID;                    // unique ID for this table (e.g. "Boss_Vaelith")
+public bool enablePity = true;
+
+// Optional: override the rarity that resets pity
+public ItemRarity pityResetRarity = ItemRarity.Legendary;
