@@ -1,0 +1,8 @@
+unity/
+├── Inventory/
+│   ├── Item.cs
+│   ├── InventoryItem.cs
+│   ├── InventorySystem.cs
+│   ├── EquipmentSystem.cs
+│   ├── InventoryUI.cs
+│   └── InventorySlotUI.cs
