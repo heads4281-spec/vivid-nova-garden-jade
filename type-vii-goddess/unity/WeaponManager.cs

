@@ -1,0 +1,21 @@
+using UnityEngine;
+using System.Collections.Generic;
+
+[System.Serializable]
+public class Weapon { public string id, name, type, color, rarity; }
+[System.Serializable]
+public class WeaponList { public List<Weapon> weapons; }
+
+public class WeaponManager : MonoBehaviour
+{
+    public TextAsset weaponsJson;
+    private WeaponList data;
+
+    void Start()
+    {
+        data = JsonUtility.FromJson<WeaponList>(weaponsJson.text);
+        Debug.Log($"Loaded {data.weapons.Count} Type VII weapons");
+    }
+
+    public Weapon GetWeapon(string id) => data.weapons.Find(w => w.id == id);
+}
