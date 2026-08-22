@@ -1,0 +1,21 @@
+Features includedHealth + Armor
+Damage with armor absorption
+Invincibility frames after being hit
+Healing
+Death & respawn (press R)
+Low-health pulsing effect
+Damage / heal screen flash values
+Clean React HUD
+Events so the rest of the game can react
+
+Test controlsKey
+Action
+H
+Heal 25 HP
+G
+Gain 15 Armor
+R
+Respawn after death
+
+Would you like me to also add a blood screen overlay, health vials that spawn in the world, or permanent death / checkpoint system next?
+
