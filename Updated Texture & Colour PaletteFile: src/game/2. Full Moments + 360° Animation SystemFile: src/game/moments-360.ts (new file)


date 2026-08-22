@@ -1,0 +1,76 @@
+// src/game/moments-360.ts
+// Complete moments programming + 360° live-stream style animation
+
+import * as THREE from "three";
+import { C } from "./palette";
+import { getWorldMoment, type WorldMoment } from "./moments";
+
+export class Moment360System {
+  private camera: THREE.PerspectiveCamera;
+  private scene: THREE.Scene;
+  private renderer: THREE.WebGLRenderer;
+  private current: WorldMoment | null = null;
+  private time = 0;
+  private duration = 0;
+  private originalFov = 70;
+  private orbitAngle = 0;
+
+  constructor(
+    camera: THREE.PerspectiveCamera,
+    scene: THREE.Scene,
+    renderer: THREE.WebGLRenderer
+  ) {
+    this.camera = camera;
+    this.scene = scene;
+    this.renderer = renderer;
+    this.originalFov = camera.fov;
+  }
+
+  /** Trigger any moment by id (1–10000) */
+  play(id: number) {
+    this.current = getWorldMoment(id);
+    this.time = 0;
+    this.duration = this.current.duration || 12;
+    this.orbitAngle = 0;
+    console.log(`[Moment] ${this.current.name} – ${this.current.description}`);
+  }
+
+  /** Call every frame */
+  update(dt: number) {
+    if (!this.current) return;
+
+    this.time += dt;
+    const t = Math.min(1, this.time / this.duration);
+
+    // 360° slow orbit during cinematic moments
+    this.orbitAngle += dt * 0.18;
+    const radius = 4.5 + Math.sin(t * Math.PI) * 1.2;
+    this.camera.position.x = Math.sin(this.orbitAngle) * radius;
+    this.camera.position.z = Math.cos(this.orbitAngle) * radius;
+    this.camera.position.y = 1.8 + Math.sin(t * Math.PI * 2) * 0.3;
+    this.camera.lookAt(0, 1.5, 0);
+
+    // FOV breathe
+    this.camera.fov = this.originalFov + Math.sin(t * Math.PI) * 8;
+    this.camera.updateProjectionMatrix();
+
+    // Colour grading pulse
+    const intensity = Math.sin(t * Math.PI);
+    this.renderer.toneMappingExposure = 1.0 + intensity * 0.35;
+
+    if (t >= 1) {
+      this.end();
+    }
+  }
+
+  end() {
+    this.current = null;
+    this.camera.fov = this.originalFov;
+    this.camera.updateProjectionMatrix();
+    this.renderer.toneMappingExposure = 1.0;
+  }
+
+  isPlaying() {
+    return this.current !== null;
+  }
+}
