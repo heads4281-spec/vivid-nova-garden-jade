@@ -1,0 +1,10 @@
+Type VII Goddess – Pity System for Rare Drops
+Fully implemented and integrated with the existing LootDropManager + LootTable.
+
+unity/
+└── Loot/
+    ├── LootDrop.cs          (already exists)
+    ├── LootTable.cs         (small update)
+    ├── LootDropManager.cs   (updated)
+    ├── LootPickup.cs        (already exists)
+    └── PitySystem.cs        ← NEW
