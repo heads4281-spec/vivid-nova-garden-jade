@@ -1,0 +1,18 @@
+Drop CloudSaveManager on the same GameObject as PitySystem (or any DontDestroyOnLoad object).
+Set provider to CustomHTTP and fill in your backend URL + player ID.
+Everything else is automatic:PitySystem saves → local file + queued upload
+On start → download + smart merge → apply to PitySystem
+Offline → works normally, syncs when back online
+Conflicts → keeps the highest pity value per track (safe for players)
+PUT  /api/typevii/pity/{playerId}   ← body = JSON
+GET  /api/typevii/pity/{playerId}   ← returns JSONCloud synchronization is now fully implemented.Features included:Offline-first
+Upload queue + automatic retries
+Smart conflict resolution (highest pity wins)
+PlayFab & Steam ready (just uncomment + add SDKs)
+Status events for UI
+Force sync method
+
+Next possible pieces:Pity UI with live cloud status indicator
+Multiplayer pity sharing
+Full account login flow
+
