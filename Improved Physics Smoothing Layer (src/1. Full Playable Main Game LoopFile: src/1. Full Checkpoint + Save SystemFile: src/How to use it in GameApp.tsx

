@@ -22,4 +22,39 @@ window.addEventListener("keydown", (e) => {
     camera.position.copy(playerPos);
     // playerVel.set(0, 0, 0);
   }
+});import { CheckpointSaveSystem } from "./checkpoint-save";
+import { PlayerHealth } from "./player-health";
+
+// Inside useEffect:
+
+const saveSystem = new CheckpointSaveSystem(scene);
+
+// Add checkpoints
+saveSystem.add("Threshold", new THREE.Vector3(0, 0, -8));
+saveSystem.add("Ember Court", new THREE.Vector3(12, 0, -18));
+saveSystem.add("Blood Canal", new THREE.Vector3(-14, 0, -24));
+saveSystem.add("Palace Gate", new THREE.Vector3(0, 0, -38));
+
+// Try to load existing save
+saveSystem.load(playerHealth, playerPos);
+
+// Inside the animate loop:
+saveSystem.update(dt, playerPos, playerHealth);
+
+// Death + Respawn
+window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyR" && playerHealth.isDead) {
+    saveSystem.respawn(playerHealth, playerPos);
+    camera.position.copy(playerPos);
+  }
+
+  // Optional: Force save with key "P"
+  if (e.code === "KeyP") {
+    saveSystem.save(playerHealth);
+  }
+
+  // Optional: Clear save with key "C"
+  if (e.code === "KeyC") {
+    saveSystem.clearSave();
+  }
 });
