@@ -1,0 +1,18 @@
+// --- CCD player movement (no more falling through red floors / clipping arches) ---
+const RADIUS = 0.38;
+const candidates = this.hash.query(this.px, this.pz, RADIUS + 2);
+let nx = this.px + this.vx * dt;
+let ny = this.py + this.vy * dt;
+let nz = this.pz + this.vz * dt;
+
+let hitT = 1;
+for (const box of candidates) {
+  const t = sweepSphereAABB(this.px, this.py, this.pz, nx, ny, nz, RADIUS, box);
+  if (t !== null && t < hitT) hitT = t;
+}
+this.px = lerp(this.px, nx, hitT);
+this.py = lerp(this.py, ny, hitT);
+this.pz = lerp(this.pz, nz, hitT);
+
+// ground snap
+if (this.py < 0.35) { this.py = 0.35; this.vy = 0; this.grounded = true; }
