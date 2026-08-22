@@ -1,0 +1,4 @@
+PitySystem.Instance.SavePity();
+PitySystem.Instance.LoadPity();
+PitySystem.Instance.ResetAllPity();
+PitySystem.Instance.DeleteSave();
