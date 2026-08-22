@@ -1,0 +1,100 @@
+[Header("Pity System")]
+public PitySystem pitySystem;
+
+/// <summary>
+/// Main drop method – now with full pity support
+/// </summary>
+public void DropLoot(LootTable table, Vector3 position, string sourceName = "Unknown")
+{
+    if (table == null)
+    {
+        Debug.LogWarning("LootDropManager: No loot table assigned!");
+        return;
+    }
+
+    string pityID = string.IsNullOrEmpty(table.pityID) ? table.tableName : table.pityID;
+    bool hardPity = false;
+
+    // 1. Register the roll with pity system
+    if (table.enablePity && pitySystem != null)
+    {
+        pitySystem.RegisterRoll(pityID, out hardPity);
+    }
+
+    List<Item> droppedItems = new List<Item>();
+
+    // 2. Guaranteed drops always happen
+    foreach (var g in table.guaranteedDrops)
+    {
+        if (g.item != null)
+            droppedItems.Add(g.item);
+    }
+
+    // 3. Normal or forced pity roll
+    if (hardPity)
+    {
+        // Force a rare/legendary item from the table
+        Item forced = GetPityItem(table);
+        if (forced != null)
+            droppedItems.Add(forced);
+    }
+    else
+    {
+        // Normal roll with soft pity chance boost
+        float multiplier = 1f;
+        if (table.enablePity && pitySystem != null)
+            multiplier = pitySystem.GetSoftPityMultiplier(pityID);
+
+        int dropsAdded = 0;
+        foreach (var drop in table.drops)
+        {
+            if (dropsAdded >= table.maxDropsPerRoll) break;
+            if (drop.item == null) continue;
+
+            float adjustedChance = drop.dropChance * multiplier;
+            if (Random.Range(0f, 100f) <= adjustedChance)
+            {
+                droppedItems.Add(drop.item);
+                dropsAdded++;
+            }
+        }
+    }
+
+    // 4. Spawn everything
+    foreach (Item item in droppedItems)
+    {
+        SpawnLoot(item, position);
+
+        // 5. Register rare drops to reset pity
+        if (table.enablePity && pitySystem != null && item.rarity >= table.pityResetRarity)
+        {
+            pitySystem.RegisterRareDrop(pityID, item.rarity);
+        }
+    }
+
+    Debug.Log($"[{sourceName}] Dropped {droppedItems.Count} item(s) | Pity: {(hardPity ? "HARD" : "Normal")}");
+}
+
+/// <summary>
+/// Finds the highest rarity item in the table for hard pity
+/// </summary>
+private Item GetPityItem(LootTable table)
+{
+    Item best = null;
+    ItemRarity highest = ItemRarity.Common;
+
+    foreach (var drop in table.drops)
+    {
+        if (drop.item != null && drop.item.rarity > highest)
+        {
+            highest = drop.item.rarity;
+            best = drop.item;
+        }
+    }
+
+    // Fallback to guaranteed if nothing found
+    if (best == null && table.guaranteedDrops.Count > 0)
+        best = table.guaranteedDrops[0].item;
+
+    return best;
+}
