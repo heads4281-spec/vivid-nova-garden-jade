@@ -1,0 +1,121 @@
+using UnityEngine;
+using System.Collections.Generic;
+
+public class LootDropManager : MonoBehaviour
+{
+    public static LootDropManager Instance { get; private set; }
+
+    [Header("References")]
+    public InventorySystem inventory;
+    public GameObject lootPickupPrefab;          // optional visual pickup
+    public Transform dropParent;                 // where pickups spawn
+
+    [Header("Type VII Settings")]
+    public float dropForce = 5f;
+    public float dropHeight = 1.2f;
+    public bool autoAddToInventory = false;      // true = instant add, false = world pickup
+    public AudioClip dropSound;
+    public ParticleSystem dropVFX;
+
+    void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    /// <summary>
+    /// Main entry point – call this from enemies, chests, bosses, etc.
+    /// </summary>
+    public void DropLoot(LootTable table, Vector3 position, string sourceName = "Unknown")
+    {
+        if (table == null)
+        {
+            Debug.LogWarning("LootDropManager: No loot table assigned!");
+            return;
+        }
+
+        List<Item> droppedItems = table.RollLoot();
+
+        if (droppedItems.Count == 0)
+        {
+            Debug.Log($"[{sourceName}] No loot dropped.");
+            return;
+        }
+
+        foreach (Item item in droppedItems)
+        {
+            SpawnLoot(item, position);
+        }
+
+        Debug.Log($"[{sourceName}] Dropped {droppedItems.Count} item(s) from table '{table.tableName}'");
+    }
+
+    /// <summary>
+    /// Direct drop of a single item (useful for scripted rewards)
+    /// </summary>
+    public void DropItem(Item item, Vector3 position, int quantity = 1)
+    {
+        if (item == null) return;
+
+        for (int i = 0; i < quantity; i++)
+            SpawnLoot(item, position);
+    }
+
+    private void SpawnLoot(Item item, Vector3 position)
+    {
+        if (autoAddToInventory && inventory != null)
+        {
+            inventory.AddItem(item, 1);
+            PlayFeedback(position);
+            return;
+        }
+
+        // Spawn world pickup
+        if (lootPickupPrefab != null)
+        {
+            Vector3 spawnPos = position + Vector3.up * dropHeight;
+            GameObject obj = Instantiate(lootPickupPrefab, spawnPos, Quaternion.identity, dropParent);
+
+            LootPickup pickup = obj.GetComponent<LootPickup>();
+            if (pickup != null)
+                pickup.Initialize(item);
+
+            // Optional physics fling
+            Rigidbody rb = obj.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                Vector3 force = new Vector3(
+                    Random.Range(-1f, 1f),
+                    1f,
+                    Random.Range(-1f, 1f)
+                ).normalized * dropForce;
+                rb.AddForce(force, ForceMode.Impulse);
+            }
+        }
+        else
+        {
+            // Fallback: just add to inventory
+            if (inventory != null)
+                inventory.AddItem(item, 1);
+        }
+
+        PlayFeedback(position);
+    }
+
+    private void PlayFeedback(Vector3 position)
+    {
+        if (dropSound != null)
+            AudioSource.PlayClipAtPoint(dropSound, position);
+
+        if (dropVFX != null)
+        {
+            ParticleSystem vfx = Instantiate(dropVFX, position, Quaternion.identity);
+            Destroy(vfx.gameObject, 3f);
+        }
+    }
+
+    // Convenience methods for common Type VII sources
+    public void DropFromEnemy(LootTable table, Vector3 position) => DropLoot(table, position, "Enemy");
+    public void DropFromChest(LootTable table, Vector3 position) => DropLoot(table, position, "Chest");
+    public void DropFromBoss(LootTable table, Vector3 position) => DropLoot(table, position, "Boss");
+}
