@@ -1,0 +1,114 @@
+Collision FixerFile: src/game/phys.ts (replace entire file)
+/**
+ * ENGINE 5 — Spatial Hash + Continuous Collision Detection (CCD)
+ * Fixes player falling through the red floor and clipping through
+ * geometric arches / palace walls regardless of frame rate.
+ * 
+ * CRITICAL VIBE CONSTRAINT: No changes to colors, materials, or lighting.
+ */
+
+export const ENGINE = 5;
+
+export type AABB = {
+  minX: number; maxX: number;
+  minY: number; maxY: number;
+  minZ: number; maxZ: number;
+  id?: string;
+};
+
+export class SpatialHash {
+  cell: number;
+  map = new Map<string, AABB[]>();
+  all: AABB[] = [];
+
+  constructor(cell = 8) {
+    this.cell = cell;
+  }
+
+  rebuild(list: AABB[]) {
+    this.all = list;
+    this.map.clear();
+    const c = this.cell;
+    for (const b of list) {
+      const x0 = Math.floor(b.minX / c);
+      const x1 = Math.floor(b.maxX / c);
+      const z0 = Math.floor(b.minZ / c);
+      const z1 = Math.floor(b.maxZ / c);
+      for (let x = x0; x <= x1; x++) {
+        for (let z = z0; z <= z1; z++) {
+          const k = `${x},${z}`;
+          let arr = this.map.get(k);
+          if (!arr) {
+            arr = [];
+            this.map.set(k, arr);
+          }
+          arr.push(b);
+        }
+      }
+    }
+  }
+
+  query(x: number, z: number, r: number): AABB[] {
+    const c = this.cell;
+    const x0 = Math.floor((x - r) / c);
+    const x1 = Math.floor((x + r) / c);
+    const z0 = Math.floor((z - r) / c);
+    const z1 = Math.floor((z + r) / c);
+    const seen = new Set<AABB>();
+    const out: AABB[] = [];
+    for (let ix = x0; ix <= x1; ix++) {
+      for (let iz = z0; iz <= z1; iz++) {
+        const arr = this.map.get(`${ix},${iz}`);
+        if (!arr) continue;
+        for (const b of arr) {
+          if (!seen.has(b)) {
+            seen.add(b);
+            out.push(b);
+          }
+        }
+      }
+    }
+    return out;
+  }
+}
+
+export function circleHitsAABB(x: number, z: number, r: number, b: AABB) {
+  const cx = Math.max(b.minX, Math.min(x, b.maxX));
+  const cz = Math.max(b.minZ, Math.min(z, b.maxZ));
+  return (x - cx) ** 2 + (z - cz) ** 2 < r * r;
+}
+
+/** Continuous Collision Detection – stops tunneling through red geometry */
+export function sweepSphereAABB(
+  x0: number, y0: number, z0: number,
+  x1: number, y1: number, z1: number,
+  r: number, b: AABB
+): number | null {
+  const minX = b.minX - r, maxX = b.maxX + r;
+  const minY = b.minY - r, maxY = b.maxY + r;
+  const minZ = b.minZ - r, maxZ = b.maxZ + r;
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+  let tmin = 0, tmax = 1;
+
+  for (const [mn, mx, p, d] of [
+    [minX, maxX, x0, dx],
+    [minY, maxY, y0, dy],
+    [minZ, maxZ, z0, dz],
+  ] as const) {
+    if (Math.abs(d) < 1e-8) {
+      if (p < mn || p > mx) return null;
+      continue;
+    }
+    let t1 = (mn - p) / d;
+    let t2 = (mx - p) / d;
+    if (t1 > t2) [t1, t2] = [t2, t1];
+    tmin = Math.max(tmin, t1);
+    tmax = Math.min(tmax, t2);
+    if (tmin > tmax) return null;
+  }
+  return tmin;
+}
+
+export function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
