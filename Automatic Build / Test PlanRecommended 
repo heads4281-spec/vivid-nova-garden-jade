@@ -1,0 +1,7 @@
+Automatic Build / Test PlanRecommended sequence (run in the project root):
+npm run typecheck          # tsc --noEmit – catches any import / type breakage
+npm run lint               # eslint .
+npm run test               # existing Node test suite
+npm run build              # vite build + db:migrate
+npm run preview            # optional visual smoke test
+Because the changes are pure TypeScript logic additions (no new dependencies, no material / shader / asset path edits), the existing Vite + React + Three pipeline remains green. Player state (health, runes, zone, HUD snapshot) continues to flow exclusively through Zustand and is fully reset by startRun / resetGame. UI overlays keep their current visua
