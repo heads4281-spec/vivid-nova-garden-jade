@@ -1,0 +1,135 @@
+using UnityEngine;
+using System.Collections.Generic;
+
+[System.Serializable]
+public class PityCounter
+{
+    public string tableID;               // unique name of the LootTable
+    public int currentPity = 0;
+    public int softPityStart = 40;       // chance starts rising
+    public int hardPity = 70;            // guaranteed rare/legendary
+    public ItemRarity pityRarity = ItemRarity.Legendary;
+}
+
+public class PitySystem : MonoBehaviour
+{
+    public static PitySystem Instance { get; private set; }
+
+    [Header("Type VII Pity Settings")]
+    public List<PityCounter> counters = new List<PityCounter>();
+
+    [Header("Global Defaults (used if table has no specific counter)")]
+    public int defaultSoftPity = 40;
+    public int defaultHardPity = 70;
+    public ItemRarity defaultPityRarity = ItemRarity.Legendary;
+
+    [Header("Debug")]
+    public bool showPityLogs = true;
+
+    void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    /// <summary>
+    /// Call this every time a loot table is rolled.
+    /// Returns true if hard pity was triggered.
+    /// </summary>
+    public bool RegisterRoll(string tableID, out bool hardPityTriggered)
+    {
+        hardPityTriggered = false;
+        PityCounter counter = GetOrCreateCounter(tableID);
+
+        counter.currentPity++;
+
+        if (showPityLogs)
+            Debug.Log($"[Pity] {tableID} → {counter.currentPity}/{counter.hardPity}");
+
+        if (counter.currentPity >= counter.hardPity)
+        {
+            hardPityTriggered = true;
+            if (showPityLogs)
+                Debug.Log($"[Pity] HARD PITY triggered on {tableID}! Forcing {counter.pityRarity}");
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Call this when a rare (or higher) item actually drops.
+    /// Resets the pity counter.
+    /// </summary>
+    public void RegisterRareDrop(string tableID, ItemRarity rarity)
+    {
+        PityCounter counter = GetOrCreateCounter(tableID);
+
+        if (rarity >= counter.pityRarity)
+        {
+            if (showPityLogs)
+                Debug.Log($"[Pity] Rare drop ({rarity}) on {tableID} → Pity reset from {counter.currentPity}");
+            counter.currentPity = 0;
+        }
+    }
+
+    /// <summary>
+    /// Soft pity chance multiplier (0 → 1 as you approach hard pity)
+    /// </summary>
+    public float GetSoftPityMultiplier(string tableID)
+    {
+        PityCounter counter = GetOrCreateCounter(tableID);
+
+        if (counter.currentPity < counter.softPityStart)
+            return 1f;
+
+        float progress = (float)(counter.currentPity - counter.softPityStart) /
+                         (counter.hardPity - counter.softPityStart);
+
+        // Curve: starts slow, then rises sharply
+        return 1f + (progress * progress * 4f);   // up to ~5× chance near hard pity
+    }
+
+    public int GetCurrentPity(string tableID)
+    {
+        return GetOrCreateCounter(tableID).currentPity;
+    }
+
+    private PityCounter GetOrCreateCounter(string tableID)
+    {
+        foreach (var c in counters)
+        {
+            if (c.tableID == tableID)
+                return c;
+        }
+
+        // Create new counter with defaults
+        PityCounter newCounter = new PityCounter
+        {
+            tableID = tableID,
+            softPityStart = defaultSoftPity,
+            hardPity = defaultHardPity,
+            pityRarity = defaultPityRarity
+        };
+        counters.Add(newCounter);
+        return newCounter;
+    }
+
+    // Optional: save/load pity (PlayerPrefs example)
+    public void SavePity()
+    {
+        foreach (var c in counters)
+        {
+            PlayerPrefs.SetInt($"Pity_{c.tableID}", c.currentPity);
+        }
+        PlayerPrefs.Save();
+    }
+
+    public void LoadPity()
+    {
+        foreach (var c in counters)
+        {
+            c.currentPity = PlayerPrefs.GetInt($"Pity_{c.tableID}", 0);
+        }
+    }
+}
