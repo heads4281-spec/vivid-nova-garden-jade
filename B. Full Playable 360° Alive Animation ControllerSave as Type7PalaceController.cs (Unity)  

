@@ -1,0 +1,47 @@
+// Type VII Goddess – Full Playable Controller
+// 360° alive rotation + energy animation + multi-level access
+// Drop on the palace root. Full control, no mixing.
+
+using UnityEngine;
+
+public class Type7PalaceController : MonoBehaviour
+{
+    [Header("Full Control")]
+    public float rotateSpeed = 8f;          // 360° alive spin
+    public float energyPulseSpeed = 1.2f;
+    public Color blueEnergy  = new Color(0f, 0.94f, 1f);
+    public Color redEnergy   = new Color(1f, 0f, 0.2f);
+    public Color purpleEnergy= new Color(0.67f, 0f, 1f);
+    public Material energyMaterial;         // assign the glowing material
+
+    private float angle;
+    private int currentRealm = 1;           // 1=Vaelith … 6=Aelith
+
+    void Update()
+    {
+        // 360° alive continuous rotation
+        angle += rotateSpeed * Time.deltaTime;
+        transform.rotation = Quaternion.Euler(15f, angle, 0f);
+
+        // Alive energy pulse (blue-red-purple cycle)
+        float t = Mathf.PingPong(Time.time * energyPulseSpeed, 1f);
+        Color current = Color.Lerp(Color.Lerp(blueEnergy, redEnergy, t), purpleEnergy, t);
+        if (energyMaterial) energyMaterial.SetColor("_EmissionColor", current * 4f);
+
+        // Keyboard full control
+        if (Input.GetKeyDown(KeyCode.Alpha1)) SwitchRealm(1);
+        if (Input.GetKeyDown(KeyCode.Alpha2)) SwitchRealm(2);
+        if (Input.GetKeyDown(KeyCode.Alpha3)) SwitchRealm(3);
+        if (Input.GetKeyDown(KeyCode.Alpha4)) SwitchRealm(4);
+        if (Input.GetKeyDown(KeyCode.Alpha5)) SwitchRealm(5);
+        if (Input.GetKeyDown(KeyCode.Alpha6)) SwitchRealm(6);
+    }
+
+    void SwitchRealm(int realm)
+    {
+        currentRealm = realm;
+        // Trigger 3rd live animation (camera fly + energy surge)
+        Debug.Log($"Live Animation → Realm {realm} activated");
+        // Add your animation triggers here (Animator.SetTrigger($"Realm{realm}"))
+    }
+}
