@@ -1,0 +1,46 @@
+using UnityEngine;
+using System.Collections.Generic;
+
+[CreateAssetMenu(fileName = "New Loot Table", menuName = "Type VII/Loot Table")]
+public class LootTable : ScriptableObject
+{
+    [Header("Type VII Loot Table")]
+    public string tableName;
+    public List<LootDrop> drops = new List<LootDrop>();
+
+    [Header("Guaranteed Drops (always drop)")]
+    public List<LootDrop> guaranteedDrops = new List<LootDrop>();
+
+    [Header("Settings")]
+    public int maxDropsPerRoll = 3;
+    public bool useWeightedRarity = true;
+
+    public List<Item> RollLoot()
+    {
+        List<Item> result = new List<Item>();
+
+        // Guaranteed
+        foreach (var g in guaranteedDrops)
+        {
+            if (g.item != null)
+                result.Add(g.item);
+        }
+
+        // Random rolls
+        int dropsAdded = 0;
+        foreach (var drop in drops)
+        {
+            if (dropsAdded >= maxDropsPerRoll) break;
+            if (drop.item == null) continue;
+
+            float roll = Random.Range(0f, 100f);
+            if (roll <= drop.dropChance)
+            {
+                result.Add(drop.item);
+                dropsAdded++;
+            }
+        }
+
+        return result;
+    }
+}
