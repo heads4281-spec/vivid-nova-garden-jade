@@ -1,0 +1,6 @@
+Integration (already compatible)Your existing LootDropManager continues to work unchanged.
+Just make sure the PitySystem component is on the same (or a DontDestroyOnLoad) GameObject.
+// Example – already in your LootDropManager
+pitySystem.RegisterRoll(pityID, out bool hardPity);
+...
+pitySystem.RegisterRareDrop(pityID, item.rarity);
