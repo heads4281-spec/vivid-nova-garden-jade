@@ -1,0 +1,62 @@
+// server/smooth-sync.ts
+// Correct & smooth state synchronisation for Crimson Sovereign
+
+export interface PlayerState {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  pitch: number;
+  weaponId: number;
+  health: number;
+  names: string[];          // claimed Names
+  lastUpdate: number;
+}
+
+export class SmoothSyncServer {
+  private players = new Map<string, PlayerState>();
+  private snapshots: PlayerState[][] = [];
+
+  updatePlayer(id: string, partial: Partial<PlayerState>) {
+    const existing = this.players.get(id) || {
+      id,
+      x: 0, y: 1.6, z: 0,
+      yaw: 0, pitch: 0,
+      weaponId: 0,
+      health: 100,
+      names: [],
+      lastUpdate: Date.now(),
+    };
+
+    // Soft interpolation toward new values
+    const lerpFactor = 0.35;
+    existing.x += ((partial.x ?? existing.x) - existing.x) * lerpFactor;
+    existing.y += ((partial.y ?? existing.y) - existing.y) * lerpFactor;
+    existing.z += ((partial.z ?? existing.z) - existing.z) * lerpFactor;
+    existing.yaw = partial.yaw ?? existing.yaw;
+    existing.pitch = partial.pitch ?? existing.pitch;
+    existing.weaponId = partial.weaponId ?? existing.weaponId;
+    existing.health = partial.health ?? existing.health;
+    existing.names = partial.names ?? existing.names;
+    existing.lastUpdate = Date.now();
+
+    this.players.set(id, existing);
+  }
+
+  getSnapshot() {
+    return Array.from(this.players.values());
+  }
+
+  // Remove stale players (timeout 12 seconds)
+  cleanup() {
+    const now = Date.now();
+    for (const [id, p] of this.players) {
+      if (now - p.lastUpdate > 12000) {
+        this.players.delete(id);
+      }
+    }
+  }
+}
+
+export const syncServer = new SmoothSyncServer();
