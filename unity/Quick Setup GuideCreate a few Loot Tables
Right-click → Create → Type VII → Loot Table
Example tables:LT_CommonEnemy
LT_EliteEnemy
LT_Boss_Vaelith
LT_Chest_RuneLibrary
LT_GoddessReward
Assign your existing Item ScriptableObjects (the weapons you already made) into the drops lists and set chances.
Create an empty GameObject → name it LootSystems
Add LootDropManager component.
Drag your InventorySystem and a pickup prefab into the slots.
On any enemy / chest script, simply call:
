@@ -1,0 +1,13 @@
+Create a few Loot Tables
+Right-click → Create → Type VII → Loot Table
+Example tables:LT_CommonEnemy
+LT_EliteEnemy
+LT_Boss_Vaelith
+LT_Chest_RuneLibrary
+LT_GoddessReward
+Assign your existing Item ScriptableObjects (the weapons you already made) into the drops lists and set chances.
+Create an empty GameObject → name it LootSystems
+Add LootDropManager component.
+Drag your InventorySystem and a pickup prefab into the slots.
+On any enemy / chest script, simply call:
+
