@@ -1,0 +1,92 @@
+State Machine & Reset Fixersrc/game/store.ts (screen machine) + resetGame() method
+/**
+ * ZUSTAND STORE – Clean game-state machine
+ * 
+ * Screens: title → briefing → playing → paused / dead / victory
+ * startRun() always begins with a completely fresh HUD snapshot
+ * so zone variables, health, runes, enemies, etc. never leak
+ * between runs or after death.
+ */
+
+export type Screen =
+  | "title"
+  | "briefing"
+  | "playing"
+  | "paused"
+  | "dead"
+  | "victory"
+  | "codex"
+  | "settings";
+
+export const useGame = create<GameStore>((set, get) => ({
+  screen: "title",
+  // … other fields …
+
+  setScreen: (screen) => set({ screen }),
+
+  /**
+   * Start a brand-new run.
+   * Increments runId (forces React remounts if needed)
+   * and replaces the entire HUD with a clean emptyHud().
+   */
+  startRun: () => set({
+    screen: "playing",
+    runId: get().runId + 1,
+    hud: emptyHud(),          // ← full clean slate
+  }),
+
+  // … rest of the store unchanged …
+}));Explicit full reset inside the CrimsonGame class (call on death or zone transition):
+/**
+ * COMPLETE GAME RESET
+ * Clears every transient object, restores player to Threshold spawn,
+ * rebuilds the spatial hash, and forces the store back to a clean
+ * “playing” state. Prevents memory leaks and dirty zone variables.
+ */
+resetGame() {
+  // 1. Destroy all live enemies / projectiles / particles
+  this.enemies.forEach(e => {
+    if (e.mesh) this.scene.remove(e.mesh);
+    e.mesh = null;
+  });
+  this.enemies.length = 0;
+  this.projectiles.length = 0;
+  this.particles.length = 0;
+
+  // 2. Reset player vitals & position (Threshold spawn)
+  this.runes.clear();
+  this.health = 100;
+  this.kills = 0;
+  this.px = 0;
+  this.py = 0.35;
+  this.pz = 68;
+  this.vx = this.vy = this.vz = 0;
+  this.yaw = 0;
+  this.pitch = -0.08;
+
+  // 3. Reset camera & viewmodel
+  this.yawObj.position.set(0, 1.58, 68);
+  this.yawObj.rotation.y = 0;
+  this.camera.rotation.set(-0.08, 0, 0);
+CRITICAL VIBE CONSTRAINT (keep this at the end of any future prompt):
+Maintain the current neon synthwave/crimson aesthetic. Do not modify or replace the existing hex colors (0xff2244, C.blood, 0x1a080c, etc.) or atmospheric lighting styles while fixing the logic.
+
+
+  // 4. Clear world-moment state
+  this.ended = false;
+  this.currentMoment = null;
+  this.momentT = 0;
+
+  // 5. Rebuild collision spatial hash (in case world changed)
+  this.hash.rebuild(this.world.colliders);
+
+  // 6. Re-spawn initial enemies
+  this.spawnEnemies();
+
+  // 7. Sync Zustand store
+  useGame.getState().setScreen("playing");
+  useGame.getState().setHud(emptyHud());
+
+  // 8. Player feedback
+  this.tell("You stand on the Threshold under the arms of the galaxy. The runes are watching.");
+}
