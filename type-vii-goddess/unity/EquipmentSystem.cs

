@@ -1,0 +1,59 @@
+using UnityEngine;
+using System.Collections.Generic;
+
+public class EquipmentSystem : MonoBehaviour
+{
+    public static EquipmentSystem Instance { get; private set; }
+
+    [Header("Equipment Slots")]
+    public Item mainHand;
+    public Item offHand;
+    public Item armor;
+    public Item accessory;
+
+    public System.Action OnEquipmentChanged;
+
+    void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    public bool Equip(Item item)
+    {
+        if (item == null || !item.isEquippable) return false;
+
+        switch (item.type)
+        {
+            case ItemType.Weapon:
+                if (mainHand != null) Unequip(mainHand);
+                mainHand = item;
+                break;
+            // Add more cases for armor, etc. if needed
+            default:
+                return false;
+        }
+
+        OnEquipmentChanged?.Invoke();
+        Debug.Log($"Equipped: {item.itemName} ({item.energyColor})");
+        return true;
+    }
+
+    public void Unequip(Item item)
+    {
+        if (mainHand == item) mainHand = null;
+        if (offHand == item) offHand = null;
+        if (armor == item) armor = null;
+        if (accessory == item) accessory = null;
+
+        OnEquipmentChanged?.Invoke();
+    }
+
+    public int GetTotalAttack()
+    {
+        int atk = 0;
+        if (mainHand) atk += mainHand.attackPower;
+        if (offHand) atk += offHand.attackPower;
+        return atk;
+    }
+}
