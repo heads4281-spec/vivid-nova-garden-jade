@@ -1,0 +1,36 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+public class InventorySlotUI : MonoBehaviour
+{
+    public Image icon;
+    public TextMeshProUGUI quantityText;
+    public Button button;
+
+    private int index;
+    private InventoryUI ui;
+
+    public void Setup(int index, InventoryUI ui)
+    {
+        this.index = index;
+        this.ui = ui;
+        button.onClick.AddListener(() => ui.OnSlotClicked(index));
+    }
+
+    public void SetItem(InventoryItem invItem)
+    {
+        icon.sprite = invItem.item.icon;
+        icon.enabled = true;
+        quantityText.text = invItem.quantity > 1 ? invItem.quantity.ToString() : "";
+        quantityText.enabled = invItem.quantity > 1;
+    }
+
+    public void Clear()
+    {
+        icon.sprite = null;
+        icon.enabled = false;
+        quantityText.text = "";
+        quantityText.enabled = false;
+    }
+}
