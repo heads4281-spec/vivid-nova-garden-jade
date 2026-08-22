@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""1000×1000 Logical Type VII Map Generator"""
+from PIL import Image, ImageDraw
+import os
+
+os.makedirs("maps", exist_ok=True)
+
+def generate(color="mixed", size=1000):
+    img = Image.new("RGB", (size, size), (8, 4, 12))
+    draw = ImageDraw.Draw(img)
+    colors = {
+        "blue": (0, 240, 255),
+        "red": (255, 20, 60),
+        "purple": (180, 0, 255),
+        "mixed": [(0,240,255),(255,20,60),(180,0,255)]
+    }
+    # Energy canals
+    for i in range(6):
+        y = 120 + i * 140
+        c = colors[color] if color != "mixed" else colors["mixed"][i % 3]
+        draw.line([(80, y), (920, y)], fill=c, width=10)
+        draw.line([(500, 60), (500, 940)], fill=c, width=14)
+    # Realms
+    zones = [
+        ((380,680),(620,920),"1 Vaelith"),
+        ((80,380),(280,580),"2 Rynara"),
+        ((360,320),(640,520),"3 Sanguara"),
+        ((380,40),(620,180),"4 Eryndra"),
+        ((80,80),(280,220),"5 Nyxara"),
+        ((720,380),(920,580),"6 Aelith")
+    ]
+    for i, (box, name) in enumerate(zones):
+        c = colors[color] if color != "mixed" else colors["mixed"][i % 3]
+        draw.rectangle(box, outline=c, width=5)
+        draw.text((box[0][0]+12, box[0][1]+12), name, fill=c)
+    path = f"maps/type7_map_{color}_1000x1000.png"
+    img.save(path)
+    print(f"Saved → {path}")
+
+if __name__ == "__main__":
+    for c in ["blue", "red", "purple", "mixed"]:
+        generate(c)
