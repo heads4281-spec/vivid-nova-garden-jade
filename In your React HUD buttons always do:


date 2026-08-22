@@ -1,0 +1,3 @@
+In your React HUD buttons always do:
+onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); window.__crimsonInput.fire(true); }}
+onPointerUp={(e) => { e.stopPropagation(); window.__crimsonInput.fire(false); }}
