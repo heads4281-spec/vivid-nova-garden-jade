@@ -1,0 +1,36 @@
+public LootTable myLootTable;
+
+void Die()
+{
+    LootDropManager.Instance.DropFromEnemy(myLootTable, transform.position);
+}
+LT_CommonEnemy
+LT_EliteEnemy
+LT_Boss_Vaelith
+LT_Chest_RuneLibrary
+LT_GoddessReward
+Assign your existing Item ScriptableObjects (the weapons you already made) into the drops lists and set chances.
+Create an empty GameObject → name it LootSystems
+Add LootDropManager component.
+Drag your InventorySystem and a pickup prefab into the slots.
+On any enemy / chest script, simply call:
+(Optional) Make a simple pickup prefab:Sphere or rune-stone mesh
+Sphere Collider (Is Trigger = true)
+Rigidbody
+LootPickup script
+Optional ParticleSystem for energy glow
+Features includedWeighted random drops
+Guaranteed drops
+Rarity & energy-color aware
+World pickups or instant inventory
+Physics fling + VFX/SFX support
+Easy enemy / chest / boss helpers
+Fully compatible with your current inventory & equipment systems
+
+Want me to add:Loot rarity filters
+Pity system (guaranteed legendary after X kills)
+Multiplayer-safe networking version
+Save dropped loot positions
+
+Just say the next piece.
+
