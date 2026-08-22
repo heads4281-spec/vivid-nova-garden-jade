@@ -1,0 +1,17 @@
+[System.Serializable]
+public class InventoryItem
+{
+    public Item item;
+    public int quantity;
+
+    public InventoryItem(Item item, int quantity = 1)
+    {
+        this.item = item;
+        this.quantity = quantity;
+    }
+
+    public bool CanStack(Item other)
+    {
+        return item == other && quantity < item.maxStack;
+    }
+}
