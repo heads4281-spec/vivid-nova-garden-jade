@@ -1,0 +1,15 @@
+import { SmoothInput } from "./smooth-input";
+import { SmoothPhysics } from "./smooth-phys";
+
+// Inside your game loop / class:
+const smoothInput = new SmoothInput(camera);
+const smoothPhys = new SmoothPhysics();
+
+function tick(dt: number) {
+  const onGround = /* your ground check */;
+  const vel = smoothInput.update(dt, onGround);
+
+  smoothPhys.integrate(playerPos, vel, dt, onGround);
+
+  // Use smoothPhys.getRenderPosition(alpha) for camera / mesh
+}
