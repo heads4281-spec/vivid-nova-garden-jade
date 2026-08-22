@@ -1,0 +1,65 @@
+/** Crimson Sovereign – refined texture & colour system (Photoshop-buffed ratios) */
+export const C = {
+  void: 0x020008,
+  night: 0x0a0015,
+  blackCrystal: 0x0d0d12,
+  crimson: 0xc41e3a,
+  arterial: 0xff0033,
+  blood: 0x8b0000,
+  ember: 0xff4400,
+  ankh: 0xff1144,
+  gold: 0xd4a017,
+  rune: 0xff3366,
+  ash: 0x1a1a22,
+  glow: 0xff1a4d,
+} as const;
+
+export const RATIO = {
+  void: 0.38,
+  night: 0.12,
+  blackCrystal: 0.18,
+  crimson: 0.14,
+  arterial: 0.10,
+  blood: 0.04,
+  ember: 0.03,
+  gold: 0.01,
+} as const;
+
+export const NAME_COLOR: Record<string, number> = {
+  vaelith: C.ember,
+  rynara: C.gold,
+  sanguara: C.blood,
+  nyxara: C.night,
+  eryndra: C.crimson,
+  aelith: C.ankh,
+};
+
+export function hexRgb(hex: number) {
+  return {
+    r: (hex >> 16) & 255,
+    g: (hex >> 8) & 255,
+    b: hex & 255,
+  };
+}
+
+export function mixHex(a: number, b: number, t: number) {
+  const A = hexRgb(a);
+  const B = hexRgb(b);
+  const r = Math.round(A.r + (B.r - A.r) * t);
+  const g = Math.round(A.g + (B.g - A.g) * t);
+  const bl = Math.round(A.b + (B.b - A.b) * t);
+  return (r << 16) | (g << 8) | bl;
+}
+
+/** Smooth colour shift that stays inside the art style */
+export function colourShift(base: number, seed: number, amount = 0.035) {
+  const r = ((base >> 16) & 255) / 255;
+  const g = ((base >> 8) & 255) / 255;
+  const b = (base & 255) / 255;
+  const n = Math.sin(base * 12.9898 + seed * 78.233) * 43758.5453;
+  const shift = (n - Math.floor(n) - 0.5) * amount;
+  const rr = Math.min(1, Math.max(0, r + shift));
+  const gg = Math.min(1, Math.max(0, g + shift * 0.55));
+  const bb = Math.min(1, Math.max(0, b + shift * 0.25));
+  return (Math.round(rr * 255) << 16) | (Math.round(gg * 255) << 8) | Math.round(bb * 255);
+}
