@@ -1,0 +1,40 @@
+/**
+ * Full clean reset – clears transient objects, restores Threshold spawn,
+ * rebuilds spatial hash, forces clean store state.
+ * CRITICAL VIBE CONSTRAINT: no visual / shader / lighting changes.
+ */
+resetGame() {
+  this.enemies.forEach(e => {
+    if (e.mesh || e.root) this.scene.remove(e.mesh || e.root);
+  });
+  this.enemies.length = 0;
+  this.projectiles.length = 0;
+  this.particles.length = 0;
+
+  this.runes.clear();
+  this.health = 100;
+  this.kills = 0;
+  this.px = 0;
+  this.py = 0.35;
+  this.pz = 68;
+  this.vx = this.vy = this.vz = 0;
+  this.yaw = 0;
+  this.pitch = -0.08;
+  this.yawObj.position.set(0, 1.58, 68);
+  this.yawObj.rotation.y = 0;
+  this.camera.rotation.set(-0.08, 0, 0);
+
+  this.ended = false;
+  this.currentMoment = null;
+  this.momentT = 0;
+
+  if (this.world?.colliders) {
+    this.hash.rebuild(this.world.colliders);
+  }
+  this.spawnEnemies?.();
+
+  useGame.getState().setScreen("playing");
+  useGame.getState().setHud(emptyHud());
+
+  this.tell("You stand on the Threshold under the arms of the galaxy. The runes are watching.");
+}
