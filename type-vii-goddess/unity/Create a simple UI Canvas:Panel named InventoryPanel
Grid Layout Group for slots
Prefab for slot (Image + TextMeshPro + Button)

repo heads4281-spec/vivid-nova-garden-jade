@@ -1,0 +1,4 @@
+Create a simple UI Canvas:Panel named InventoryPanel
+Grid Layout Group for slots
+Prefab for slot (Image + TextMeshPro + Button)
+
