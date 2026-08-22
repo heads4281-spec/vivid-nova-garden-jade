@@ -1,0 +1,37 @@
+using UnityEngine;
+using System.Collections.Generic;
+using System.IO;
+
+[System.Serializable]
+public class SkillLevel { public string level1, level2, level3, level4, level5; }
+[System.Serializable]
+public class Skill { public int id; public string name, realm; public SkillLevel levels; }
+[System.Serializable]
+public class SkillList { public List<Skill> skills; }
+
+public class SkillSystem : MonoBehaviour
+{
+    public TextAsset skillsJson;
+    private SkillList data;
+
+    void Start()
+    {
+        data = JsonUtility.FromJson<SkillList>(skillsJson.text);
+        Debug.Log($"Loaded {data.skills.Count} Type VII skills");
+    }
+
+    public string GetSkillEffect(int id, int level)
+    {
+        var s = data.skills.Find(x => x.id == id);
+        if (s == null) return "Unknown";
+        return level switch
+        {
+            1 => s.levels.level1,
+            2 => s.levels.level2,
+            3 => s.levels.level3,
+            4 => s.levels.level4,
+            5 => s.levels.level5,
+            _ => "Maxed"
+        };
+    }
+}
