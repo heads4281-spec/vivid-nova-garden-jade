@@ -1,0 +1,30 @@
+import { WeaponPersistence } from "./weapon-persistence";
+import { WeaponSkillTreeSystem } from "./weapon-skill-trees";
+
+// Create systems
+const weaponData = new WeaponPersistence();
+const skillTrees = new WeaponSkillTreeSystem(weaponData);
+
+// Give the player skill points
+skillTrees.addPoints(10);
+
+// Unlock nodes
+skillTrees.unlock(weaponData.currentWeaponId, "damage_1");
+skillTrees.unlock(weaponData.currentWeaponId, "lifesteal");
+skillTrees.unlock(weaponData.currentWeaponId, "explosive");
+
+// When shooting – use the final calculated stats
+const stats = skillTrees.currentStats;
+
+if (weaponData.canFire()) {
+  const damage = stats.damage;
+  const isCrit = Math.random() < stats.critChance;
+  const finalDamage = isCrit ? damage * stats.critDamage : damage;
+
+  // Apply damage to enemies...
+  // If lifesteal > 0 → heal player
+  // If explosive → create explosion
+  // If multiShot > 0 → fire extra projectiles
+
+  weaponData.consumeAmmo();
+}
