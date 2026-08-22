@@ -1,0 +1,9 @@
+How to update GitHub (tablet friendly)Go to your repo → src/game
+Edit palette.ts → paste the new colour code
+Create new file moments-360.ts → paste the 360 system
+Go to scripts folder → create render-moments.mjs → paste the script
+Commit message example:
+Update textures colours, moments 360 animation, rendering & infinite same-vibe systems
+
+Would you like me to also give you the full integration code that plugs the 360 moments system into your main engine.ts? Just say yes.
+
