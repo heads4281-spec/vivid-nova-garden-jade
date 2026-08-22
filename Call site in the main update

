@@ -1,0 +1,2 @@
+const dt = Math.min(this.timer.getDelta(), 0.05);
+this.movePlayer(dt);
