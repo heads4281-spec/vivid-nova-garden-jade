@@ -1,0 +1,4 @@
+Create folder Assets/TypeVII/Items/
+Right-click → Create → Type VII → Item
+Make one ScriptableObject per weapon (match the itemID with weapons.json)
+
