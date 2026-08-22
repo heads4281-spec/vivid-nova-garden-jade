@@ -1,0 +1,84 @@
+UI Layout & Input Ghosting FixerReplace the touch / UI handling section of src/game/input.ts
+/**
+ * INPUT SYSTEM – Isolates the on-screen HUD buttons (FIRE, JUMP, SPRINT…)
+ * from the underlying canvas pointer-lock / touch-look controls.
+ * 
+ * Without stopPropagation the mobile buttons “bleed” into the game:
+ * clicking FIRE also moves the camera or triggers a jump.
+ * This version completely separates the two layers.
+ */
+
+attach(el: HTMLElement) {
+  this.el = el;
+  this.isCoarse = window.matchMedia("(pointer: coarse)").matches;
+  if (this.isCoarse) this.activeDevice = "touch";
+
+  // ── Keyboard / mouse / gamepad listeners (unchanged) ──────────────
+  // … existing kd, ku, md, mu, mm, padOn, etc. stay exactly as before …
+
+  // ── Touch layer – STOP PROPAGATION so HUD never reaches canvas ────
+  const ts = (e: TouchEvent) => {
+    e.stopPropagation();               // ← critical: stop event bubbling
+    this.activeDevice = "touch";
+    for (const t of Array.from(e.changedTouches)) {
+      // Left half of screen = virtual stick
+      if (t.clientX < window.innerWidth * 0.42 && this.moveTouch === null) {
+        this.moveTouch = t.identifier;
+        this.moveOriginX = t.clientX;
+        this.moveOriginY = t.clientY;
+      }
+      // Right half = look / swipe
+      else if (this.lookTouch === null) {
+        this.lookTouch = t.identifier;
+        this.lastLookX = t.clientX;
+        this.lastLookY = t.clientY;
+        this.touchLookActive = true;
+      }
+    }
+  };
+
+  const tm = (e: TouchEvent) => {
+    e.preventDefault();                // stop browser scrolling
+    e.stopPropagation();               // isolate from canvas
+    // … existing move / look delta code …
+  };
+
+  const te = (e: TouchEvent) => {
+    e.stopPropagation();
+    // … existing touch-end / swipe weapon-cycle code …
+  };
+
+  el.addEventListener("touchstart", ts, { passive: true });
+  el.addEventListener("touchmove", tm, { passive: false });
+  el.addEventListener("touchend", te);
+  el.addEventListener("touchcancel", te);
+
+  /**
+   * Pure UI setters – called ONLY from the React HUD buttons.
+   * These never touch the canvas event stream.
+   */
+  this.ui = {
+    fire:   (v: boolean) => { this.uiFire = v; },
+    jump:   () => { this.jumpPressed = true; },
+    sprint: (v: boolean) => { this.uiSprint = v; },
+    move:   (x: number, y: number) => {
+      this.uiMoveX = x;
+      this.uiMoveY = y;
+    },
+    // … add any other HUD actions (reload, bag, map, skill…) the same way
+  };
+}
+{/* Example for the FIRE button */}
+<button
+  onPointerDown={(e) => {
+    e.stopPropagation();   // never let the event reach the canvas
+    e.preventDefault();
+    window.__crimsonInput.fire(true);
+  }}
+  onPointerUp={(e) => {
+    e.stopPropagation();
+    window.__crimsonInput.fire(false);
+  }}
+>
+  FIRE
+</button>
