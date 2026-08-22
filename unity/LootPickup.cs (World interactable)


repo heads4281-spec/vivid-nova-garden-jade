@@ -1,0 +1,73 @@
+using UnityEngine;
+
+public class LootPickup : MonoBehaviour
+{
+    public Item item;
+    public float pickupRadius = 1.8f;
+    public KeyCode pickupKey = KeyCode.E;
+    public GameObject glowEffect;               // optional blue/red/purple glow
+
+    private bool playerInRange;
+    private Transform player;
+
+    public void Initialize(Item newItem)
+    {
+        item = newItem;
+
+        // Optional: change glow color based on energy
+        if (glowEffect != null)
+        {
+            var renderer = glowEffect.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                Color c = item.energyColor switch
+                {
+                    EnergyColor.Blue   => new Color(0f, 0.9f, 1f),
+                    EnergyColor.Red    => new Color(1f, 0.1f, 0.2f),
+                    EnergyColor.Purple => new Color(0.7f, 0f, 1f),
+                    _                  => Color.white
+                };
+                renderer.material.SetColor("_EmissionColor", c * 3f);
+            }
+        }
+    }
+
+    void Update()
+    {
+        if (!playerInRange || item == null) return;
+
+        if (Input.GetKeyDown(pickupKey))
+        {
+            if (InventorySystem.Instance != null)
+            {
+                bool success = InventorySystem.Instance.AddItem(item, 1);
+                if (success)
+                {
+                    Debug.Log($"Picked up: {item.itemName}");
+                    Destroy(gameObject);
+                }
+            }
+        }
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            playerInRange = true;
+            player = other.transform;
+        }
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        if (other.CompareTag("Player"))
+            playerInRange = false;
+    }
+
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, pickupRadius);
+    }
+}
