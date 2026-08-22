@@ -1,0 +1,25 @@
+import { CheckpointManager } from "./checkpoint";
+import { PlayerHealth } from "./player-health";
+
+// Inside useEffect:
+const checkpointManager = new CheckpointManager(scene);
+
+// Place some checkpoints in the world
+checkpointManager.add(new THREE.Vector3(0, 0, -8), "Threshold");
+checkpointManager.add(new THREE.Vector3(12, 0, -18), "Ember Court");
+checkpointManager.add(new THREE.Vector3(-14, 0, -22), "Blood Canal");
+checkpointManager.add(new THREE.Vector3(0, 0, -35), "Palace Gate");
+
+// Inside the animate loop:
+checkpointManager.update(dt, playerPos, playerHealth);
+
+// When player dies (inside PlayerHealth.onDeath or key listener):
+window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyR" && playerHealth.isDead) {
+    const success = checkpointManager.respawnAtCheckpoint(playerHealth, playerPos);
+    
+    // Also reset camera / velocity if needed
+    camera.position.copy(playerPos);
+    // playerVel.set(0, 0, 0);
+  }
+});
