@@ -1,0 +1,16 @@
+using UnityEngine;
+
+[System.Serializable]
+public class LootDrop
+{
+    public Item item;
+    [Range(0f, 100f)] public float dropChance = 50f;   // percentage
+    public int minQuantity = 1;
+    public int maxQuantity = 1;
+    public ItemRarity minimumRarity = ItemRarity.Common;
+
+    public int GetRandomQuantity()
+    {
+        return Random.Range(minQuantity, maxQuantity + 1);
+    }
+}
