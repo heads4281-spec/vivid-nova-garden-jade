@@ -1,0 +1,76 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+public class InventoryUI : MonoBehaviour
+{
+    public GameObject inventoryPanel;
+    public Transform slotsParent;
+    public GameObject slotPrefab;
+
+    public TextMeshProUGUI titleText;
+    public TextMeshProUGUI descriptionText;
+
+    private InventorySystem inventory;
+    private List<InventorySlotUI> slots = new List<InventorySlotUI>();
+
+    void Start()
+    {
+        inventory = InventorySystem.Instance;
+        inventory.OnInventoryChanged += RefreshUI;
+        inventoryPanel.SetActive(false);
+        CreateSlots();
+        RefreshUI();
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.I))
+        {
+            inventoryPanel.SetActive(!inventoryPanel.activeSelf);
+            if (inventoryPanel.activeSelf) RefreshUI();
+        }
+    }
+
+    void CreateSlots()
+    {
+        for (int i = 0; i < inventory.maxSlots; i++)
+        {
+            GameObject obj = Instantiate(slotPrefab, slotsParent);
+            InventorySlotUI slot = obj.GetComponent<InventorySlotUI>();
+            slot.Setup(i, this);
+            slots.Add(slot);
+        }
+    }
+
+    public void RefreshUI()
+    {
+        for (int i = 0; i < slots.Count; i++)
+        {
+            if (i < inventory.items.Count)
+                slots[i].SetItem(inventory.items[i]);
+            else
+                slots[i].Clear();
+        }
+    }
+
+    public void OnSlotClicked(int index)
+    {
+        if (index >= inventory.items.Count) return;
+
+        var invItem = inventory.items[index];
+        descriptionText.text = $"<b>{invItem.item.itemName}</b>\n" +
+                               $"Rarity: {invItem.item.rarity}\n" +
+                               $"Energy: {invItem.item.energyColor}\n" +
+                               $"{invItem.item.description}";
+
+        // Right-click or second click = equip
+        if (Input.GetMouseButtonDown(1) || Input.GetKey(KeyCode.LeftShift))
+        {
+            if (invItem.item.isEquippable)
+            {
+                EquipmentSystem.Instance.Equip(invItem.item);
+            }
+        }
+    }
+}
