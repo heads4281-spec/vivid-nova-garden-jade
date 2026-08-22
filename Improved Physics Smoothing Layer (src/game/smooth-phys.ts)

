@@ -1,0 +1,57 @@
+// src/game/smooth-phys.ts
+// Makes movement, collision and projectiles feel much smoother
+
+import * as THREE from "three";
+import { lerp } from "./phys";
+
+export class SmoothPhysics {
+  private prevPos = new THREE.Vector3();
+  private renderPos = new THREE.Vector3();
+
+  // Call this every physics tick
+  integrate(
+    position: THREE.Vector3,
+    velocity: THREE.Vector3,
+    dt: number,
+    onGround: boolean
+  ) {
+    this.prevPos.copy(position);
+
+    // Simple ground friction when not moving
+    if (onGround && velocity.x === 0 && velocity.z === 0) {
+      velocity.x *= 0.82;
+      velocity.z *= 0.82;
+    }
+
+    position.add(velocity.clone().multiplyScalar(dt));
+
+    // Soft ground snap
+    if (onGround && velocity.y < 0) {
+      velocity.y = 0;
+    }
+  }
+
+  // Call this every render frame for buttery smooth visuals
+  getRenderPosition(alpha: number) {
+    this.renderPos.lerpVectors(this.prevPos, this.renderPos, 0); // will be updated below
+    this.renderPos.x = lerp(this.prevPos.x, this.renderPos.x, alpha);
+    this.renderPos.y = lerp(this.prevPos.y, this.renderPos.y, alpha);
+    this.renderPos.z = lerp(this.prevPos.z, this.renderPos.z, alpha);
+    return this.renderPos;
+  }
+
+  // Soft collision response (prevents sticking)
+  resolveCollision(
+    position: THREE.Vector3,
+    velocity: THREE.Vector3,
+    normal: THREE.Vector3,
+    penetration: number
+  ) {
+    position.add(normal.clone().multiplyScalar(penetration + 0.002));
+
+    const vn = velocity.dot(normal);
+    if (vn < 0) {
+      velocity.add(normal.clone().multiplyScalar(-vn * 1.05)); // slight bounce damp
+    }
+  }
+}
