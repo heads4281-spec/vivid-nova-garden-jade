@@ -1,0 +1,50 @@
+import { CheckpointSaveSystem } from "./checkpoint-save";
+import { GameNotification } from "../components/GameNotification";
+import { PlayerHealth } from "./player-health";
+
+// State for notification
+const [notifyMsg, setNotifyMsg] = React.useState<string | null>(null);
+
+// Inside useEffect:
+const saveSystem = new CheckpointSaveSystem(scene);
+saveSystem.onNotify = (msg) => setNotifyMsg(msg);
+
+// Add checkpoints
+saveSystem.add("Threshold", new THREE.Vector3(0, 0, -8));
+saveSystem.add("Ember Court", new THREE.Vector3(12, 0, -18));
+saveSystem.add("Blood Canal", new THREE.Vector3(-14, 0, -24));
+saveSystem.add("Palace Gate", new THREE.Vector3(0, 0, -38));
+
+// Load last save (Slot 1 by default)
+let currentWeaponIndex = saveSystem.load(playerHealth, playerPos, 1);
+
+// Inside animate loop:
+saveSystem.update(dt, playerPos, playerHealth, currentWeaponIndex);
+
+// Keyboard controls
+window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyR" && playerHealth.isDead) {
+    saveSystem.respawn(playerHealth, playerPos);
+    camera.position.copy(playerPos);
+  }
+
+  // Manual save to current slot
+  if (e.code === "KeyP") {
+    saveSystem.save(playerHealth, currentWeaponIndex);
+  }
+
+  // Switch save slots (1, 2, 3)
+  if (e.code === "Digit1") saveSystem.load(playerHealth, playerPos, 1);
+  if (e.code === "Digit2") saveSystem.load(playerHealth, playerPos, 2);
+  if (e.code === "Digit3") saveSystem.load(playerHealth, playerPos, 3);
+});
+
+// In the return JSX:
+return (
+  <>
+    <div ref={mountRef} style={{ width: "100vw", height: "100vh" }} />
+    <HealthHUD ... />
+    <BloodOverlay ... />
+    <GameNotification message={notifyMsg} />
+  </>
+);
