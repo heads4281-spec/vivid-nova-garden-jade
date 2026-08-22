@@ -1,0 +1,3 @@
+px += vx * dt;
+pz += vz * dt;
+// then a single discrete circleHitsAABB / SpatialHash query
