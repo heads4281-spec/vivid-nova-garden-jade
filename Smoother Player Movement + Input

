@@ -1,0 +1,100 @@
+// src/game/smooth-input.ts
+// Full smooth movement, camera, and input system for Crimson Sovereign
+
+import * as THREE from "three";
+
+export class SmoothInput {
+  private keys = new Set<string>();
+  private mouse = { x: 0, y: 0, dx: 0, dy: 0 };
+  private pointerLocked = false;
+
+  // Smoothing factors
+  private moveSmooth = 0.18;
+  private lookSmooth = 0.12;
+  private velocity = new THREE.Vector3();
+  private targetVelocity = new THREE.Vector3();
+  private lookAngles = { pitch: 0, yaw: 0 };
+  private targetLook = { pitch: 0, yaw: 0 };
+
+  public speed = 6.2;
+  public sprintMul = 1.65;
+  public jumpForce = 7.8;
+  public gravity = -22;
+
+  constructor(private camera: THREE.PerspectiveCamera) {
+    this.bindEvents();
+  }
+
+  private bindEvents() {
+    window.addEventListener("keydown", (e) => this.keys.add(e.code));
+    window.addEventListener("keyup", (e) => this.keys.delete(e.code));
+
+    document.addEventListener("mousedown", () => {
+      if (!this.pointerLocked) {
+        document.body.requestPointerLock();
+      }
+    });
+
+    document.addEventListener("pointerlockchange", () => {
+      this.pointerLocked = document.pointerLockElement === document.body;
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!this.pointerLocked) return;
+      this.mouse.dx += e.movementX;
+      this.mouse.dy += e.movementY;
+    });
+  }
+
+  update(dt: number, onGround: boolean) {
+    // Look
+    this.targetLook.yaw -= this.mouse.dx * 0.0022;
+    this.targetLook.pitch -= this.mouse.dy * 0.0020;
+    this.targetLook.pitch = Math.max(-1.45, Math.min(1.45, this.targetLook.pitch));
+
+    this.lookAngles.yaw += (this.targetLook.yaw - this.lookAngles.yaw) * this.lookSmooth;
+    this.lookAngles.pitch += (this.targetLook.pitch - this.lookAngles.pitch) * this.lookSmooth;
+
+    this.camera.rotation.order = "YXZ";
+    this.camera.rotation.y = this.lookAngles.yaw;
+    this.camera.rotation.x = this.lookAngles.pitch;
+
+    this.mouse.dx = 0;
+    this.mouse.dy = 0;
+
+    // Movement
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    forward.y = 0;
+    forward.normalize();
+
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+    right.y = 0;
+    right.normalize();
+
+    this.targetVelocity.set(0, this.velocity.y, 0);
+
+    const sprinting = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
+    const speed = this.speed * (sprinting ? this.sprintMul : 1);
+
+    if (this.keys.has("KeyW")) this.targetVelocity.add(forward.clone().multiplyScalar(speed));
+    if (this.keys.has("KeyS")) this.targetVelocity.add(forward.clone().multiplyScalar(-speed));
+    if (this.keys.has("KeyA")) this.targetVelocity.add(right.clone().multiplyScalar(-speed));
+    if (this.keys.has("KeyD")) this.targetVelocity.add(right.clone().multiplyScalar(speed));
+
+    // Smooth horizontal velocity
+    this.velocity.x += (this.targetVelocity.x - this.velocity.x) * this.moveSmooth;
+    this.velocity.z += (this.targetVelocity.z - this.velocity.z) * this.moveSmooth;
+
+    // Jump + gravity
+    if (onGround && (this.keys.has("Space") || this.keys.has("Spacebar"))) {
+      this.velocity.y = this.jumpForce;
+    }
+    this.velocity.y += this.gravity * dt;
+
+    return this.velocity.clone();
+  }
+
+  isFiring() {
+    return this.keys.has("Mouse0") || this.pointerLocked;
+  }
+}
