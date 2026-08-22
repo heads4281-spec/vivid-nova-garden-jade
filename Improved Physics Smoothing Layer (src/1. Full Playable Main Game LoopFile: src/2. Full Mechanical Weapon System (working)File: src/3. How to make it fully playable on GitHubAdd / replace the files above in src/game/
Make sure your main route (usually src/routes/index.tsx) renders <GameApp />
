@@ -1,0 +1,26 @@
+npm install
+npm run dev
+
+Open http://localhost:8080
+
+Controls (already working):Click → lock mouse
+WASD → move
+Space → jump
+Shift → sprint
+Mouse → look
+M → trigger random cinematic moment
+Q / E → switch weapons
+
+This is a full mechanical working base.
+You now have:Smooth movement & physics  
+Working weapon system  
+360° cinematic moments  
+Correct colours & rendering  
+Playable full-stack loop
+
+Would you like me to also give you:Full enemy AI system  
+Complete inventory / BAG system  
+Or a second full mini-game (different mode)
+
+Just tell me and I’ll write the next complete working codes.
+
