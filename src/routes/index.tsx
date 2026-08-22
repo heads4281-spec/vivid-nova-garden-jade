@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState, useRef } from 'react'
 import { AnimationEngine } from '../components/AnimationEngine'
 
-export const Route = createFileRoute('/')' ({
+export const Route = createFileRoute('/')({  
   component: AnimationPage,
 })
 
