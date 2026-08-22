@@ -1,0 +1,175 @@
+// src/game/weapon-persistence.ts
+import { WEAPONS, type WeaponDef } from "./arsenal";
+
+export interface WeaponState {
+  id: number;
+  mag: number;
+  reserve: number;
+  unlocked: boolean;
+}
+
+export interface PersistentWeaponData {
+  currentWeaponId: number;
+  weapons: WeaponState[];
+}
+
+const WEAPON_SAVE_KEY = "crimson_sovereign_weapons_v1";
+
+export class WeaponPersistence {
+  public currentWeaponId = 0;
+  private states = new Map<number, WeaponState>();
+
+  constructor() {
+    // Initialize default state for every weapon
+    WEAPONS.forEach((w) => {
+      this.states.set(w.id, {
+        id: w.id,
+        mag: w.mag,
+        reserve: w.reserve,
+        unlocked: w.unlock === null, // starting weapons are unlocked
+      });
+    });
+
+    this.load();
+  }
+
+  /** Get the currently equipped weapon definition */
+  get current(): WeaponDef {
+    return WEAPONS.find((w) => w.id === this.currentWeaponId) || WEAPONS[0];
+  }
+
+  /** Get runtime state of a specific weapon */
+  getState(id: number): WeaponState {
+    return this.states.get(id)!;
+  }
+
+  /** Get state of the currently equipped weapon */
+  get currentState(): WeaponState {
+    return this.getState(this.currentWeaponId);
+  }
+
+  // ---------- Switching ----------
+  switchTo(id: number): boolean {
+    const state = this.states.get(id);
+    if (!state || !state.unlocked) return false;
+
+    this.currentWeaponId = id;
+    this.save();
+    return true;
+  }
+
+  nextWeapon() {
+    const unlocked = WEAPONS.filter((w) => this.states.get(w.id)?.unlocked);
+    if (unlocked.length <= 1) return;
+
+    const currentIndex = unlocked.findIndex((w) => w.id === this.currentWeaponId);
+    const next = unlocked[(currentIndex + 1) % unlocked.length];
+    this.switchTo(next.id);
+  }
+
+  prevWeapon() {
+    const unlocked = WEAPONS.filter((w) => this.states.get(w.id)?.unlocked);
+    if (unlocked.length <= 1) return;
+
+    const currentIndex = unlocked.findIndex((w) => w.id === this.currentWeaponId);
+    const prev = unlocked[(currentIndex - 1 + unlocked.length) % unlocked.length];
+    this.switchTo(prev.id);
+  }
+
+  // ---------- Ammo ----------
+  canFire(): boolean {
+    return this.currentState.mag > 0;
+  }
+
+  consumeAmmo() {
+    const state = this.currentState;
+    if (state.mag > 0) {
+      state.mag--;
+      this.save();
+    }
+  }
+
+  reload(): boolean {
+    const weapon = this.current;
+    const state = this.currentState;
+
+    if (state.reserve <= 0 || state.mag >= weapon.mag) return false;
+
+    const needed = weapon.mag - state.mag;
+    const take = Math.min(needed, state.reserve);
+
+    state.mag += take;
+    state.reserve -= take;
+    this.save();
+    return true;
+  }
+
+  addAmmo(weaponId: number, amount: number) {
+    const state = this.states.get(weaponId);
+    if (state) {
+      state.reserve += amount;
+      this.save();
+    }
+  }
+
+  // ---------- Unlocking ----------
+  unlock(weaponId: number) {
+    const state = this.states.get(weaponId);
+    if (state && !state.unlocked) {
+      state.unlocked = true;
+      this.save();
+      console.log(`Weapon unlocked: ${WEAPONS.find(w => w.id === weaponId)?.name}`);
+    }
+  }
+
+  isUnlocked(weaponId: number): boolean {
+    return this.states.get(weaponId)?.unlocked ?? false;
+  }
+
+  // ---------- Persistence ----------
+  save() {
+    const data: PersistentWeaponData = {
+      currentWeaponId: this.currentWeaponId,
+      weapons: Array.from(this.states.values()),
+    };
+    localStorage.setItem(WEAPON_SAVE_KEY, JSON.stringify(data));
+  }
+
+  load() {
+    const raw = localStorage.getItem(WEAPON_SAVE_KEY);
+    if (!raw) return;
+
+    try {
+      const data: PersistentWeaponData = JSON.parse(raw);
+      this.currentWeaponId = data.currentWeaponId ?? 0;
+
+      data.weapons.forEach((saved) => {
+        this.states.set(saved.id, {
+          id: saved.id,
+          mag: saved.mag,
+          reserve: saved.reserve,
+          unlocked: saved.unlocked,
+        });
+      });
+    } catch (err) {
+      console.warn("Failed to load weapon data", err);
+    }
+  }
+
+  /** Reset everything (useful for testing) */
+  reset() {
+    localStorage.removeItem(WEAPON_SAVE_KEY);
+    this.states.clear();
+
+    WEAPONS.forEach((w) => {
+      this.states.set(w.id, {
+        id: w.id,
+        mag: w.mag,
+        reserve: w.reserve,
+        unlocked: w.unlock === null,
+      });
+    });
+
+    this.currentWeaponId = 0;
+  }
+}
