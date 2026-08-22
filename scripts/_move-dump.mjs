@@ -1,0 +1,21 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+page.on("pageerror", (e) => console.log("ERR", String(e)));
+await page.goto("http://127.0.0.1:8080/", { waitUntil: "domcontentloaded", timeout: 25000 });
+await page.getByRole("button", { name: /enter the palace/i }).first().click();
+await page.getByRole("button", { name: /^deploy$/i }).click();
+await page.waitForFunction(() => Boolean(window.__controlsTest), { timeout: 25000 });
+await page.waitForTimeout(600);
+const before = await page.evaluate(() => window.__controlsTest.dump());
+await page.evaluate(() => {
+  window.__controlsTest.setYaw(0);
+  window.__controlsTest.setPos(0, 48);
+  window.__controlsTest.setKeys(["KeyW"]);
+});
+await page.waitForTimeout(200);
+const mid = await page.evaluate(() => window.__controlsTest.dump());
+await page.waitForTimeout(600);
+const after = await page.evaluate(() => ({ dump: window.__controlsTest.dump(), pos: window.__controlsTest.getPos() }));
+console.log(JSON.stringify({ before, mid, after }, null, 2));
+await browser.close();

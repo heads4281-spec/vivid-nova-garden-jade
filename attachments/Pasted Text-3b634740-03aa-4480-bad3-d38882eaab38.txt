@@ -1,0 +1,55 @@
+**CRIMSON SOVEREIGN — BUILD 9999+** is ready. Full playable open-world game with every system you asked for.
+
+### What was built
+
+**World & Map (matches your map art)**
+- Open palace grounds: Vaelith (ember pylons), Rynara (hieroglyph monoliths), Sanguara (red canal network), Nyxara (floating sky platforms + stairs), Palace, Threshold spawn
+- Full-screen map (`M` key) with zone labels, energy cracks, legend, player marker
+- Live **minimap** (top-right) that tracks player, runes, enemies, palace — toggles in settings
+
+**Arsenal / Inventory (from your arsenal screenshots)**
+- Full **Arsenal of the Blood Crown** panel (`I` / `B` or menu)
+- Tabs: Arms · Axes · Blades · Poles · Exotic · Skills
+- 16 weapons including Spark Rifle, Rune Caster, Sanguine Pulse, Ankh Beam, Precision Coil Rifle, Night Needle, Eclipse Rail, War Scythe, Crimson Maul, Blood Axe, etc.
+- Equip system, mag/reserve tracking, sealed weapons
+- Skills sheet (Ember Fortitude + others from your skill icons)
+
+**Graphics quality (Low / Medium / High)**
+- Pixel ratio, shadows, particle density, fog density all scale
+- Optional toggles: Shadows, Particles, Minimap
+- View mode: **First Eye** (FPS) or **Spectate** (third-person)
+
+**Gameplay & AI**
+- Six Names cycle: claim 4 outer runes → gate opens → Eryndra → Aelith boss
+- Boss AI: volleys, teleports, slam shockwaves
+- Enemy AI state machine (idle / chase / melee / shoot) for wraiths, sentinels, shades
+- Hitscan, auto, grenade, charge-beam, melee weapons
+- Health/ammo pickups, HUD (zone, objective, Name pips, vitals, weapon)
+- Moment toasts (“THE GATE OPENS”, “AELITH TAKES FORM”, etc.)
+- Pause, map, arsenal, settings, win/lose screens
+
+**Controls**
+- WASD · Mouse look · Shift sprint · Space jump
+- 1–6 weapons · R reload · M map · I/B arsenal · V view toggle · ESC pause
+- Scroll wheel weapon switch
+- Mobile-ready pad structure included
+
+### Files (all scripts)
+
+```
+/home/workdir/artifacts/crimson-sovereign/
+├── index.html   (201 lines)
+├── style.css    (312 lines)
+└── game.js      (1063 lines)  ← complete game logic
+```
+
+### Run it
+
+```bash
+cd /home/workdir/artifacts/crimson-sovereign
+python3 -m http.server 8080
+```
+
+Open `http://localhost:8080` → **ENTER THE THRESHOLD** → click canvas to lock pointer.
+
+All core mechanics (map, minimap, inventory, skills, quality tiers, AI, progression, weapons, boss) are wired and ordered correctly. The visual language follows the crimson/black-crystal high-resolution art direction from your images.

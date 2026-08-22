@@ -1,0 +1,18 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+page.on("pageerror", (e) => console.log("ERR", String(e)));
+await page.goto("http://127.0.0.1:8080/", { waitUntil: "commit", timeout: 15000 });
+await page.waitForTimeout(1500);
+await page.getByRole("button", { name: /enter the palace/i }).first().click();
+await page.waitForTimeout(800);
+await page.screenshot({ path: "/workspace/screenshots/briefing-now.png" });
+const deploy = page.getByRole("button", { name: /^deploy$/i });
+if (await deploy.count()) await deploy.click();
+await page.waitForFunction(() => Boolean(window.__controlsTest), { timeout: 20000 });
+await page.waitForTimeout(1000);
+await page.screenshot({ path: "/workspace/screenshots/fps-palace.png" });
+console.log("pos", await page.evaluate(() => window.__controlsTest.getPos()));
+console.log("dump", await page.evaluate(() => window.__controlsTest.dump()));
+await browser.close();
+console.log("done");

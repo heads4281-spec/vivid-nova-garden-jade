@@ -1,0 +1,196 @@
+**CRIMSON SOVEREIGN**  
+**Full Open-World Map – Step-by-Step Layout**  
+*(Copy-paste ready design document. Matches the art style, Six Names cycle, and Type VII palace exactly. Scale is open-world: the entire grounds + interior are one continuous space you can roam freely after spawn.)*
+
+---
+
+### Overall Scale & Feel
+- The playable area is a large, continuous open grounds surrounding a floating black-crystal palace.
+- No loading zones between outdoor areas. The only “gate” is the main palace entrance (opens after 4 outer Names).
+- Ground is polished black crystal veined with slow red energy. Sky is permanent crimson storm with red lightning. A massive scarred moon hangs behind the highest spires.
+- Verticality is strong: floating platforms, sky stairs, high ledges, and deep canal cuts.
+- Everything is explorable the moment you spawn. Enemies, pickups, and runes are placed so you can take any order.
+
+---
+
+### Step 1 – The Threshold (Spawn Point)
+You appear on a wide, slightly raised platform of black crystal facing the palace.
+
+**What you see immediately**
+- Straight ahead (south-to-north): the Grand Staircase rising toward the sealed palace gate.
+- Left (west): low black-glass ridge leading to the floating hieroglyph archive.
+- Right (east): gentle slope down into the red-canal network.
+- Behind you (south): the rift you came through (still open, soft red glow). Beyond it is empty void — no playable space.
+- Far north, behind the palace spires: the ember-pylon field (Vaelith).
+- Far northwest, rising above the western ridge: the sky platforms and Night Ascendant climb (Nyxara).
+
+**Immediate landmarks**
+- Two ammo crates and one vital pickup on the Threshold edges.
+- Soft red path markers (living runes on the ground) point toward all four outer zones if you look closely.
+- First wraiths and a couple of distant sentinels are already visible.
+
+**Player freedom**: Turn any direction and start walking. No tutorial walls.
+
+---
+
+### Step 2 – Central Axis – The Grand Staircase & Palace Approach
+A long, wide staircase of living black stone runs from the Threshold straight up to the main gate.
+
+**Layout**
+- ~120–150 metres long, rising in three broad tiers.
+- Each tier has side ledges and small side paths that loop around.
+- Red energy veins pulse up the centre of the stairs.
+- At the top: the massive gothic gate (sealed until four outer runes are claimed). When open it floods the stairs with deep red light.
+
+**Side content**
+- Ammo/vital pickups on the side ledges.
+- Occasional shade ambushes from the sides.
+- Perfect sight-lines for the Spark Rifle once you have it.
+
+This is the main “highway” of the map but never forced.
+
+---
+
+### Step 3 – Northern Zone – Vaelith, First Flame
+**Location**: Directly north of the palace, beyond the rear spires. You reach it by going around either side of the palace or climbing past the gate once open.
+
+**Layout (open field)**
+- Large irregular plain of cracked black crystal.
+- 7–9 tall ember pylons (3–5 storeys high) scattered across the area. They leak white-hot sparks and cast long red-orange light.
+- Central largest pylon holds the Spark Rune (climbable base + short interior ledge).
+- Small rocky outcrops and fallen crystal shards for cover.
+- Soft red rivers of ember flow between some pylons.
+
+**Connections**
+- South → back to palace rear / Grand Staircase top.
+- Southwest → short ridge path into the western archive (Rynara).
+- Southeast → open ground leading toward the eastern canals.
+
+**Enemy density**: Medium-high. Wraiths around pylons, sentinels on high ledges of the palace rear, a few constructs once the gate is open.
+
+**Pickups**: Ammo crates near three outer pylons, vital pickup at the central pylon base.
+
+---
+
+### Step 4 – Western Zone – Rynara, Weaver of Runes
+**Location**: West of the Threshold and Grand Staircase, behind a low black-glass ridge.
+
+**Layout (floating archive)**
+- Wide shallow basin filled with slowly orbiting hieroglyph monoliths (tall black stones covered in living golden-red law runes).
+- Central “knot” of pure black stone floating slightly above the ground — this holds the Law Rune.
+- Monoliths rotate on fixed paths; some can be used as moving cover.
+- Low crystal walls and broken columns around the outer edge create natural corridors.
+- Soft red mist hangs near the ground.
+
+**Connections**
+- East → short climb over the ridge back to Threshold / Grand Staircase.
+- North → rising path toward the sky platforms (Nyxara).
+- Northeast → side path that skirts the palace and reaches Vaelith.
+
+**Enemy density**: Medium. Shades love the moving monoliths. Constructs patrol the outer ring. A few sentinels on the ridge above.
+
+**Pickups**: Two ammo crates among the outer monoliths, one vital near the central knot.
+
+---
+
+### Step 5 – Eastern Zone – Sanguara, Blood of the Cosmos
+**Location**: East of the Threshold, sloping downward.
+
+**Layout (canal network)**
+- Three wide, silent red canals that converge at a central deep pool.
+- The Tide Rune floats above a black-glass platform in the middle of the confluence.
+- Narrow walkways and crystal bridges cross the canals.
+- Banks are lined with low crystal reeds and occasional ankh-shaped stones.
+- The liquid surface is mirror-smooth until disturbed; shapes move underneath.
+
+**Connections**
+- West → gentle slope back to Threshold.
+- Northwest → path that curves around the palace base toward Vaelith.
+- North → higher ground leading to the eastern side of the Grand Staircase.
+
+**Enemy density**: High. Wraiths rise directly from the canals. Shades use the reflective surface for flanking. Sentinels stand on the far banks.
+
+**Pickups**: Ammo crates on the three main banks, vital pickup on the central platform (risky).
+
+---
+
+### Step 6 – Northwestern Sky Rise – Nyxara, Night Ascendant
+**Location**: High above the western ridge, northwest of the palace.
+
+**Layout (vertical platforms)**
+- Series of floating black-stone platforms connected by bridges of solidified red lightning and narrow stairs that only appear when viewed from the correct angle.
+- Platforms range from small ledges to wide plazas.
+- Highest platform holds the Night Rune (dark glyph that drinks light).
+- Some platforms tilt or partially dissolve after a few seconds — forces movement.
+- Deep drop-offs between platforms (fall damage or death if you miss).
+
+**Connections**
+- Bottom of the rise connects directly to the western archive (Rynara).
+- Mid-level side bridges can reach the upper western side of the palace once the gate is open.
+- Top has a long sight-line across the entire map.
+
+**Enemy density**: Medium but vertical. Shades drop from above or rise from below. One large sentinel guards the final approach.
+
+**Pickups**: Ammo on two mid platforms, vital on the highest platform.
+
+---
+
+### Step 7 – Palace Interior – Eryndra, Eternal Throne (Gated)
+**Access**: Only after the four outer runes are claimed. The main gate opens with a deep red flood of light.
+
+**Layout (multi-level gothic interior)**
+- Vast circular throne chamber at the centre.
+- Multiple vertical levels connected by spiral stairs, floating platforms, and side balconies.
+- Walls covered in shifting hieroglyphs and living ankh-stones that drift through the air.
+- High windows of pure red energy look out onto the storm.
+- Side corridors and alcoves loop around the main chamber (still part of the continuous space — no loading).
+- The Eternal Throne itself sits in the exact centre: a knot of black crystal and red light that looks half-chair, half-wound.
+
+**Enemy density**: High. Higher-order constructs, continuous wraith/shade waves, vertical ambushes.
+
+**Pickups**: Several ammo and vital crates on the side levels and balconies.
+
+---
+
+### Step 8 – Throne Heart – Aelith, Final Form
+**Location**: The centre of the Eryndra chamber once the fifth Name is taken.
+
+**Layout during the fight**
+- The chamber expands and the walls partially draw back.
+- Floating ankh-stones align into a large circle.
+- Temporary rifts and rising/falling platforms appear as the fight progresses.
+- The throne unfolds into Aelith’s arena.
+- Full vertical space remains usable — you can still run the balconies and side paths.
+
+After the fight the chamber returns to a quieter, still-explorable state.
+
+---
+
+### Quick Navigation Summary (Player Mental Map)
+```
+                    [Nyxara Sky Platforms]
+                           ↑
+        [Rynara Archive] ← Ridge ← [Threshold Spawn] → [Sanguara Canals]
+                           ↓               ↓
+                    [Vaelith Ember Field]  [Grand Staircase]
+                                              ↓
+                                    [Palace Gate → Eryndra Interior]
+                                              ↓
+                                       [Aelith Throne Heart]
+```
+
+- Everything outdoor is one continuous mesh.
+- You can circle the entire palace, climb high, drop into canals, or stay on the central stairs.
+- Once the gate opens, the interior becomes part of the same continuous space.
+
+---
+
+### Design Notes for Implementation
+- Use large open meshes with natural cover (pylons, monoliths, canal banks, floating platforms).
+- Red energy veins and living runes act as subtle path markers without being UI.
+- Verticality and moving/temporary platforms keep movement interesting.
+- Enemy placement scales with how many Names the player has already claimed.
+- All six Name locations are visible from a distance once you know what to look for (glowing pylon, orbiting monoliths, glowing canal platform, dark high platform, throne knot, final form).
+
+This is the complete open-world map of **CRIMSON SOVEREIGN**.  
+You can drop straight into any zone from the Threshold and the world stays fully connected the entire run.

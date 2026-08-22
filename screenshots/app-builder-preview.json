@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "CRIMSON SOVEREIGN",
+      "hasCanvas": false,
+      "bodyTextLen": 496,
+      "bodyTextHash": "1666589e544cb0b7202394dbcc343b1f2fba54c623b8f1a720bce4972ec83df5",
+      "bodyTextPrefix": "Sign in TYPE VII · FULL COLOUR CYCLE CRIMSON SOVEREIGN You were ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "CRIMSON SOVEREIGN",
+      "hasCanvas": false,
+      "bodyTextLen": 496,
+      "bodyTextHash": "1666589e544cb0b7202394dbcc343b1f2fba54c623b8f1a720bce4972ec83df5",
+      "bodyTextPrefix": "Sign in TYPE VII · FULL COLOUR CYCLE CRIMSON SOVEREIGN You were ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

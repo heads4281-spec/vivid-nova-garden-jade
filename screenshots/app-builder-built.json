@@ -1,0 +1,41 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "CRIMSON SOVEREIGN",
+      "hasCanvas": false,
+      "bodyTextLen": 488,
+      "bodyTextHash": "db5f46859de433c007af727985baa17d701829da599d0c1e8497f76426bdc91d",
+      "bodyTextPrefix": "TYPE VII · FULL COLOUR CYCLE CRIMSON SOVEREIGN You were never me",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "CRIMSON SOVEREIGN",
+      "hasCanvas": false,
+      "bodyTextLen": 488,
+      "bodyTextHash": "db5f46859de433c007af727985baa17d701829da599d0c1e8497f76426bdc91d",
+      "bodyTextPrefix": "TYPE VII · FULL COLOUR CYCLE CRIMSON SOVEREIGN You were never me",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": true,
+  "baselineReasons": [
+    "desktop: body text replaced (similar length, page start changed)",
+    "mobile: body text replaced (similar length, page start changed)"
+  ]
+}
