@@ -1,8 +1,0 @@
-Persistent Weapon Data System – Complete ImplementationHere’s a full, production-ready system that permanently saves:Current equipped weapon  
-Magazine + Reserve ammo for every weapon  
-Which weapons are unlocked
-
-It works with your existing arsenal.ts
-
-Persistent Weapon ManagerFile: src/game/weapon-persistence.ts
-
