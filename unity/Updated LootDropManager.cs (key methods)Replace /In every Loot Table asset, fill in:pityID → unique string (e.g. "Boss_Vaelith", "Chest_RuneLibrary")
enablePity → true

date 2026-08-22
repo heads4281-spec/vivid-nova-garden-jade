@@ -1,0 +1,3 @@
+In every Loot Table asset, fill in:pityID → unique string (e.g. "Boss_Vaelith", "Chest_RuneLibrary")
+enablePity → true
+
