@@ -1,0 +1,50 @@
+Layout & Input Ghosting FixerFile: src/game/input.ts – replace the touch / UI event section
+// --- Isolated HUD layer (no input bleeding into canvas) ---
+attach(el: HTMLElement) {
+  this.el = el;
+  this.isCoarse = window.matchMedia("(pointer: coarse)").matches;
+  if (this.isCoarse) this.activeDevice = "touch";
+
+  // ... existing keyboard / mouse / pad listeners stay the same ...
+
+  // Touch – stopPropagation so HUD buttons never reach the canvas
+  const ts = (e: TouchEvent) => {
+    e.stopPropagation();
+    this.activeDevice = "touch";
+    for (const t of Array.from(e.changedTouches)) {
+      if (t.clientX < window.innerWidth * 0.42 && this.moveTouch === null) {
+        this.moveTouch = t.identifier;
+        this.moveOriginX = t.clientX;
+        this.moveOriginY = t.clientY;
+      } else if (this.lookTouch === null) {
+        this.lookTouch = t.identifier;
+        this.lastLookX = t.clientX;
+        this.lastLookY = t.clientY;
+        this.touchLookActive = true;
+      }
+    }
+  };
+  const tm = (e: TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // ... existing move / look code ...
+  };
+  const te = (e: TouchEvent) => {
+    e.stopPropagation();
+    // ... existing end code ...
+  };
+
+  el.addEventListener("touchstart", ts, { passive: true });
+  el.addEventListener("touchmove", tm, { passive: false });
+  el.addEventListener("touchend", te);
+  el.addEventListener("touchcancel", te);
+
+  // Expose pure UI setters (called only from React HUD buttons)
+  this.ui = {
+    fire: (v: boolean) => { this.uiFire = v; e?.stopPropagation?.(); },
+    jump: () => { this.jumpPressed = true; },
+    sprint: (v: boolean) => { this.uiSprint = v; },
+    move: (x: number, y: number) => { this.uiMoveX = x; this.uiMoveY = y; },
+    // ... rest of ui helpers
+  };
+}
