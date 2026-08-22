@@ -1,0 +1,23 @@
+Workspace Scan SummaryTop-level structure  src/game/ — core Three.js engine (engine.ts, phys.ts, input.ts, world.ts, store.ts, GameApp.tsx, assets.ts, palette.ts, crystal.ts, …)  
+public/ — textures, lore images, UI assets  
+scripts/ — Vite helpers, migrations, auth checks  
+server/ — cloud-sync / offline-first state  
+Config: package.json (Vite 8 + React 19 + Three.js 0.185), vite.config.ts, tsconfig.json, styles.css (or Tailwind equivalent)
+
+Key game configuration / canvas / assets / styles  Canvas: <canvas ref={…} className="… touch-none"> in GameApp.tsx → new CrimsonGame(canvas).  
+Assets (assets.ts): CRITICAL array of textures (/textures/floor.jpg, wall.jpg, column.jpg, energy.jpg, …) and lore images. Preload priority must stay intact.  
+Shaders / materials: crystal.ts + palette.ts (hex values 0xff2244, C.blood, etc.). Never touch.  
+UI overlays: Hud + MobileControls in GameApp.tsx already use pointer-events-none on most HUD layers and route actions through window.__crimsonInput.
+
+Recent local repository changes (from commit history)  “Restore Crimson Sovereign as the palace” (core palace geometry & engine restore).  
+“Export from Grok” + subsequent 3D animation / gallery / upload commits.  
+Cloud-save / PitySystem / SyncStatusUI (Unity-style modules mixed into the repo).  
+No prior CCD, explicit UI event isolation, or full resetGame() were present in the movement path.
+
+Current physics reality (from engine.ts)  Discrete circleHitsAABB + slide(dt) with spatial-hash nearBoxes.  
+Gravity, step-up, grounded detection already exist.  
+No continuous sweep → risk of tunneling on large dt or thin red arches/floors.
+
+Existing player-state / UI safety  Zustand store.ts already has startRun() that swaps in emptyHud().  
+Mobile buttons call __crimsonInput; most have preventDefault + pointer capture. Residual bleeding risk remains on some touch paths.
+
