@@ -1,0 +1,46 @@
+# Generates logical 1000x1000 Type VII maps
+# Six realms connected by energy canals – hierarchical & playable
+
+import numpy as np
+from PIL import Image, ImageDraw
+
+def generate_type7_map(color="mixed", size=1000):
+    img = Image.new("RGB", (size, size), (10, 5, 15))
+    draw = ImageDraw.Draw(img)
+
+    # Core zones (make sense hierarchy)
+    zones = {
+        1: ((400,700),(600,900), "Vaelith Flame Core"),
+        2: ((100,400),(300,600), "Rynara Rune Libraries"),
+        3: ((350,350),(650,550), "Sanguara Blood Canals"),
+        4: ((400,50),(600,200),  "Eryndra Eternal Throne"),
+        5: ((150,100),(350,250), "Nyxara Ascension Balconies"),
+        6: ((700,400),(900,600), "Aelith Crimson Grand Hall")
+    }
+
+    colors = {
+        "blue":   (0, 240, 255),
+        "red":    (255, 0, 50),
+        "purple": (170, 0, 255),
+        "mixed":  [(0,240,255),(255,0,50),(170,0,255)]
+    }
+
+    # Draw energy canals (vertical + horizontal flow)
+    for i in range(5):
+        y = 200 + i * 150
+        col = colors[color] if color != "mixed" else colors["mixed"][i%3]
+        draw.line([(100,y),(900,y)], fill=col, width=8)
+        draw.line([(500,50),(500,950)], fill=col, width=12)
+
+    # Draw realms
+    for id, (box, name) in zones.items():
+        col = colors[color] if color != "mixed" else colors["mixed"][id%3]
+        draw.rectangle(box, outline=col, width=4)
+        draw.text((box[0][0]+10, box[0][1]+10), f"{id}. {name}", fill=col)
+
+    img.save(f"type7_map_{color}_1000x1000.png")
+    print(f"Saved logical 1000×1000 map → type7_map_{color}_1000x1000.png")
+
+if __name__ == "__main__":
+    for c in ["blue", "red", "purple", "mixed"]:
+        generate_type7_map(c)
