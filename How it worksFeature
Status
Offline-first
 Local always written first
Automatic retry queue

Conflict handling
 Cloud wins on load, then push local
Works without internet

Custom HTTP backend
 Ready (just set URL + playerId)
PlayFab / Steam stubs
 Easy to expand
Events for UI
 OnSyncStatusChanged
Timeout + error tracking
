@@ -1,0 +1,18 @@
+How it worksFeature
+Status
+Offline-first
+ Local always written first
+Automatic retry queue
+
+Conflict handling
+ Cloud wins on load, then push local
+Works without internet
+
+Custom HTTP backend
+ Ready (just set URL + playerId)
+PlayFab / Steam stubs
+ Easy to expand
+Events for UI
+ OnSyncStatusChanged
+Timeout + error tracking
+
