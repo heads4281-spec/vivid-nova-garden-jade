@@ -1,0 +1,11 @@
+What you now haveBlood screen overlay that pulses when damaged or at low health  
+Health vials that float, glow, and heal the player when touched  
+Easy spawn system (vialManager.spawnAround(...))  
+Fully connected to the PlayerHealth system
+
+Would you like me to also add:Checkpoint / permanent death system, or  
+Armor shards (same style as health vials), or  
+Death screen with “Rise Again” button?
+
+Just say which one.
+
