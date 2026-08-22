@@ -1,0 +1,53 @@
+# Type VII Goddess – Infinite AI Art Generator
+# Full control • Blue/Red/Purple • 1000x1000 maps • Weapons
+# Usage: python type7_goddess_generator.py --type palace --color blue --seed 42
+
+import argparse
+import json
+from datetime import datetime
+
+PALETTE = {
+    "blue":   {"energy": "cyan-blue", "glow": "#00f0ff", "core": "blue flame"},
+    "red":    {"energy": "crimson-red", "glow": "#ff0033", "core": "red eternal fire"},
+    "purple": {"energy": "violet-purple", "glow": "#aa00ff", "core": "purple void flame"},
+    "mixed":  {"energy": "blue-red-purple", "glow": "#00f0ff-#ff0033-#aa00ff", "core": "tri-colour core"}
+}
+
+def generate_prompt(asset_type: str, color: str, size: str = "1000x1000") -> str:
+    p = PALETTE[color]
+    if asset_type == "palace":
+        return f"""TYPE VII GODDESS DARK GOTHIC PALACE, MULTI-LEVEL SANCTUM • {p['energy'].upper()} ENERGY NETWORK,
+identical structure to original, {p['core']}, floating rune platforms, isometric view,
+{size} resolution, ultra detailed game-ready concept art, dark black stone, cinematic lighting"""
+    elif asset_type == "weapon":
+        return f"""God of War Type VII Goddess legendary sword, dark gothic, {p['energy']} energy veins,
+black iron blade, glowing runes, floating stone fragments, {size}, 8k weapon concept"""
+    elif asset_type == "map":
+        return f"""1000x1000 top-down tactical map of Type VII Goddess Dark Gothic Palace realms,
+{p['energy']} energy rivers, six labeled zones, rune stone platforms, isometric,
+game-ready, high detail, dark gothic style"""
+    return ""
+
+def save_batch(count: int = 10, asset_type: str = "palace", color: str = "mixed"):
+    results = []
+    for i in range(count):
+        seed = int(datetime.now().timestamp()) + i
+        prompt = generate_prompt(asset_type, color)
+        results.append({
+            "id": f"type7_{asset_type}_{color}_{seed}",
+            "prompt": prompt,
+            "size": "1000x1000",
+            "seed": seed,
+            "color": color
+        })
+    with open(f"type7_{asset_type}_{color}_batch.json", "w") as f:
+        json.dump(results, f, indent=2)
+    print(f"Generated {count} infinite prompts → type7_{asset_type}_{color}_batch.json")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--type", choices=["palace", "weapon", "map"], default="palace")
+    parser.add_argument("--color", choices=["blue", "red", "purple", "mixed"], default="mixed")
+    parser.add_argument("--count", type=int, default=10)
+    args = parser.parse_args()
+    save_batch(args.count, args.type, args.color)
