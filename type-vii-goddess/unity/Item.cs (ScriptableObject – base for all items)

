@@ -1,0 +1,31 @@
+using UnityEngine;
+
+public enum ItemType { Weapon, Rune, Consumable, Material, KeyItem }
+public enum ItemRarity { Common, Rare, Epic, Legendary, Mythic }
+public enum EnergyColor { Blue, Red, Purple, Triune }
+
+[CreateAssetMenu(fileName = "New Item", menuName = "Type VII/Item")]
+public class Item : ScriptableObject
+{
+    [Header("Basic Info")]
+    public string itemName;
+    public string itemID;               // matches weapons.json id (W01, W02...)
+    public ItemType type;
+    public ItemRarity rarity;
+    public EnergyColor energyColor;
+
+    [Header("Visuals")]
+    public Sprite icon;
+    public GameObject worldPrefab;      // for dropping in world
+
+    [Header("Stats")]
+    public int maxStack = 1;
+    public bool isEquippable;
+    public int attackPower;
+    public int defensePower;
+    public string description;
+
+    [Header("Type VII Specific")]
+    public string linkedSkillID;        // optional skill that this item unlocks/enhances
+    public bool requiresTriune;         // only usable when Triune Balance is active
+}
