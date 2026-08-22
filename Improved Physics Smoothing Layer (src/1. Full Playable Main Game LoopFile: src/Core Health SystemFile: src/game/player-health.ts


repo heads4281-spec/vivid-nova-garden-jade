@@ -1,0 +1,120 @@
+// src/game/player-health.ts
+import * as THREE from "three";
+import { C } from "./palette";
+
+export class PlayerHealth {
+  public health: number;
+  public maxHealth: number;
+  public armor = 0;
+  public isDead = false;
+  public invulnerable = false;
+
+  private invulnTimer = 0;
+  private damageFlash = 0;
+  private healFlash = 0;
+  private lowHealthPulse = 0;
+
+  // Events the rest of the game can listen to
+  public onDamage?: (amount: number, current: number) => void;
+  public onHeal?: (amount: number, current: number) => void;
+  public onDeath?: () => void;
+  public onRespawn?: () => void;
+
+  constructor(maxHealth = 100) {
+    this.maxHealth = maxHealth;
+    this.health = maxHealth;
+  }
+
+  update(dt: number) {
+    if (this.invulnTimer > 0) {
+      this.invulnTimer -= dt;
+      if (this.invulnTimer <= 0) this.invulnerable = false;
+    }
+
+    this.damageFlash = Math.max(0, this.damageFlash - dt * 2.8);
+    this.healFlash = Math.max(0, this.healFlash - dt * 2.2);
+
+    if (this.health > 0 && this.health < this.maxHealth * 0.3) {
+      this.lowHealthPulse += dt * 3.5;
+    } else {
+      this.lowHealthPulse = 0;
+    }
+  }
+
+  takeDamage(amount: number) {
+    if (this.isDead || this.invulnerable || amount <= 0) return;
+
+    let remaining = amount;
+
+    // Armor absorbs 60% of incoming damage first
+    if (this.armor > 0) {
+      const absorbed = Math.min(this.armor, remaining * 0.6);
+      this.armor -= absorbed;
+      remaining -= absorbed;
+    }
+
+    this.health = Math.max(0, this.health - remaining);
+    this.damageFlash = 1.0;
+    this.invulnerable = true;
+    this.invulnTimer = 0.7; // i-frames
+
+    this.onDamage?.(remaining, this.health);
+
+    if (this.health <= 0) {
+      this.die();
+    }
+  }
+
+  heal(amount: number) {
+    if (this.isDead || amount <= 0) return;
+
+    const before = this.health;
+    this.health = Math.min(this.maxHealth, this.health + amount);
+    const actual = this.health - before;
+
+    if (actual > 0) {
+      this.healFlash = 1.0;
+      this.onHeal?.(actual, this.health);
+    }
+  }
+
+  addArmor(amount: number) {
+    this.armor = Math.min(50, this.armor + amount);
+  }
+
+  private die() {
+    this.isDead = true;
+    this.health = 0;
+    this.onDeath?.();
+  }
+
+  respawn(full = true) {
+    this.isDead = false;
+    this.health = full ? this.maxHealth : Math.max(35, this.health);
+    this.armor = 0;
+    this.invulnerable = true;
+    this.invulnTimer = 2.2;
+    this.onRespawn?.();
+  }
+
+  // Helpers for HUD & effects
+  getHealthPercent() {
+    return this.health / this.maxHealth;
+  }
+
+  getArmorPercent() {
+    return this.armor / 50;
+  }
+
+  getDamageOverlay() {
+    return this.damageFlash;
+  }
+
+  getHealOverlay() {
+    return this.healFlash;
+  }
+
+  getLowHealthPulse() {
+    return Math.sin(this.lowHealthPulse) * 0.5 + 0.5;
+  }
+}
