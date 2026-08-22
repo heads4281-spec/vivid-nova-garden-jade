@@ -1,0 +1,46 @@
+
+---
+
+### 2. requirements.txt
+```txt
+numpy
+Pillow
+{
+  "skills": [
+    {"id":1,"name":"Eternal Combustion","realm":"Vaelith","levels":{"1":"+15% fire damage","2":"+30% fire + burn","3":"+50% fire + explosion","4":"+80% fire + core surge","5":"+120% fire + eternal burn"}},
+    {"id":2,"name":"Crimson Pulse","realm":"Vaelith","levels":{"1":"Heal 8% HP on hit","2":"Heal 15% + speed","3":"Heal 25% + shield","4":"Heal 40% + lifesteal","5":"Heal 60% + full restore"}},
+    {"id":3,"name":"Flame Ascension","realm":"Vaelith","levels":{"1":"Jump height +20%","2":"Double jump","3":"Triple jump + air dash","4":"Flight 5s","5":"Permanent hover"}},
+    {"id":4,"name":"Blood Ignition","realm":"Vaelith","levels":{"1":"Convert 10% HP to damage","2":"20% HP → damage","3":"35% HP → damage + AOE","4":"50% HP → damage + stun","5":"75% HP → ultimate nova"}},
+    {"id":5,"name":"Core Resonance","realm":"Vaelith","levels":{"1":"Energy regen +15%","2":"+30% + cooldown reduce","3":"+50% + instant cast","4":"+80% + free spells","5":"Infinite energy 10s"}},
+    {"id":6,"name":"Sigil Forge","realm":"Rynara","levels":{"1":"Create 1 basic rune","2":"2 runes + upgrade","3":"3 runes + combine","4":"5 runes + legendary","5":"Unlimited living runes"}},
+    {"id":7,"name":"Arcane Inscription","realm":"Rynara","levels":{"1":"+10% spell power","2":"+25% + duration","3":"+45% + area","4":"+70% + pierce","5":"+100% + reality rewrite"}},
+    {"id":8,"name":"Knowledge Surge","realm":"Rynara","levels":{"1":"Reveal map 20%","2":"Reveal 50% + secrets","3":"Full map + enemy positions","4":"Predict attacks","5":"Omniscience 30s"}},
+    {"id":9,"name":"Rune Barrier","realm":"Rynara","levels":{"1":"15% damage reduction","2":"30% + reflect","3":"50% + absorb","4":"75% + redirect","5":"Perfect immunity 8s"}},
+    {"id":10,"name":"Script of Dominion","realm":"Rynara","levels":{"1":"Control 1 enemy 3s","2":"2 enemies 5s","3":"3 enemies 8s","4":"5 enemies 12s","5":"Army control 20s"}},
+    {"id":11,"name":"Life Essence Drain","realm":"Sanguara","levels":{"1":"Steal 10% HP","2":"20% + energy","3":"35% + slow","4":"50% + silence","5":"80% + permanent weaken"}},
+    {"id":12,"name":"Horizontal Flow","realm":"Sanguara","levels":{"1":"Dash through enemies","2":"Dash + damage","3":"Multi-dash","4":"Teleport dash","5":"Infinite flow dashes"}},
+    {"id":13,"name":"Vertical Ascend","realm":"Sanguara","levels":{"1":"Climb walls","2":"Wall run + jump","3":"Wall flight","4":"Vertical teleport","5":"Free 3D movement"}},
+    {"id":14,"name":"Crimson Tide","realm":"Sanguara","levels":{"1":"Wave attack 15%","2":"Wave 30% + knockback","3":"Wave 50% + bleed","4":"Wave 80% + tsunami","5":"Realm-wide blood flood"}},
+    {"id":15,"name":"Essence Overflow","realm":"Sanguara","levels":{"1":"Overheal into shield","2":"Shield + regen","3":"Double shield","4":"Triple + reflect","5":"Immortal overflow 15s"}},
+    {"id":16,"name":"Absolute Dominion","realm":"Eryndra","levels":{"1":"Command 1 ally","2":"3 allies","3":"5 allies + buff","4":"All allies + aura","5":"Goddess command (all units)"}},
+    {"id":17,"name":"Throne Judgment","realm":"Eryndra","levels":{"1":"Instant 20% execute","2":"35% execute","3":"50% + AOE","4":"70% + chain","5":"100% realm judgment"}},
+    {"id":18,"name":"Eternal Flame","realm":"Eryndra","levels":{"1":"Permanent burn aura","2":"Stronger aura + heal","3":"Aura + damage share","4":"Aura + resurrection","5":"Immortal flame form"}},
+    {"id":19,"name":"Seat of Power","realm":"Eryndra","levels":{"1":"+20% all stats on throne","2":"+40% + cooldown","3":"+60% + free ultimate","4":"+90% + time slow","5":"God mode on throne"}},
+    {"id":20,"name":"Divine Authority","realm":"Eryndra","levels":{"1":"Fear 1 enemy","2":"Fear group","3":"Mass fear + control","4":"Instant submission","5":"Rewrite will of all"}},
+    {"id":21,"name":"Rune Attunement","realm":"Nyxara","levels":{"1":"+15% rune power","2":"+30% + dual","3":"+50% + triple","4":"+80% + evolve","5":"Perfect attunement"}},
+    {"id":22,"name":"Transcendence","realm":"Nyxara","levels":{"1":"Temporary invuln 2s","2":"4s + speed","3":"6s + phase","4":"10s + damage","5":"Permanent transcend form"}},
+    {"id":23,"name":"Open Platform","realm":"Nyxara","levels":{"1":"Summon 1 platform","2":"2 platforms","3":"4 + moving","4":"6 + weapon platforms","5":"Infinite floating realm"}},
+    {"id":24,"name":"Sky Judgment","realm":"Nyxara","levels":{"1":"Lightning from above","2":"Multi-lightning","3":"Storm + meteors","4":"Sky collapse","5":"Divine sky annihilation"}},
+    {"id":25,"name":"Ascended Vision","realm":"Nyxara","levels":{"1":"See through walls","2":"See future 3s","3":"See all timelines","4":"Alter one future","5":"Control all possible futures"}},
+    {"id":26,"name":"Gateway of Blood","realm":"Aelith","levels":{"1":"Open portal 1 way","2":"2-way portal","3":"Multi-portals","4":"Portal army","5":"Instant realm travel"}},
+    {"id":27,"name":"Stone & Blood","realm":"Aelith","levels":{"1":"Summon stone golem","2":"2 golems + blood","3":"Army of constructs","4":"Living palace walls","5":"Entire palace becomes weapon"}},
+    {"id":28,"name":"Ceremonial Strike","realm":"Aelith","levels":{"1":"Ritual damage +25%","2":"+50% + area","3":"+80% + curse","4":"+120% + sacrifice","5":"Ultimate ritual apocalypse"}},
+    {"id":29,"name":"Outer Sanctum Guard","realm":"Aelith","levels":{"1":"Summon 2 guardians","2":"4 + stronger","3":"8 + elite","4":"15 + bosses","5":"Infinite eternal guards"}},
+    {"id":30,"name":"Crimson Entrance","realm":"Aelith","levels":{"1":"Trap entrance","2":"Multi-traps","3":"Living traps","4":"Entrance becomes maze","5":"Entrance = death realm"}},
+    {"id":31,"name":"Triune Balance","realm":"Universal","levels":{"1":"Switch 1 energy colour","2":"Switch freely","3":"Mix 2 colours","4":"Full triune mix","5":"Perfect balance god form"}},
+    {"id":32,"name":"Energy Network","realm":"Universal","levels":{"1":"Link 2 skills","2":"Link 3","3":"Link 5","4":"All skills linked","5":"Infinite skill network"}},
+    {"id":33,"name":"Goddess Awakening","realm":"Universal","levels":{"1":"Temporary power +30%","2":"+60% + form","3":"+100% + wings","4":"+150% + true form","5":"Full Goddess manifestation"}},
+    {"id":34,"name":"Rune Stone Mastery","realm":"Universal","levels":{"1":"Control 1 stone","2":"3 stones","3":"6 stones + weapons","4":"All stones + orbit","5":"Stones = personal army"}},
+    {"id":35,"name":"One Palace One Goddess","realm":"Universal","levels":{"1":"Passive: all skills +10%","2":"+20% + synergy","3":"+35% + no cooldown","4":"+50% + auto-cast","5":"Absolute Goddess control"}}
+  ]
+}
