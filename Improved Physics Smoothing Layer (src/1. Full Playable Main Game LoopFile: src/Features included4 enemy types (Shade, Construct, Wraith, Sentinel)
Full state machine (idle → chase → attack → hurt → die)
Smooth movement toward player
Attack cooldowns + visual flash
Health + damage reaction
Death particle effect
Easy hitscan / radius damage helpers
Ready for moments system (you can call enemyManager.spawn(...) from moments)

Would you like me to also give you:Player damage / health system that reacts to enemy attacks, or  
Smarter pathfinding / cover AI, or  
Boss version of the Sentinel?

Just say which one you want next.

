@@ -1,0 +1,15 @@
+Features included4 enemy types (Shade, Construct, Wraith, Sentinel)
+Full state machine (idle → chase → attack → hurt → die)
+Smooth movement toward player
+Attack cooldowns + visual flash
+Health + damage reaction
+Death particle effect
+Easy hitscan / radius damage helpers
+Ready for moments system (you can call enemyManager.spawn(...) from moments)
+
+Would you like me to also give you:Player damage / health system that reacts to enemy attacks, or  
+Smarter pathfinding / cover AI, or  
+Boss version of the Sentinel?
+
+Just say which one you want next.
+
