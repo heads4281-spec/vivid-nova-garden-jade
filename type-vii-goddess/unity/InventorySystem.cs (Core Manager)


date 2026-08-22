@@ -1,0 +1,118 @@
+using UnityEngine;
+using System.Collections.Generic;
+using System.Linq;
+
+public class InventorySystem : MonoBehaviour
+{
+    public static InventorySystem Instance { get; private set; }
+
+    [Header("Settings")]
+    public int maxSlots = 40;
+    public List<InventoryItem> items = new List<InventoryItem>();
+
+    [Header("References")]
+    public WeaponManager weaponManager;     // existing script
+    public EquipmentSystem equipmentSystem;
+
+    public System.Action OnInventoryChanged;
+
+    void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    void Start()
+    {
+        // Auto-load all weapons from existing weapons.json via WeaponManager
+        if (weaponManager != null)
+        {
+            // Example: preload a few starting weapons
+            // You can expand this later
+        }
+    }
+
+    public bool AddItem(Item item, int amount = 1)
+    {
+        if (item == null) return false;
+
+        // Try stacking first
+        foreach (var invItem in items)
+        {
+            if (invItem.CanStack(item))
+            {
+                int space = item.maxStack - invItem.quantity;
+                int add = Mathf.Min(space, amount);
+                invItem.quantity += add;
+                amount -= add;
+                if (amount <= 0)
+                {
+                    OnInventoryChanged?.Invoke();
+                    return true;
+                }
+            }
+        }
+
+        // New slots
+        while (amount > 0 && items.Count < maxSlots)
+        {
+            int add = Mathf.Min(item.maxStack, amount);
+            items.Add(new InventoryItem(item, add));
+            amount -= add;
+        }
+
+        OnInventoryChanged?.Invoke();
+        return amount <= 0;
+    }
+
+    public bool RemoveItem(Item item, int amount = 1)
+    {
+        for (int i = items.Count - 1; i >= 0; i--)
+        {
+            if (items[i].item == item)
+            {
+                if (items[i].quantity > amount)
+                {
+                    items[i].quantity -= amount;
+                    OnInventoryChanged?.Invoke();
+                    return true;
+                }
+                else
+                {
+                    amount -= items[i].quantity;
+                    items.RemoveAt(i);
+                    if (amount <= 0)
+                    {
+                        OnInventoryChanged?.Invoke();
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public bool HasItem(string itemID, int amount = 1)
+    {
+        int total = items.Where(i => i.item.itemID == itemID).Sum(i => i.quantity);
+        return total >= amount;
+    }
+
+    public InventoryItem GetItem(string itemID)
+    {
+        return items.FirstOrDefault(i => i.item.itemID == itemID);
+    }
+
+    public void ClearInventory()
+    {
+        items.Clear();
+        OnInventoryChanged?.Invoke();
+    }
+
+    // Quick add from existing WeaponManager
+    public void AddWeaponByID(string weaponID)
+    {
+        // You will create ScriptableObject items that match the IDs in weapons.json
+        // Example usage later: AddItem(Resources.Load<Item>("Items/" + weaponID));
+    }
+}
