@@ -1,0 +1,4 @@
+Type VII Goddess – Persistent Pity Save System
+Complete, production-ready implementation.
+Pity counters now survive game restarts, scene loads, app pause/quit, and device reboots.
+
