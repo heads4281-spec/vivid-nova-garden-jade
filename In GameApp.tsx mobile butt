@@ -1,0 +1,5 @@
+onPointerDown={(e) => {
+  e.stopPropagation();
+  e.preventDefault();
+  window.__crimsonInput?.fire?.(true);
+}}
