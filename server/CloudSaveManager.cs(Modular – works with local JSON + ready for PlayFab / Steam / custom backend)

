@@ -1,0 +1,118 @@
+using UnityEngine;
+using System;
+using System.IO;
+
+public class CloudSaveManager : MonoBehaviour
+{
+    public static CloudSaveManager Instance { get; private set; }
+
+    public enum CloudProvider { LocalOnly, PlayFab, Steam, Custom }
+
+    [Header("Provider")]
+    public CloudProvider provider = CloudProvider.LocalOnly;
+
+    [Header("PlayFab (optional)")]
+    public string playFabTitleId = "";          // set in Inspector if using PlayFab
+
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else Destroy(gameObject);
+    }
+
+    // ========== PUBLIC API ==========
+
+    public void SavePityData(string json)
+    {
+        switch (provider)
+        {
+            case CloudProvider.LocalOnly:
+                // Already handled by PitySystem
+                break;
+
+            case CloudProvider.PlayFab:
+                SaveToPlayFab(json);
+                break;
+
+            case CloudProvider.Steam:
+                SaveToSteam(json);
+                break;
+
+            case CloudProvider.Custom:
+                SaveToCustomBackend(json);
+                break;
+        }
+    }
+
+    public void LoadPityData(Action<string> onLoaded)
+    {
+        switch (provider)
+        {
+            case CloudProvider.LocalOnly:
+                onLoaded?.Invoke(null);   // fall back to local file
+                break;
+
+            case CloudProvider.PlayFab:
+                LoadFromPlayFab(onLoaded);
+                break;
+
+            case CloudProvider.Steam:
+                LoadFromSteam(onLoaded);
+                break;
+
+            case CloudProvider.Custom:
+                LoadFromCustomBackend(onLoaded);
+                break;
+        }
+    }
+
+    // ========== PLAYFAB EXAMPLE ==========
+    private void SaveToPlayFab(string json)
+    {
+        // Requires PlayFab SDK
+        // PlayFabClientAPI.UpdateUserData(new UpdateUserDataRequest {
+        //     Data = new Dictionary<string, string> { { "TypeVII_Pity", json } }
+        // }, result => Debug.Log("PlayFab pity saved"), error => Debug.LogError(error.GenerateErrorReport()));
+        Debug.Log("[Cloud] PlayFab save called (add SDK to enable)");
+    }
+
+    private void LoadFromPlayFab(Action<string> onLoaded)
+    {
+        // PlayFabClientAPI.GetUserData(new GetUserDataRequest(), result => {
+        //     if (result.Data != null && result.Data.ContainsKey("TypeVII_Pity"))
+        //         onLoaded?.Invoke(result.Data["TypeVII_Pity"].Value);
+        //     else onLoaded?.Invoke(null);
+        // }, error => onLoaded?.Invoke(null));
+        onLoaded?.Invoke(null);
+    }
+
+    // ========== STEAM EXAMPLE ==========
+    private void SaveToSteam(string json)
+    {
+        // Requires Steamworks.NET
+        // SteamRemoteStorage.FileWrite("TypeVII_PitySave.json", System.Text.Encoding.UTF8.GetBytes(json));
+        Debug.Log("[Cloud] Steam save called (add Steamworks to enable)");
+    }
+
+    private void LoadFromSteam(Action<string> onLoaded)
+    {
+        // if (SteamRemoteStorage.FileExists("TypeVII_PitySave.json")) { ... }
+        onLoaded?.Invoke(null);
+    }
+
+    // ========== CUSTOM BACKEND ==========
+    private void SaveToCustomBackend(string json)
+    {
+        // Example: UnityWebRequest POST to your server
+        Debug.Log("[Cloud] Custom backend save called");
+    }
+
+    private void LoadFromCustomBackend(Action<string> onLoaded)
+    {
+        onLoaded?.Invoke(null);
+    }
+}
