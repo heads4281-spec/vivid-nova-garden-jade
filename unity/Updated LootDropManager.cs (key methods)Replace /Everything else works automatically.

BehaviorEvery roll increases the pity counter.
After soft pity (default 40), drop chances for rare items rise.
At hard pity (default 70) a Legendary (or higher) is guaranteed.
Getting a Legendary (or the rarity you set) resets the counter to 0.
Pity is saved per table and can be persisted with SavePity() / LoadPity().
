@@ -1,0 +1,8 @@
+Everything else works automatically.
+
+BehaviorEvery roll increases the pity counter.
+After soft pity (default 40), drop chances for rare items rise.
+At hard pity (default 70) a Legendary (or higher) is guaranteed.
+Getting a Legendary (or the rarity you set) resets the counter to 0.
+Pity is saved per table and can be persisted with SavePity() / LoadPity().
+
