@@ -1,0 +1,92 @@
+import * as THREE from "three";
+import { C } from "./palette";
+import { PlayerHealth } from "./player-health";
+
+export class HealthVial {
+  public mesh: THREE.Group;
+  public collected = false;
+  private bob = 0;
+
+  constructor(
+    position: THREE.Vector3,
+    private scene: THREE.Scene,
+    private healAmount = 35
+  ) {
+    this.mesh = new THREE.Group();
+
+    // Bottle
+    const bottle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.22, 0.55, 8),
+      new THREE.MeshStandardMaterial({
+        color: C.arterial,
+        emissive: C.arterial,
+        emissiveIntensity: 0.6,
+        transparent: true,
+        opacity: 0.85,
+        roughness: 0.2,
+        metalness: 0.1,
+      })
+    );
+    bottle.position.y = 0.3;
+    this.mesh.add(bottle);
+
+    // Glow
+    const glow = new THREE.PointLight(C.arterial, 1.5, 4);
+    glow.position.y = 0.4;
+    this.mesh.add(glow);
+
+    this.mesh.position.copy(position);
+    this.mesh.position.y = 0.1;
+    scene.add(this.mesh);
+  }
+
+  update(dt: number, playerPos: THREE.Vector3, playerHealth: PlayerHealth) {
+    if (this.collected) return;
+
+    // Bobbing
+    this.bob += dt * 3;
+    this.mesh.position.y = 0.15 + Math.sin(this.bob) * 0.12;
+    this.mesh.rotation.y += dt * 1.5;
+
+    // Pickup check
+    if (this.mesh.position.distanceTo(playerPos) < 1.6) {
+      playerHealth.heal(this.healAmount);
+      this.collect();
+    }
+  }
+
+  private collect() {
+    this.collected = true;
+    this.scene.remove(this.mesh);
+  }
+}
+
+export class HealthVialManager {
+  public vials: HealthVial[] = [];
+
+  constructor(private scene: THREE.Scene) {}
+
+  spawn(position: THREE.Vector3, amount = 35) {
+    const vial = new HealthVial(position, this.scene, amount);
+    this.vials.push(vial);
+    return vial;
+  }
+
+  spawnAround(center: THREE.Vector3, count = 3, radius = 12) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = 4 + Math.random() * radius;
+      const pos = new THREE.Vector3(
+        center.x + Math.cos(angle) * r,
+        0,
+        center.z + Math.sin(angle) * r
+      );
+      this.spawn(pos);
+    }
+  }
+
+  update(dt: number, playerPos: THREE.Vector3, playerHealth: PlayerHealth) {
+    this.vials = this.vials.filter((v) => !v.collected);
+    this.vials.forEach((v) => v.update(dt, playerPos, playerHealth));
+  }
+}
