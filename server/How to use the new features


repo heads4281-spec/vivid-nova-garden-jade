@@ -1,0 +1,9 @@
+// When dropping from a Blue-energy enemy
+pitySystem.RegisterRoll(table.pityID, PityTrack.Blue, out bool hard);
+
+// When player gets a Blue legendary
+pitySystem.RegisterRareDrop(table.pityID, PityTrack.Blue, item.rarity);UI Progress Bar
+Just drop PityUI on any Canvas and it auto-updates.Cloud
+Change the provider dropdown on CloudSaveManager.
+Add the official SDK later and uncomment the real calls.
+
