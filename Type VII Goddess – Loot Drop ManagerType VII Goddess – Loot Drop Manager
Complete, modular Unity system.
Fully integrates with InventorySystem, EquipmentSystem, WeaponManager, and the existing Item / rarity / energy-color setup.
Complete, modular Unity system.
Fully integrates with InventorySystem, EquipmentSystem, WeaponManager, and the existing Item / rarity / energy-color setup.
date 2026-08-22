@@ -1,0 +1,3 @@
+Type VII Goddess – Loot Drop Manager
+Complete, modular Unity system.
+Fully integrates with InventorySystem, EquipmentSystem, WeaponManager, and the existing Item / rarity / energy-color setup.
