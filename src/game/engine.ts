@@ -1283,6 +1283,7 @@ export class CrimsonGame {
 		const feet = y + 0.02;
 		const head = y + HEIGHT - 0.02;
 		for (const b of this.nearBoxes(x, z, RADIUS + 0.2)) {
+			if (b.id === "ground") continue;
 			if (b.maxY - b.minY <= 0.72) continue;
 			if (head <= b.minY || feet >= b.maxY) continue;
 			if (circleHitsAABB(x, z, RADIUS, b)) return true;

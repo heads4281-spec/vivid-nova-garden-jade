@@ -1,12 +1,42 @@
-import { createRootRoute, Outlet } from '@tanstack/react-router'
-import { Suspense } from 'react'
+import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { AuthProvider } from "@/lib/auth/provider";
+import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import appCss from "../styles.css?url";
+
+const APP_NAME = "CRIMSON SOVEREIGN";
 
 export const Route = createRootRoute({
+  head: () => ({
+    meta: [
+      { charSet: "utf-8" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" },
+      { title: APP_NAME },
+      { name: "theme-color", content: "#07040a" },
+      {
+        name: "description",
+        content:
+          "First-person mythic shooter. Walk the six names of Aelith the Crimson through a Type VII palace of living runes.",
+      },
+    ],
+    links: [
+      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/__grok/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
+    ],
+  }),
   component: () => (
-    <div className="w-full h-screen bg-black">
-      <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-white">Loading...</div>}>
-        <Outlet />
-      </Suspense>
-    </div>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <PreviewHostBridge />
+        <AuthProvider>
+          <Outlet />
+        </AuthProvider>
+        <Scripts />
+      </body>
+    </html>
   ),
-})
+});

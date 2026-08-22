@@ -203,14 +203,14 @@ function Hud() {
           <>
             <div
               className="size-3 rounded-full border-[1.5px] border-crimson shadow-[0_0_12px_#c41e3a]"
-              style={{ transform: `scale(${1 + hud.recoilHeat * 0.35})`, opacity: 0.85 + hud.recoilHeat * 0.15 }}
+              style={{ transform: `scale(${1 + (hud.recoilHeat ?? 0) * 0.35})`, opacity: 0.85 + (hud.recoilHeat ?? 0) * 0.15 }}
             />
             {([0, 90, 180, 270] as const).map((deg) => (
               <div
                 key={deg}
                 className="absolute left-1/2 top-1/2 h-2 w-px bg-crimson/80"
                 style={{
-                  transform: `translate(-50%,-50%) rotate(${deg}deg) translateY(${-10 - hud.recoilHeat * 16}px)`,
+                  transform: `translate(-50%,-50%) rotate(${deg}deg) translateY(${-10 - (hud.recoilHeat ?? 0) * 16}px)`,
                 }}
               />
             ))}
@@ -832,6 +832,44 @@ function Title() {
           >
             Settings
           </button>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2 border-t border-border/60 pt-4">
+          <Link
+            to="/website"
+            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
+          >
+            Chronicle
+          </Link>
+          <Link
+            to="/weapons"
+            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
+          >
+            Armory
+          </Link>
+          <Link
+            to="/skills"
+            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
+          >
+            Rites
+          </Link>
+          <Link
+            to="/gallery"
+            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
+          >
+            Gallery
+          </Link>
+          <Link
+            to="/leaderboard"
+            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
+          >
+            Oathbound
+          </Link>
+          <Link
+            to="/download"
+            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
+          >
+            Bind
+          </Link>
         </div>
         <CharacterPick />
         <FeaturedSkills />

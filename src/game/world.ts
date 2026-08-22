@@ -161,15 +161,6 @@ export class World {
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     this.group.add(floor);
-    this.colliders.push({
-      minX: -140,
-      maxX: 140,
-      minY: -2,
-      maxY: 0,
-      minZ: -140,
-      maxZ: 140,
-      id: "ground",
-    });
   }
 
   private outerRing() {

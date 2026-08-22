@@ -173,7 +173,7 @@ export function tickCrystal(time: number, _fog?: THREE.Fog | THREE.FogExp2 | nul
 }
 
 export function setCrystalQuality(q: 360 | 720 | 1080) {
-  octaves.value = q >= 1080 ? 2 : 1;
+  octaves.value = q >= 1080 ? 3 : q >= 720 ? 2 : 1;
 }
 
 export function crystalMetal(opts?: { ember?: number; glow?: number }) {

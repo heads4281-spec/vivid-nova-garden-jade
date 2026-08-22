@@ -42,8 +42,8 @@
     background: var(--color-bg);
     color: var(--color-fg);
     font-family: var(--font-sans);
-    overflow: hidden;
-    touch-action: none;
+    overflow: auto;
+    touch-action: manipulation;
   }
 
   button:not(:disabled),

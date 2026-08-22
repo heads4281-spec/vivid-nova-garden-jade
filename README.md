@@ -1,10 +1,11 @@
-A Full Game By Liam Tee-Jay Smith Through Real dream's and putting in story open whole game type 7
+# CRIMSON SOVEREIGN
 
-I From Devon England
+A first-person mythic shooter by Liam Tee-Jay Smith. Walk the six names of Aelith the Crimson through a Type VII palace of living runes.
 
+Cycle code **63821** — The Threshold.
 
-real 
+Play: enter the palace, claim the Names, open BAG / MAP / rites. Desktop: pointer lock, WASD, Space jump, Shift sprint, click to fire, F to hear. Mobile: left stick + FIRE / JUMP / SPRINT / HEAR.
 
-link
+Sign in with email and password, Google, or X to bind claimed Names across devices. Guests still walk the grounds.
 
-https://vivid-nova-garden-jade.grok.me/?code=63821
+Companion pages: Chronicle, Armory, Rites, Gallery, Oathbound, Bind.

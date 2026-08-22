@@ -496,7 +496,8 @@ export class RecoilSim {
     const yawN = p.pattern[idx * 2 + 1] ?? 0;
     const first = this.shot === 0 ? p.firstShot : 1;
     const ads = opts.ads && !p.melee ? p.ads : 1;
-    const charge = (opts.charge ?? 0) > 0 ? 0.62 + opts.charge * 0.7 : 1;
+    const ch = opts.charge ?? 0;
+    const charge = ch > 0 ? 0.62 + ch * 0.7 : 1;
     const shake = opts.shake === false ? 0.55 : 1;
     const mul = (opts.mul ?? 1) * first * ads * charge;
 
