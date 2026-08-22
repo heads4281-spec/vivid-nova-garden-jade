@@ -1,0 +1,33 @@
+2. File-by-File Refactor List(Integrates the three new features — CCD collision, UI isolation, clean state reset — while preserving player states, shaders, materials, lighting, and all UI overlays.)
+File
+Action
+Why / Risk Mitigation
+src/game/phys.ts
+Keep SpatialHash + add/ensure sweepSphereAABB + lerp are exported and documented. No color changes.
+Enables continuous collision without altering any visual pipeline.
+src/game/engine.ts
+1. Import sweepSphereAABB / lerp.
+2. Upgrade slide(dt) to use continuous sweep for horizontal movement.
+3. Add robust resetGame() (or strengthen remain()).
+4. Call this.hash.rebuild(this.world.colliders) after world load / zone changes.
+5. On death keep existing setScreen("dead") path.
+Fixes clipping / falling-through-floor. Player health, runes, position, camera, and all existing state machines stay intact.
+src/game/input.ts
+Strengthen touch handlers with stopPropagation() + keep pure this.ui = { fire, jump, sprint, move… } interface.
+Eliminates input bleeding into canvas / pointer-lock. No visual or overlay changes.
+src/game/store.ts
+Confirm / keep startRun() that fully replaces HUD with emptyHud(). No other changes.
+Guarantees clean player state on every new run.
+src/game/GameApp.tsx
+Ensure every mobile HoldBtn / TapBtn / Stick already (or now) calls e.stopPropagation() + e.preventDefault() before __crimsonInput. Overlay pointer-events-none stays.
+UI overlays remain fully functional and isolated.
+src/game/world.ts
+No code change. Colliders already produce correct AABBs.
+Geometry & shaders untouched.
+src/game/assets.ts, palette.ts, crystal.ts, any styles / CSS
+DO NOT TOUCH
+CRITICAL VIBE CONSTRAINT enforced.
+package.json / Vite config / scripts
+No change.
+Build pipeline stays identical
+
