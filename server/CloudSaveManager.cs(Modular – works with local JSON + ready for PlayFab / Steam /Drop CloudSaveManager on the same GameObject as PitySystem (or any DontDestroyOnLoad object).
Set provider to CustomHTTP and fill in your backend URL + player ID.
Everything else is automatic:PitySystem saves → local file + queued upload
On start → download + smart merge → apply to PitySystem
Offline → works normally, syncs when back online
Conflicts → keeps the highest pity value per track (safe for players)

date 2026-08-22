@@ -1,0 +1,7 @@
+Drop CloudSaveManager on the same GameObject as PitySystem (or any DontDestroyOnLoad object).
+Set provider to CustomHTTP and fill in your backend URL + player ID.
+Everything else is automatic:PitySystem saves → local file + queued upload
+On start → download + smart merge → apply to PitySystem
+Offline → works normally, syncs when back online
+Conflicts → keeps the highest pity value per track (safe for players)
+
