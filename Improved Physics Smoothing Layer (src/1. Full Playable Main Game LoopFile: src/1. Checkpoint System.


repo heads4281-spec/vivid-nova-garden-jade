@@ -1,0 +1,160 @@
+// src/game/checkpoint.ts
+import * as THREE from "three";
+import { C } from "./palette";
+import { PlayerHealth } from "./player-health";
+
+export interface CheckpointData {
+  position: THREE.Vector3;
+  health: number;
+  armor: number;
+  activated: boolean;
+}
+
+export class Checkpoint {
+  public mesh: THREE.Group;
+  public data: CheckpointData;
+  public isActive = false;
+
+  private glow: THREE.PointLight;
+  private pulse = 0;
+
+  constructor(
+    position: THREE.Vector3,
+    private scene: THREE.Scene,
+    public id: string
+  ) {
+    this.data = {
+      position: position.clone(),
+      health: 100,
+      armor: 0,
+      activated: false,
+    };
+
+    this.mesh = new THREE.Group();
+
+    // Crystal
+    const crystal = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.55, 0),
+      new THREE.MeshStandardMaterial({
+        color: C.blackCrystal,
+        emissive: C.crimson,
+        emissiveIntensity: 0.3,
+        metalness: 0.7,
+        roughness: 0.25,
+      })
+    );
+    crystal.position.y = 1.15;
+    crystal.castShadow = true;
+    this.mesh.add(crystal);
+
+    // Base
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.9, 0.22, 6),
+      new THREE.MeshStandardMaterial({
+        color: 0x111111,
+        metalness: 0.8,
+        roughness: 0.3,
+      })
+    );
+    base.position.y = 0.11;
+    this.mesh.add(base);
+
+    // Glow
+    this.glow = new THREE.PointLight(C.arterial, 0.9, 9);
+    this.glow.position.y = 1.5;
+    this.mesh.add(this.glow);
+
+    this.mesh.position.copy(position);
+    scene.add(this.mesh);
+  }
+
+  update(dt: number, playerPos: THREE.Vector3, playerHealth: PlayerHealth) {
+    this.pulse += dt * 2.4;
+
+    // Gentle float + rotation
+    this.mesh.position.y = Math.sin(this.pulse) * 0.09;
+    this.mesh.children[0].rotation.y += dt * 0.7;
+
+    // Auto-activate when player is close
+    if (!this.isActive && this.mesh.position.distanceTo(playerPos) < 2.9) {
+      this.activate(playerHealth);
+    }
+
+    // Visual state
+    if (this.isActive) {
+      this.glow.intensity = 1.8 + Math.sin(this.pulse * 2.2) * 0.7;
+      (this.mesh.children[0] as THREE.Mesh).material.emissiveIntensity = 0.85;
+    } else {
+      this.glow.intensity = 0.7;
+      (this.mesh.children[0] as THREE.Mesh).material.emissiveIntensity = 0.28;
+    }
+  }
+
+  activate(playerHealth: PlayerHealth) {
+    this.isActive = true;
+    this.data.activated = true;
+    this.data.position.copy(this.mesh.position);
+    this.data.health = playerHealth.health;
+    this.data.armor = playerHealth.armor;
+
+    // Strong activation flash
+    this.glow.intensity = 5;
+    console.log(`Checkpoint activated → ${this.id}`);
+  }
+}
+
+export class CheckpointManager {
+  public checkpoints: Checkpoint[] = [];
+  public lastCheckpoint: Checkpoint | null = null;
+
+  constructor(private scene: THREE.Scene) {}
+
+  add(position: THREE.Vector3, id?: string) {
+    const cp = new Checkpoint(
+      position,
+      this.scene,
+      id || `cp_${this.checkpoints.length + 1}`
+    );
+    this.checkpoints.push(cp);
+    return cp;
+  }
+
+  update(dt: number, playerPos: THREE.Vector3, playerHealth: PlayerHealth) {
+    this.checkpoints.forEach((cp) => {
+      cp.update(dt, playerPos, playerHealth);
+      if (cp.isActive) {
+        this.lastCheckpoint = cp;
+      }
+    });
+  }
+
+  /** Call this when the player dies and presses R */
+  respawnAtCheckpoint(
+    playerHealth: PlayerHealth,
+    playerPos: THREE.Vector3
+  ): boolean {
+    if (!this.lastCheckpoint) {
+      // No checkpoint yet → full restart
+      playerHealth.respawn(true);
+      playerPos.set(0, 1.7, 6);
+      return false;
+    }
+
+    const cp = this.lastCheckpoint;
+
+    playerHealth.respawn(false);
+    playerHealth.health = Math.max(40, cp.data.health);
+    playerHealth.armor = cp.data.armor;
+
+    playerPos.copy(cp.data.position);
+    playerPos.y = 1.7;
+
+    console.log(`Respawned at checkpoint: ${cp.id}`);
+    return true;
+  }
+
+  getActiveCount() {
+    return this.checkpoints.filter((c) => c.isActive).length;
+  }
+}src/game/checkpoint.ts
+
