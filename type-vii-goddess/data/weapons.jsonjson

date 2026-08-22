@@ -1,0 +1,20 @@
+{
+  "weapons": [
+    {"id":"W01","name":"Vanya's Edge","type":"Sword","color":"red-blue","rarity":"Legendary"},
+    {"id":"W02","name":"Morven's Bane","type":"Axe","color":"red-purple","rarity":"Legendary"},
+    {"id":"W03","name":"Lilith's Dirge","type":"Dagger","color":"purple","rarity":"Epic"},
+    {"id":"W04","name":"Astraea's Wrath","type":"Greatsword","color":"red-blue","rarity":"Legendary"},
+    {"id":"W05","name":"Nyx's Requiem","type":"Scythe","color":"purple","rarity":"Legendary"},
+    {"id":"W06","name":"Eir's Malice","type":"Battleaxe","color":"red","rarity":"Epic"},
+    {"id":"W07","name":"Seraphine's Fall","type":"Sword","color":"blue-purple","rarity":"Legendary"},
+    {"id":"W08","name":"Thalassa's Fury","type":"Twin Axe","color":"blue-red","rarity":"Legendary"},
+    {"id":"W09","name":"Eclipse of Fates","type":"Legendary Sword","color":"triune","rarity":"Mythic"},
+    {"id":"W10","name":"Nyxara Veilbow","type":"Longbow","color":"blue","rarity":"Legendary"},
+    {"id":"W11","name":"Sangreth Bloodwhisper","type":"Longbow","color":"red","rarity":"Legendary"},
+    {"id":"W12","name":"Morgentha Duskwhisper","type":"Longbow","color":"purple","rarity":"Legendary"},
+    {"id":"W13","name":"Eclyra Soulrend","type":"Scythe","color":"blue","rarity":"Epic"},
+    {"id":"W14","name":"Vorlith Harvest of Ashes","type":"Scythe","color":"red","rarity":"Epic"},
+    {"id":"W15","name":"Nythera Maiden's Reaping","type":"Scythe","color":"purple","rarity":"Legendary"},
+    {"id":"W16","name":"Eclipse of the Three Moons","type":"Shield + Staff","color":"triune","rarity":"Mythic"}
+  ]
+}
