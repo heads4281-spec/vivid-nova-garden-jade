@@ -1,0 +1,29 @@
+// Inside attach()
+const ts = (e: TouchEvent) => {
+  e.stopPropagation();
+  this.activeDevice = "touch";
+  // … existing moveTouch / lookTouch logic …
+};
+
+const tm = (e: TouchEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  // … existing delta logic …
+};
+
+const te = (e: TouchEvent) => {
+  e.stopPropagation();
+  // … existing end logic …
+};
+
+// Keep the pure UI interface
+this.ui = {
+  fire: (v: boolean) => { this.uiFire = v; },
+  jump: () => { this.jumpPressed = true; },
+  sprint: (v: boolean) => { this.uiSprint = v; },
+  move: (x: number, y: number) => {
+    this.uiMoveX = x;
+    this.uiMoveY = y;
+  },
+  // … other existing helpers
+};
