@@ -1,0 +1,9 @@
+FeaturesAuto-saves when you activate a new checkpoint
+Saves health + armor + last checkpoint
+Survives page refresh / browser close
+Press R when dead → respawn at last checkpoint
+Press F5 → manual save
+Press F9 → clear save (for testing)
+
+Would you like me to also add weapon saving or a Save / Load menu UI next?
+
