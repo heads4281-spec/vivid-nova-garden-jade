@@ -1,0 +1,313 @@
+// src/game/weapon-skill-trees.ts
+import { WEAPONS, type WeaponDef } from "./arsenal";
+import { WeaponPersistence } from "./weapon-persistence";
+
+export type SkillNodeId =
+  | "damage_1" | "damage_2" | "damage_3"
+  | "mag_1" | "mag_2"
+  | "reload_1" | "fire_rate_1"
+  | "crit_chance" | "crit_damage"
+  | "lifesteal" | "explosive" | "pierce" | "multi_shot"
+  | "blood_rite" | "name_echo";
+
+export interface SkillNode {
+  id: SkillNodeId;
+  name: string;
+  description: string;
+  maxRank: number;
+  cost: number;
+  requires?: SkillNodeId[];
+  effects: {
+    damageMul?: number;
+    magBonus?: number;
+    reloadMul?: number;
+    cooldownMul?: number;
+    critChance?: number;
+    critDamage?: number;
+    lifesteal?: number;
+    explosive?: boolean;
+    pierce?: boolean;
+    multiShot?: number;
+  };
+}
+
+export interface WeaponSkillState {
+  weaponId: number;
+  unlocked: Record<string, number>; // nodeId → current rank
+  spentPoints: number;
+}
+
+const SKILL_SAVE_KEY = "crimson_sovereign_skilltrees_v1";
+
+export const SKILL_NODES: Record<SkillNodeId, SkillNode> = {
+  damage_1: {
+    id: "damage_1",
+    name: "Sharpened Edge",
+    description: "+12% Damage",
+    maxRank: 3,
+    cost: 1,
+    effects: { damageMul: 0.12 },
+  },
+  damage_2: {
+    id: "damage_2",
+    name: "Crimson Edge",
+    description: "+18% Damage",
+    maxRank: 2,
+    cost: 1,
+    requires: ["damage_1"],
+    effects: { damageMul: 0.18 },
+  },
+  damage_3: {
+    id: "damage_3",
+    name: "Sovereign Strike",
+    description: "+25% Damage",
+    maxRank: 1,
+    cost: 2,
+    requires: ["damage_2"],
+    effects: { damageMul: 0.25 },
+  },
+  mag_1: {
+    id: "mag_1",
+    name: "Extended Magazine",
+    description: "+3 Magazine Size",
+    maxRank: 3,
+    cost: 1,
+    effects: { magBonus: 3 },
+  },
+  mag_2: {
+    id: "mag_2",
+    name: "Bottomless Clip",
+    description: "+5 Magazine Size",
+    maxRank: 2,
+    cost: 1,
+    requires: ["mag_1"],
+    effects: { magBonus: 5 },
+  },
+  reload_1: {
+    id: "reload_1",
+    name: "Quick Hands",
+    description: "-12% Reload Time",
+    maxRank: 3,
+    cost: 1,
+    effects: { reloadMul: 0.88 },
+  },
+  fire_rate_1: {
+    id: "fire_rate_1",
+    name: "Rapid Fire",
+    description: "-10% Fire Cooldown",
+    maxRank: 3,
+    cost: 1,
+    effects: { cooldownMul: 0.90 },
+  },
+  crit_chance: {
+    id: "crit_chance",
+    name: "Predator's Eye",
+    description: "+8% Critical Chance",
+    maxRank: 3,
+    cost: 1,
+    effects: { critChance: 0.08 },
+  },
+  crit_damage: {
+    id: "crit_damage",
+    name: "Executioner",
+    description: "+30% Critical Damage",
+    maxRank: 2,
+    cost: 1,
+    requires: ["crit_chance"],
+    effects: { critDamage: 0.30 },
+  },
+  lifesteal: {
+    id: "lifesteal",
+    name: "Blood Drinker",
+    description: "Heal 4% of damage dealt",
+    maxRank: 2,
+    cost: 2,
+    effects: { lifesteal: 0.04 },
+  },
+  explosive: {
+    id: "explosive",
+    name: "Arterial Burst",
+    description: "Shots explode on impact",
+    maxRank: 1,
+    cost: 3,
+    requires: ["damage_2"],
+    effects: { explosive: true },
+  },
+  pierce: {
+    id: "pierce",
+    name: "Rending Shot",
+    description: "Projectiles pierce enemies",
+    maxRank: 1,
+    cost: 2,
+    effects: { pierce: true },
+  },
+  multi_shot: {
+    id: "multi_shot",
+    name: "Split Fate",
+    description: "Fire +1 additional projectile",
+    maxRank: 2,
+    cost: 2,
+    effects: { multiShot: 1 },
+  },
+  blood_rite: {
+    id: "blood_rite",
+    name: "Blood Rite",
+    description: "Kills grant temporary damage boost",
+    maxRank: 1,
+    cost: 3,
+    effects: {},
+  },
+  name_echo: {
+    id: "name_echo",
+    name: "Name Echo",
+    description: "Weapon remembers the last claimed Name",
+    maxRank: 1,
+    cost: 3,
+    effects: {},
+  },
+};
+
+export class WeaponSkillTreeSystem {
+  private trees = new Map<number, WeaponSkillState>();
+  public availablePoints = 0;
+
+  constructor(private weaponData: WeaponPersistence) {
+    WEAPONS.forEach((w) => {
+      this.trees.set(w.id, {
+        weaponId: w.id,
+        unlocked: {},
+        spentPoints: 0,
+      });
+    });
+    this.load();
+  }
+
+  getTree(weaponId: number): WeaponSkillState {
+    return this.trees.get(weaponId)!;
+  }
+
+  getRank(weaponId: number, nodeId: SkillNodeId): number {
+    return this.getTree(weaponId).unlocked[nodeId] || 0;
+  }
+
+  canUnlock(weaponId: number, nodeId: SkillNodeId): boolean {
+    const node = SKILL_NODES[nodeId];
+    const tree = this.getTree(weaponId);
+    const currentRank = tree.unlocked[nodeId] || 0;
+
+    if (currentRank >= node.maxRank) return false;
+    if (this.availablePoints < node.cost) return false;
+
+    if (node.requires) {
+      for (const req of node.requires) {
+        if ((tree.unlocked[req] || 0) < 1) return false;
+      }
+    }
+    return true;
+  }
+
+  unlock(weaponId: number, nodeId: SkillNodeId): boolean {
+    if (!this.canUnlock(weaponId, nodeId)) return false;
+
+    const node = SKILL_NODES[nodeId];
+    const tree = this.getTree(weaponId);
+
+    this.availablePoints -= node.cost;
+    tree.unlocked[nodeId] = (tree.unlocked[nodeId] || 0) + 1;
+    tree.spentPoints += node.cost;
+
+    this.save();
+    console.log(`Unlocked "${node.name}" on weapon ${weaponId}`);
+    return true;
+  }
+
+  /** Calculate final combat stats for a weapon */
+  getFinalStats(weaponId: number) {
+    const base = WEAPONS.find((w) => w.id === weaponId) || WEAPONS[0];
+    const tree = this.getTree(weaponId);
+
+    let damageMul = 1;
+    let magBonus = 0;
+    let reloadMul = 1;
+    let cooldownMul = 1;
+    let critChance = 0;
+    let critDamage = 1.5;
+    let lifesteal = 0;
+    let multiShot = 0;
+    let explosive = false;
+    let pierce = false;
+
+    Object.entries(tree.unlocked).forEach(([nodeId, rank]) => {
+      const node = SKILL_NODES[nodeId as SkillNodeId];
+      if (!node) return;
+
+      const e = node.effects;
+      if (e.damageMul) damageMul += e.damageMul * rank;
+      if (e.magBonus) magBonus += e.magBonus * rank;
+      if (e.reloadMul) reloadMul *= Math.pow(e.reloadMul, rank);
+      if (e.cooldownMul) cooldownMul *= Math.pow(e.cooldownMul, rank);
+      if (e.critChance) critChance += e.critChance * rank;
+      if (e.critDamage) critDamage += e.critDamage * rank;
+      if (e.lifesteal) lifesteal += e.lifesteal * rank;
+      if (e.multiShot) multiShot += e.multiShot * rank;
+      if (e.explosive) explosive = true;
+      if (e.pierce) pierce = true;
+    });
+
+    return {
+      damage: Math.round(base.damage * damageMul),
+      mag: base.mag + magBonus,
+      reload: Number((base.reload * reloadMul).toFixed(2)),
+      cooldown: Number((base.cooldown * cooldownMul).toFixed(3)),
+      critChance,
+      critDamage,
+      lifesteal,
+      multiShot,
+      explosive,
+      pierce,
+    };
+  }
+
+  /** Shortcut for currently equipped weapon */
+  get currentStats() {
+    return this.getFinalStats(this.weaponData.currentWeaponId);
+  }
+
+  addPoints(amount: number) {
+    this.availablePoints += amount;
+    this.save();
+  }
+
+  // ---------- Persistence ----------
+  save() {
+    const data = {
+      availablePoints: this.availablePoints,
+      trees: Array.from(this.trees.values()),
+    };
+    localStorage.setItem(SKILL_SAVE_KEY, JSON.stringify(data));
+  }
+
+  load() {
+    const raw = localStorage.getItem(SKILL_SAVE_KEY);
+    if (!raw) return;
+
+    try {
+      const data = JSON.parse(raw);
+      this.availablePoints = data.availablePoints ?? 0;
+      data.trees?.forEach((t: WeaponSkillState) => {
+        this.trees.set(t.weaponId, t);
+      });
+    } catch (err) {
+      console.warn("Failed to load skill trees", err);
+    }
+  }
+
+  reset() {
+    localStorage.removeItem(SKILL_SAVE_KEY);
+    this.availablePoints = 0;
+    this.trees.forEach((t) => {
+      t.unlocked = {};
+      t.spentPoints = 0;
+    });
+  }
+}
