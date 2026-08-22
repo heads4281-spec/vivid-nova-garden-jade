@@ -1,0 +1,17 @@
+import { EnemyManager } from "./enemy-ai";
+
+// After creating the scene...
+const enemyManager = new EnemyManager(scene);
+
+// Spawn a few enemies for testing
+enemyManager.spawn("shade", new THREE.Vector3(8, 0, -6));
+enemyManager.spawn("wraith", new THREE.Vector3(-7, 0, -9));
+enemyManager.spawn("construct", new THREE.Vector3(0, 0, -14));
+enemyManager.spawn("sentinel", new THREE.Vector3(12, 0, -18));
+
+// Inside the animate() loop, after player movement:
+const now = performance.now() / 1000;
+enemyManager.update(dt, playerPos, now);
+
+// When the player fires (inside your weapon fire code):
+// enemyManager.applyHitscan(camera.position, lookDir, weapon.range, weapon.damage);
