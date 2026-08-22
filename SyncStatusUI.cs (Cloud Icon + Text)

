@@ -1,0 +1,47 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+public class SyncStatusUI : MonoBehaviour
+{
+    public Image icon;
+    public TextMeshProUGUI statusText;
+
+    public Sprite iconIdle, iconSyncing, iconSuccess, iconFailed, iconOffline;
+
+    void OnEnable()
+    {
+        if (CloudSaveManager.Instance)
+            CloudSaveManager.Instance.OnSyncStatusChanged += UpdateUI;
+        UpdateUI(CloudSaveManager.Instance ? CloudSaveManager.Instance.currentStatus : CloudSaveManager.SyncStatus.Idle);
+    }
+
+    void OnDisable()
+    {
+        if (CloudSaveManager.Instance)
+            CloudSaveManager.Instance.OnSyncStatusChanged -= UpdateUI;
+    }
+
+    void UpdateUI(CloudSaveManager.SyncStatus s)
+    {
+        if (statusText)
+            statusText.text = s switch
+            {
+                CloudSaveManager.SyncStatus.Syncing => "Syncing...",
+                CloudSaveManager.SyncStatus.Success => "Cloud Synced",
+                CloudSaveManager.SyncStatus.Failed => "Sync Failed",
+                CloudSaveManager.SyncStatus.Offline => "Offline",
+                _ => "Ready"
+            };
+
+        if (icon)
+            icon.sprite = s switch
+            {
+                CloudSaveManager.SyncStatus.Syncing => iconSyncing,
+                CloudSaveManager.SyncStatus.Success => iconSuccess,
+                CloudSaveManager.SyncStatus.Failed => iconFailed,
+                CloudSaveManager.SyncStatus.Offline => iconOffline,
+                _ => iconIdle
+            };
+    }
+}
