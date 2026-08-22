@@ -1,0 +1,248 @@
+Updated PitySystem.cs(Now supports separate pity tracks for Blue / Red / Purple / Triune + full persistent save)
+using UnityEngine;
+using System.Collections.Generic;
+using System.IO;
+using System;
+
+public enum PityTrack { Blue, Red, Purple, Triune, Global }
+
+[System.Serializable]
+public class PityCounter
+{
+    public string tableID;
+    public PityTrack track = PityTrack.Global;
+    public int currentPity = 0;
+    public int softPityStart = 40;
+    public int hardPity = 70;
+    public ItemRarity pityRarity = ItemRarity.Legendary;
+}
+
+[System.Serializable]
+public class PitySaveData
+{
+    public List<PityCounter> counters = new List<PityCounter>();
+    public string lastSaved;
+}
+
+public class PitySystem : MonoBehaviour
+{
+    public static PitySystem Instance { get; private set; }
+
+    [Header("Type VII Pity Settings")]
+    public List<PityCounter> counters = new List<PityCounter>();
+
+    [Header("Defaults per Track")]
+    public int defaultSoftPity = 40;
+    public int defaultHardPity = 70;
+    public ItemRarity defaultPityRarity = ItemRarity.Legendary;
+
+    [Header("Persistent Save")]
+    public bool autoSaveOnChange = true;
+    public bool autoLoadOnStart = true;
+    public string saveFileName = "TypeVII_PitySave.json";
+
+    [Header("Debug")]
+    public bool showPityLogs = true;
+
+    private string SavePath => Path.Combine(Application.persistentDataPath, saveFileName);
+
+    public System.Action OnPityChanged;   // for UI
+
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        if (autoLoadOnStart)
+            LoadPity();
+    }
+
+    void OnApplicationQuit() => SavePity();
+    void OnApplicationPause(bool pause) { if (pause) SavePity(); }
+
+    // ===================== PUBLIC API =====================
+
+    public bool RegisterRoll(string tableID, PityTrack track, out bool hardPityTriggered)
+    {
+        hardPityTriggered = false;
+        PityCounter counter = GetOrCreateCounter(tableID, track);
+
+        counter.currentPity++;
+        OnPityChanged?.Invoke();
+
+        if (showPityLogs)
+            Debug.Log($"[Pity-{track}] {tableID} → {counter.currentPity}/{counter.hardPity}");
+
+        if (autoSaveOnChange) SavePity();
+
+        if (counter.currentPity >= counter.hardPity)
+        {
+            hardPityTriggered = true;
+            if (showPityLogs)
+                Debug.Log($"[Pity-{track}] HARD PITY triggered!");
+            return true;
+        }
+        return false;
+    }
+
+    // Convenience overload (uses Global track)
+    public bool RegisterRoll(string tableID, out bool hardPityTriggered)
+        => RegisterRoll(tableID, PityTrack.Global, out hardPityTriggered);
+
+    public void RegisterRareDrop(string tableID, PityTrack track, ItemRarity rarity)
+    {
+        PityCounter counter = GetOrCreateCounter(tableID, track);
+
+        if (rarity >= counter.pityRarity)
+        {
+            if (showPityLogs)
+                Debug.Log($"[Pity-{track}] {rarity} drop → reset from {counter.currentPity}");
+
+            counter.currentPity = 0;
+            OnPityChanged?.Invoke();
+
+            if (autoSaveOnChange) SavePity();
+        }
+    }
+
+    public void RegisterRareDrop(string tableID, ItemRarity rarity)
+        => RegisterRareDrop(tableID, PityTrack.Global, rarity);
+
+    public float GetSoftPityMultiplier(string tableID, PityTrack track = PityTrack.Global)
+    {
+        PityCounter counter = GetOrCreateCounter(tableID, track);
+
+        if (counter.currentPity < counter.softPityStart)
+            return 1f;
+
+        float progress = (float)(counter.currentPity - counter.softPityStart) /
+                         (counter.hardPity - counter.softPityStart);
+
+        return 1f + (progress * progress * 4f);
+    }
+
+    public int GetCurrentPity(string tableID, PityTrack track = PityTrack.Global)
+        => GetOrCreateCounter(tableID, track).currentPity;
+
+    public float GetPityProgress(string tableID, PityTrack track = PityTrack.Global)
+    {
+        PityCounter c = GetOrCreateCounter(tableID, track);
+        return Mathf.Clamp01((float)c.currentPity / c.hardPity);
+    }
+
+    public void ResetAllPity()
+    {
+        foreach (var c in counters) c.currentPity = 0;
+        OnPityChanged?.Invoke();
+        SavePity();
+    }
+
+    // ===================== SAVE / LOAD =====================
+
+    public void SavePity()
+    {
+        try
+        {
+            PitySaveData data = new PitySaveData
+            {
+                counters = new List<PityCounter>(counters),
+                lastSaved = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+            };
+
+            string json = JsonUtility.ToJson(data, true);
+            File.WriteAllText(SavePath, json);
+
+            // Also push to cloud if available
+            if (CloudSaveManager.Instance != null)
+                CloudSaveManager.Instance.SavePityData(json);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Pity] Save failed: {e.Message}");
+        }
+    }
+
+    public void LoadPity()
+    {
+        // Try cloud first, then local
+        if (CloudSaveManager.Instance != null)
+        {
+            CloudSaveManager.Instance.LoadPityData((json) =>
+            {
+                if (!string.IsNullOrEmpty(json))
+                    ApplyLoadedData(json);
+                else
+                    LoadLocal();
+            });
+        }
+        else
+        {
+            LoadLocal();
+        }
+    }
+
+    private void LoadLocal()
+    {
+        if (!File.Exists(SavePath)) return;
+
+        try
+        {
+            string json = File.ReadAllText(SavePath);
+            ApplyLoadedData(json);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Pity] Local load failed: {e.Message}");
+        }
+    }
+
+    private void ApplyLoadedData(string json)
+    {
+        PitySaveData data = JsonUtility.FromJson<PitySaveData>(json);
+        if (data?.counters != null)
+        {
+            counters = data.counters;
+            OnPityChanged?.Invoke();
+            if (showPityLogs)
+                Debug.Log($"[Pity] Loaded {counters.Count} counters");
+        }
+    }
+
+    public void DeleteSave()
+    {
+        if (File.Exists(SavePath)) File.Delete(SavePath);
+        counters.Clear();
+        OnPityChanged?.Invoke();
+    }
+
+    // ===================== INTERNAL =====================
+
+    private PityCounter GetOrCreateCounter(string tableID, PityTrack track)
+    {
+        string key = $"{tableID}_{track}";
+        foreach (var c in counters)
+        {
+            if (c.tableID == tableID && c.track == track)
+                return c;
+        }
+
+        PityCounter newCounter = new PityCounter
+        {
+            tableID = tableID,
+            track = track,
+            softPityStart = defaultSoftPity,
+            hardPity = defaultHardPity,
+            pityRarity = defaultPityRarity
+        };
+        counters.Add(newCounter);
+        return newCounter;
+    }
+}
