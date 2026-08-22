@@ -1,0 +1,16 @@
+import { WeaponPersistence } from "./weapon-persistence";
+import { WeaponSkillTreeSystem } from "./weapon-skill-trees";
+
+const weaponData = new WeaponPersistence();
+const skillTrees = new WeaponSkillTreeSystem(weaponData);
+
+// Give skill points
+skillTrees.addPoints(8);
+
+// Unlock a node
+skillTrees.unlock(weaponData.currentWeaponId, "damage_1");
+skillTrees.unlock(weaponData.currentWeaponId, "lifesteal");
+
+// Get final stats when firing
+const stats = skillTrees.getFinalStats(weaponData.currentWeaponId);
+console.log(stats.damage, stats.critChance, stats.lifesteal);
