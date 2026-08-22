@@ -1,0 +1,54 @@
+State Machine & Reset FixerIn src/game/store.ts (the screen machine already exists – just ensure startRun looks like this):
+startRun: () => set({
+  screen: "playing",
+  runId: get().runId + 1,
+  hud: emptyHud(), // full clean slate every run
+}),this method to the CrimsonGame class (engine.ts):ts
+/**
+ * Full clean reset – clears enemies, restores health, resets position
+ * to Threshold, rebuilds spatial hash, and forces clean store state.
+ * CRITICAL VIBE CONSTRAINT: No visual or lighting changes.
+ */
+resetGame() {
+  // Clear live objects
+  this.enemies.forEach(e => {
+    if (e.mesh) this.scene.remove(e.mesh);
+    e.mesh = null;
+  });
+  this.enemies.length = 0;
+  this.projectiles.length = 0;
+  this.particles.length = 0;
+
+  // Reset player
+  this.runes.clear();
+  this.health = 100;
+  this.kills = 0;
+  this.px = 0;
+  this.py = 0.35;
+  this.pz = 68;
+  this.vx = this.vy = this.vz = 0;
+  this.yaw = 0;
+  this.pitch = -0.08;
+
+  // Reset camera
+  this.yawObj.position.set(0, 1.58, 68);
+  this.yawObj.rotation.y = 0;
+  this.camera.rotation.set(-0.08, 0, 0);
+
+  // Clear moment state
+  this.ended = false;
+  this.currentMoment = null;
+  this.momentT = 0;
+
+  // Rebuild collision
+  this.hash.rebuild(this.world.colliders);
+
+  // Re-spawn
+  this.spawnEnemies();
+
+  // Sync store
+  useGame.getState().setScreen("playing");
+  useGame.getState().setHud(emptyHud());
+
+  this.tell("You stand on the Threshold under the arms of the galaxy. The runes are watching.");
+}
