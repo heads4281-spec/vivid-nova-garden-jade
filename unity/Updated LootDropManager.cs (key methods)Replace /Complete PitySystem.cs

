@@ -1,0 +1,239 @@
+using UnityEngine;
+using System.Collections.Generic;
+using System.IO;
+using System;
+
+[System.Serializable]
+public class PityCounter
+{
+    public string tableID;
+    public int currentPity = 0;
+    public int softPityStart = 40;
+    public int hardPity = 70;
+    public ItemRarity pityRarity = ItemRarity.Legendary;
+}
+
+[System.Serializable]
+public class PitySaveData
+{
+    public List<PityCounter> counters = new List<PityCounter>();
+    public string lastSaved;
+}
+
+public class PitySystem : MonoBehaviour
+{
+    public static PitySystem Instance { get; private set; }
+
+    [Header("Type VII Pity Settings")]
+    public List<PityCounter> counters = new List<PityCounter>();
+
+    [Header("Global Defaults")]
+    public int defaultSoftPity = 40;
+    public int defaultHardPity = 70;
+    public ItemRarity defaultPityRarity = ItemRarity.Legendary;
+
+    [Header("Persistent Save")]
+    public bool autoSaveOnChange = true;
+    public bool autoLoadOnStart = true;
+    public string saveFileName = "TypeVII_PitySave.json";
+
+    [Header("Debug")]
+    public bool showPityLogs = true;
+
+    private string SavePath => Path.Combine(Application.persistentDataPath, saveFileName);
+
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject); // survives scene loads
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        if (autoLoadOnStart)
+            LoadPity();
+    }
+
+    void OnApplicationQuit()
+    {
+        SavePity();
+    }
+
+    void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus)
+            SavePity(); // protects against mobile focus loss / backgrounding
+    }
+
+    // ======================== PUBLIC API ========================
+
+    /// <summary>
+    /// Call every time a loot table is rolled.
+    /// Returns true if hard pity was triggered.
+    /// </summary>
+    public bool RegisterRoll(string tableID, out bool hardPityTriggered)
+    {
+        hardPityTriggered = false;
+        PityCounter counter = GetOrCreateCounter(tableID);
+
+        counter.currentPity++;
+
+        if (showPityLogs)
+            Debug.Log($"[Pity] {tableID} → {counter.currentPity}/{counter.hardPity}");
+
+        if (counter.currentPity >= counter.hardPity)
+        {
+            hardPityTriggered = true;
+            if (showPityLogs)
+                Debug.Log($"[Pity] HARD PITY triggered on {tableID}!");
+        }
+
+        if (autoSaveOnChange)
+            SavePity();
+
+        return hardPityTriggered;
+    }
+
+    /// <summary>
+    /// Call when a rare (or higher) item actually drops → resets pity.
+    /// </summary>
+    public void RegisterRareDrop(string tableID, ItemRarity rarity)
+    {
+        PityCounter counter = GetOrCreateCounter(tableID);
+
+        if (rarity >= counter.pityRarity)
+        {
+            if (showPityLogs)
+                Debug.Log($"[Pity] {rarity} drop on {tableID} → Pity reset from {counter.currentPity}");
+
+            counter.currentPity = 0;
+
+            if (autoSaveOnChange)
+                SavePity();
+        }
+    }
+
+    /// <summary>
+    /// Soft pity chance multiplier (rises after softPityStart).
+    /// </summary>
+    public float GetSoftPityMultiplier(string tableID)
+    {
+        PityCounter counter = GetOrCreateCounter(tableID);
+
+        if (counter.currentPity < counter.softPityStart)
+            return 1f;
+
+        float progress = (float)(counter.currentPity - counter.softPityStart) /
+                         (counter.hardPity - counter.softPityStart);
+
+        return 1f + (progress * progress * 4f); // up to ~5× near hard pity
+    }
+
+    public int GetCurrentPity(string tableID)
+    {
+        return GetOrCreateCounter(tableID).currentPity;
+    }
+
+    public void ResetPity(string tableID)
+    {
+        PityCounter counter = GetOrCreateCounter(tableID);
+        counter.currentPity = 0;
+        if (autoSaveOnChange) SavePity();
+    }
+
+    public void ResetAllPity()
+    {
+        foreach (var c in counters)
+            c.currentPity = 0;
+        SavePity();
+    }
+
+    // ======================== SAVE / LOAD ========================
+
+    public void SavePity()
+    {
+        try
+        {
+            PitySaveData data = new PitySaveData
+            {
+                counters = counters,
+                lastSaved = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+            };
+
+            string json = JsonUtility.ToJson(data, true);
+            File.WriteAllText(SavePath, json);
+
+            if (showPityLogs)
+                Debug.Log($"[Pity] Saved → {SavePath}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Pity] Save failed: {e.Message}");
+        }
+    }
+
+    public void LoadPity()
+    {
+        if (!File.Exists(SavePath))
+        {
+            if (showPityLogs)
+                Debug.Log("[Pity] No save file found – starting fresh.");
+            return;
+        }
+
+        try
+        {
+            string json = File.ReadAllText(SavePath);
+            PitySaveData data = JsonUtility.FromJson<PitySaveData>(json);
+
+            if (data != null && data.counters != null)
+            {
+                counters = data.counters;
+                if (showPityLogs)
+                    Debug.Log($"[Pity] Loaded {counters.Count} counters (last saved: {data.lastSaved})");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Pity] Load failed: {e.Message}");
+        }
+    }
+
+    public void DeleteSave()
+    {
+        if (File.Exists(SavePath))
+        {
+            File.Delete(SavePath);
+            counters.Clear();
+            if (showPityLogs)
+                Debug.Log("[Pity] Save file deleted.");
+        }
+    }
+
+    // ======================== INTERNAL ========================
+
+    private PityCounter GetOrCreateCounter(string tableID)
+    {
+        foreach (var c in counters)
+        {
+            if (c.tableID == tableID)
+                return c;
+        }
+
+        PityCounter newCounter = new PityCounter
+        {
+            tableID = tableID,
+            softPityStart = defaultSoftPity,
+            hardPity = defaultHardPity,
+            pityRarity = defaultPityRarity
+        };
+
+        counters.Add(newCounter);
+        return newCounter;
+    }
+}
