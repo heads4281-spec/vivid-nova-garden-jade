@@ -1,0 +1,72 @@
+import { PlayerHealth } from "./player-health";
+import { HealthHUD } from "../components/HealthHUD";
+import { EnemyManager } from "./enemy-ai";
+
+// Inside your GameApp component:
+const [hp, setHp] = React.useState({
+  health: 100,
+  maxHealth: 100,
+  armor: 0,
+  isDead: false,
+});
+
+useEffect(() => {
+  // ... your existing Three.js setup (renderer, scene, camera, etc.)
+
+  const playerHealth = new PlayerHealth(100);
+  const enemyManager = new EnemyManager(scene);
+
+  // Update React state whenever health changes
+  const syncUI = () => {
+    setHp({
+      health: playerHealth.health,
+      maxHealth: playerHealth.maxHealth,
+      armor: playerHealth.armor,
+      isDead: playerHealth.isDead,
+    });
+  };
+
+  playerHealth.onDamage = syncUI;
+  playerHealth.onHeal = syncUI;
+  playerHealth.onDeath = syncUI;
+  playerHealth.onRespawn = syncUI;
+
+  // Listen for enemy attacks
+  const onEnemyAttack = (e: CustomEvent) => {
+    playerHealth.takeDamage(e.detail.damage);
+  };
+  window.addEventListener("enemy-attack", onEnemyAttack as EventListener);
+
+  // Keyboard helpers
+  const onKey = (e: KeyboardEvent) => {
+    if (e.code === "KeyR" && playerHealth.isDead) {
+      playerHealth.respawn(true);
+      // Optional: reset player position here
+    }
+    if (e.code === "KeyH") playerHealth.heal(25);      // test heal
+    if (e.code === "KeyG") playerHealth.addArmor(15); // test armor
+  };
+  window.addEventListener("keydown", onKey);
+
+  // Inside your animate loop:
+  // playerHealth.update(dt);
+  //
+  // // Optional screen damage effect
+  // const flash = playerHealth.getDamageOverlay();
+  // renderer.domElement.style.filter = flash > 0
+  //   ? `brightness(${1 - flash * 0.35}) sepia(${flash * 0.5})`
+  //   : "none";
+
+  return () => {
+    window.removeEventListener("enemy-attack", onEnemyAttack as EventListener);
+    window.removeEventListener("keydown", onKey);
+  };
+}, []);
+
+// In the JSX return:
+return (
+  <>
+    <div ref={mountRef} style={{ width: "100vw", height: "100vh", overflow: "hidden" }} />
+    <HealthHUD {...hp} />
+  </>
+);
