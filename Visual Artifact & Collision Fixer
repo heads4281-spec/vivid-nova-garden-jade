@@ -1,0 +1,182 @@
+Visual Artifact & Collision FixerReplace entire src/game/phys.ts
+/**
+ * ENGINE 5 — Spatial Hash + Continuous Collision Detection (CCD)
+ * 
+ * This file is the core physics layer for CRIMSON SOVEREIGN.
+ * It prevents the classic "player falls through the glowing red floor"
+ * and "clips through the geometric arches / palace walls" bugs that
+ * appear when frame-rate drops or the player moves quickly.
+ * 
+ * Key features:
+ *  - SpatialHash: fast broad-phase queries so we only test nearby AABBs
+ *  - sweepSphereAABB: continuous (not discrete) collision so the player
+ *    never tunnels through thin geometry regardless of delta-time
+ */
+
+export const ENGINE = 5; // Version tag – useful for debugging / hot-reload
+
+/**
+ * Axis-Aligned Bounding Box used for all static world geometry
+ * (floors, walls, columns, gate, energy rivers, etc.)
+ */
+export type AABB = {
+  minX: number; maxX: number;
+  minY: number; maxY: number;
+  minZ: number; maxZ: number;
+  id?: string; // optional tag e.g. "gate", "floor", "column"
+};
+
+/**
+ * Spatial Hash – divides the world into a grid of cells.
+ * Dramatically reduces the number of collision tests per frame.
+ * Cell size of 8 matches the scale of the palace (columns ~2 units wide).
+ */
+export class SpatialHash {
+  cell: number;
+  map = new Map<string, AABB[]>(); // key = "x,z" → list of boxes in that cell
+  all: AABB[] = [];                // flat list for occasional full rebuilds
+
+  constructor(cell = 8) {
+    this.cell = cell;
+  }
+
+  /** Rebuild the hash from the full collider list (call after world.build()) */
+  rebuild(list: AABB[]) {
+    this.all = list;
+    this.map.clear();
+    const c = this.cell;
+    for (const b of list) {
+      // Determine which cells this AABB overlaps
+      const x0 = Math.floor(b.minX / c);
+      const x1 = Math.floor(b.maxX / c);
+      const z0 = Math.floor(b.minZ / c);
+      const z1 = Math.floor(b.maxZ / c);
+      for (let x = x0; x <= x1; x++) {
+        for (let z = z0; z <= z1; z++) {
+          const k = `${x},${z}`;
+          let arr = this.map.get(k);
+          if (!arr) {
+            arr = [];
+            this.map.set(k, arr);
+          }
+          arr.push(b);
+        }
+      }
+    }
+  }
+
+  /**
+   * Query all AABBs near a point (used for player movement).
+   * Returns only candidates within radius r – extremely fast.
+   */
+  query(x: number, z: number, r: number): AABB[] {
+    const c = this.cell;
+    const x0 = Math.floor((x - r) / c);
+    const x1 = Math.floor((x + r) / c);
+    const z0 = Math.floor((z - r) / c);
+    const z1 = Math.floor((z + r) / c);
+    const seen = new Set<AABB>(); // prevent duplicates across cell borders
+    const out: AABB[] = [];
+    for (let ix = x0; ix <= x1; ix++) {
+      for (let iz = z0; iz <= z1; iz++) {
+        const arr = this.map.get(`${ix},${iz}`);
+        if (!arr) continue;
+        for (const b of arr) {
+          if (!seen.has(b)) {
+            seen.add(b);
+            out.push(b);
+          }
+        }
+      }
+    }
+    return out;
+  }
+}
+
+/**
+ * Simple 2-D circle-vs-AABB test (used for ground pickups, runes, etc.)
+ */
+export function circleHitsAABB(x: number, z: number, r: number, b: AABB) {
+  const cx = Math.max(b.minX, Math.min(x, b.maxX));
+  const cz = Math.max(b.minZ, Math.min(z, b.maxZ));
+  return (x - cx) ** 2 + (z - cz) ** 2 < r * r;
+}
+
+/**
+ * CONTINUOUS COLLISION DETECTION
+ * Sweeps a sphere from (x0,y0,z0) → (x1,y1,z1) against an AABB.
+ * Returns the earliest hit time t ∈ [0,1], or null if no hit.
+ * This is the key that stops the player from falling through the floor
+ * or clipping the red arches even at low frame rates.
+ */
+export function sweepSphereAABB(
+  x0: number, y0: number, z0: number,
+  x1: number, y1: number, z1: number,
+  r: number, b: AABB
+): number | null {
+  // Expand the box by the sphere radius (Minkowski sum)
+  const minX = b.minX - r, maxX = b.maxX + r;
+  const minY = b.minY - r, maxY = b.maxY + r;
+  const minZ = b.minZ - r, maxZ = b.maxZ + r;
+
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+  let tmin = 0, tmax = 1;
+
+  // Test against the three axis-aligned slabs
+  for (const [mn, mx, p, d] of [
+    [minX, maxX, x0, dx],
+    [minY, maxY, y0, dy],
+    [minZ, maxZ, z0, dz],
+  ] as const) {Player movement + collision snippet (place inside the main update / frame loop of CrimsonGame):
+
+    if (Math.abs(d) < 1e-8) {
+      // Ray is parallel to the slab – miss if outside
+      if (p < mn || p > mx) return null;
+      continue;
+    }
+    let t1 = (mn - p) / d;
+    let t2 = (mx - p) / d;
+    if (t1 > t2) [t1, t2] = [t2, t1]; // ensure t1 < t2
+    tmin = Math.max(tmin, t1);
+    tmax = Math.min(tmax, t2);
+    if (tmin > tmax) return null; // no overlap
+  }
+  return tmin; // earliest time of impact
+}
+
+/** Linear interpolation helper used after a sweep hit */
+export function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}// ---------------------------------------------------------------
+// CCD PLAYER MOVEMENT
+// Prevents falling through the glowing red floor and clipping
+// the geometric arches / palace walls, even when dt is large.
+// ---------------------------------------------------------------
+const RADIUS = 0.38; // player capsule radius (matches character scale)
+
+// Only test nearby colliders (SpatialHash makes this cheap)
+const candidates = this.hash.query(this.px, this.pz, RADIUS + 2);
+
+// Desired new position after this frame’s velocity
+let nx = this.px + this.vx * dt;
+let ny = this.py + this.vy * dt;
+let nz = this.pz + this.vz * dt;
+
+// Find the earliest collision along the movement ray
+let hitT = 1;
+for (const box of candidates) {
+  const t = sweepSphereAABB(this.px, this.py, this.pz, nx, ny, nz, RADIUS, box);
+  if (t !== null && t < hitT) hitT = t;
+}
+
+// Move only up to the hit point (or full distance if no hit)
+this.px = lerp(this.px, nx, hitT);
+this.py = lerp(this.py, ny, hitT);
+this.pz = lerp(this.pz, nz, hitT);
+
+// Hard ground snap (the red floor is at y ≈ 0)
+if (this.py < 0.35) {
+  this.py = 0.35;
+  this.vy = 0;
+  this.grounded = true;
+}
