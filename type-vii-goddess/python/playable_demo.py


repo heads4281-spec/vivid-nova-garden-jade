@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""Simple console playable demo – Type VII Goddess"""
+import json, os
+
+with open("data/skills_35.json") as f:
+    skills = json.load(f)["skills"]
+with open("data/weapons.json") as f:
+    weapons = json.load(f)["weapons"]
+
+print("=== TYPE VII GODDESS – LIVE DEMO ===")
+print("Commands: skill <id> <level> | weapon <id> | realms | quit")
+
+while True:
+    cmd = input("> ").strip().lower().split()
+    if not cmd: continue
+    if cmd[0] == "quit": break
+    if cmd[0] == "skill" and len(cmd) == 3:
+        sid, lvl = int(cmd[1]), int(cmd[2])
+        s = next((x for x in skills if x["id"] == sid), None)
+        if s:
+            print(f"{s['name']} (Lv{lvl}): {s['levels'][str(lvl)]}")
+        else:
+            print("Skill not found")
+    elif cmd[0] == "weapon" and len(cmd) == 2:
+        w = next((x for x in weapons if x["id"] == cmd[1].upper()), None)
+        print(w if w else "Weapon not found")
+    elif cmd[0] == "realms":
+        print("1 Vaelith | 2 Rynara | 3 Sanguara | 4 Eryndra | 5 Nyxara | 6 Aelith")
+    else:
+        print("Unknown command")
