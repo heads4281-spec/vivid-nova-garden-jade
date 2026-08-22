@@ -1,0 +1,27 @@
+import { WeaponPersistence } from "./weapon-persistence";
+
+// Create once (usually at the top of GameApp)
+const weaponData = new WeaponPersistence();
+
+// === Input examples ===
+if (keys.has("KeyQ")) weaponData.prevWeapon();
+if (keys.has("KeyE")) weaponData.nextWeapon();
+
+// Fire
+if (isFiring && weaponData.canFire()) {
+  weaponData.consumeAmmo();
+  // your shooting logic here...
+}
+
+// Reload
+if (keys.has("KeyR")) {
+  weaponData.reload();
+}
+
+// Unlock example (after claiming a Name, etc.)
+weaponData.unlock(3); // unlocks Ankh Beam
+
+// Read current data
+const currentWeapon = weaponData.current;
+const ammo = weaponData.currentState;
+console.log(`${currentWeapon.name} — ${ammo.mag} / ${ammo.reserve}`);
