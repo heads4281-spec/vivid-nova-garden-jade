@@ -1,0 +1,59 @@
+. UI / Input Ghosting FixerUpdate the touch + UI section in src/game/input.ts
+/**
+ * Isolates HUD buttons (FIRE / JUMP / SPRINT etc.) from the canvas.
+ * Stops “input bleeding” on mobile.
+ * CRITICAL VIBE CONSTRAINT: No visual or color changes.
+ */
+
+attach(el: HTMLElement) {
+  this.el = el;
+  this.isCoarse = window.matchMedia("(pointer: coarse)").matches;
+  if (this.isCoarse) this.activeDevice = "touch";
+
+  // ... keep all existing keyboard / mouse / pad code ...
+
+  // Touch handlers – stopPropagation prevents HUD events reaching the canvas
+  const ts = (e: TouchEvent) => {
+    e.stopPropagation();
+    this.activeDevice = "touch";
+    for (const t of Array.from(e.changedTouches)) {
+      if (t.clientX < window.innerWidth * 0.42 && this.moveTouch === null) {
+        this.moveTouch = t.identifier;
+        this.moveOriginX = t.clientX;
+        this.moveOriginY = t.clientY;
+      } else if (this.lookTouch === null) {
+        this.lookTouch = t.identifier;
+        this.lastLookX = t.clientX;
+        this.lastLookY = t.clientY;
+        this.touchLookActive = true;
+      }
+    }
+  };
+
+  const tm = (e: TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // ... existing move/look delta logic ...
+  };
+
+  const te = (e: TouchEvent) => {
+    e.stopPropagation();
+    // ... existing end/swipe logic ...
+  };
+
+  el.addEventListener("touchstart", ts, { passive: true });
+  el.addEventListener("touchmove", tm, { passive: false });
+  el.addEventListener("touchend", te);
+  el.addEventListener("touchcancel", te);
+
+  // Pure UI interface used only by React HUD buttons
+  this.ui = {
+    fire: (v: boolean) => { this.uiFire = v; },
+    jump: () => { this.jumpPressed = true; },
+    sprint: (v: boolean) => { this.uiSprint = v; },
+    move: (x: number, y: number) => {
+      this.uiMoveX = x;
+      this.uiMoveY = y;
+    },
+  };
+}
