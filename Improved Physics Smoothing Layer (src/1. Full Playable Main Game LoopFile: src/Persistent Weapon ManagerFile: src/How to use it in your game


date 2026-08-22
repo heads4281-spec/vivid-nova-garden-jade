@@ -1,0 +1,26 @@
+import { WeaponPersistence } from "./weapon-persistence";
+import { WeaponUpgradeSystem } from "./weapon-upgrades";
+
+// Create the systems
+const weaponData = new WeaponPersistence();
+const upgradeSystem = new WeaponUpgradeSystem(weaponData);
+
+// Give the player some upgrade points (example)
+upgradeSystem.addPoints(5);
+
+// Upgrade the current weapon
+if (upgradeSystem.canUpgrade(weaponData.currentWeaponId)) {
+  const success = upgradeSystem.upgrade(weaponData.currentWeaponId);
+  if (success) {
+    console.log("Weapon upgraded!");
+  }
+}
+
+// Always use the upgraded version when shooting
+const weapon = upgradeSystem.currentUpgraded;
+
+if (weaponData.canFire()) {
+  const damage = weapon.damage;
+  // apply damage to enemies...
+  weaponData.consumeAmmo();
+}
