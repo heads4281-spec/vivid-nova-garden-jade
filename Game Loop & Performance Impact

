@@ -1,0 +1,58 @@
+// phys.ts – already present, just ensure it is used
+export function sweepSphereAABB(
+  ox: number, oz: number,
+  dx: number, dz: number,
+  r: number,
+  b: AABB
+): { hit: boolean; t: number; nx: number; nz: number } {
+  // robust slab + circle sweep (implementation already in your phys module)
+  // returns earliest t in [0,1] and contact normal
+}
+
+// engine.ts – player movement (replace the old discrete block)
+const MAX_DT = 1 / 30;          // hard cap
+const SUBSTEPS = 4;             // fixed sub-steps for stability
+const RADIUS = 0.38;
+
+function movePlayer(dt: number) {
+  // 1. Cap and subdivide
+  let remaining = Math.min(dt, MAX_DT);
+  const subDt = remaining / SUBSTEPS;
+
+  for (let s = 0; s < SUBSTEPS; s++) {
+    // desired displacement this sub-step
+    let dx = this.vx * subDt;
+    let dz = this.vz * subDt;
+
+    // 2. Continuous sweep against all nearby colliders (SpatialHash already filters)
+    const candidates = this.hash.query(this.px, this.pz, RADIUS + Math.hypot(dx, dz));
+    let earliest = 1;
+    let nx = 0, nz = 0;
+
+    for (const b of candidates) {
+      const res = sweepSphereAABB(this.px, this.pz, dx, dz, RADIUS, b);
+      if (res.hit && res.t < earliest) {
+        earliest = res.t;
+        nx = res.nx;
+        nz = res.nz;
+      }
+    }
+
+    // 3. Advance only to the point of first contact
+    this.px += dx * earliest;
+    this.pz += dz * earliest;
+
+    if (earliest < 1) {
+      // slide response (zero-allocation)
+      const dot = this.vx * nx + this.vz * nz;
+      this.vx -= nx * dot;
+      this.vz -= nz * dot;
+      // optional: tiny depenetration
+      this.px += nx * 0.001;
+      this.pz += nz * 0.001;
+    }
+  }
+
+  // 4. Ground / gravity still discrete (Y is far simpler)
+  // … existing Y code …
+}
