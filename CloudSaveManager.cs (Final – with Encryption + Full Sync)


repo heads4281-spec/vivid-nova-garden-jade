@@ -1,0 +1,244 @@
+using UnityEngine;
+using UnityEngine.Networking;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Security.Cryptography;
+
+public class CloudSaveManager : MonoBehaviour
+{
+    public static CloudSaveManager Instance { get; private set; }
+
+    public enum CloudProvider { LocalOnly, PlayFab, Steam, CustomHTTP }
+    public enum SyncStatus { Idle, Syncing, Success, Failed, Offline }
+
+    [Header("Provider")]
+    public CloudProvider provider = CloudProvider.CustomHTTP;
+
+    [Header("Custom HTTP")]
+    public string cloudBaseUrl = "https://your-backend.com/api/typevii/";
+    public string playerId = "player_001";
+
+    [Header("Sync")]
+    public bool autoSyncOnSave = true;
+    public bool autoSyncOnStart = true;
+    public float retryInterval = 12f;
+    public int maxRetries = 6;
+
+    [Header("Encryption Key (change this!)")]
+    public string encryptionKey = "TypeVII_Goddess_Secret_Key_2026!";
+
+    [Header("Status")]
+    public SyncStatus currentStatus = SyncStatus.Idle;
+    public string lastSyncTime = "-";
+    public string lastError = "";
+
+    public Action<SyncStatus> OnSyncStatusChanged;
+    public Action<string> OnCloudDataLoaded;
+
+    private Queue<string> pending = new Queue<string>();
+    private bool isSyncing;
+    private int retries;
+    private string LocalPath => Path.Combine(Application.persistentDataPath, "TypeVII_PitySave.json");
+
+    void Awake()
+    {
+        if (Instance == null) { Instance = this; DontDestroyOnLoad(gameObject); }
+        else Destroy(gameObject);
+    }
+
+    void Start()
+    {
+        if (autoSyncOnStart) StartCoroutine(InitialSync());
+    }
+
+    // -------------------- PUBLIC --------------------
+    public void SavePityData(string encryptedJson)
+    {
+        File.WriteAllText(LocalPath, encryptedJson);
+
+        if (provider == CloudProvider.LocalOnly) return;
+
+        pending.Enqueue(encryptedJson);
+        if (autoSyncOnSave && !isSyncing)
+            StartCoroutine(ProcessQueue());
+    }
+
+    public void LoadPityData(Action<string> onLoaded)
+    {
+        StartCoroutine(LoadRoutine(onLoaded));
+    }
+
+    public void ForceSyncNow()
+    {
+        if (File.Exists(LocalPath))
+            pending.Enqueue(File.ReadAllText(LocalPath));
+        if (!isSyncing) StartCoroutine(ProcessQueue());
+    }
+
+    // -------------------- ENCRYPTION --------------------
+    public static string Encrypt(string plain)
+    {
+        byte[] key = Encoding.UTF8.GetBytes(Instance.encryptionKey.PadRight(32).Substring(0, 32));
+        using var aes = Aes.Create();
+        aes.Key = key;
+        aes.GenerateIV();
+        using var encryptor = aes.CreateEncryptor();
+        byte[] plainBytes = Encoding.UTF8.GetBytes(plain);
+        byte[] cipher = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
+
+        byte[] result = new byte[aes.IV.Length + cipher.Length];
+        Buffer.BlockCopy(aes.IV, 0, result, 0, aes.IV.Length);
+        Buffer.BlockCopy(cipher, 0, result, aes.IV.Length, cipher.Length);
+        return Convert.ToBase64String(result);
+    }
+
+    public static string Decrypt(string encrypted)
+    {
+        try
+        {
+            byte[] full = Convert.FromBase64String(encrypted);
+            byte[] key = Encoding.UTF8.GetBytes(Instance.encryptionKey.PadRight(32).Substring(0, 32));
+            using var aes = Aes.Create();
+            aes.Key = key;
+
+            byte[] iv = new byte[16];
+            byte[] cipher = new byte[full.Length - 16];
+            Buffer.BlockCopy(full, 0, iv, 0, 16);
+            Buffer.BlockCopy(full, 16, cipher, 0, cipher.Length);
+            aes.IV = iv;
+
+            using var decryptor = aes.CreateDecryptor();
+            byte[] plain = decryptor.TransformFinalBlock(cipher, 0, cipher.Length);
+            return Encoding.UTF8.GetString(plain);
+        }
+        catch
+        {
+            return encrypted; // already plain or corrupted
+        }
+    }
+
+    // -------------------- SYNC LOGIC --------------------
+    IEnumerator InitialSync()
+    {
+        yield return LoadRoutine(null);
+        if (File.Exists(LocalPath))
+        {
+            pending.Enqueue(File.ReadAllText(LocalPath));
+            yield return ProcessQueue();
+        }
+    }
+
+    IEnumerator ProcessQueue()
+    {
+        if (isSyncing) yield break;
+        isSyncing = true;
+        SetStatus(SyncStatus.Syncing);
+
+        while (pending.Count > 0)
+        {
+            string data = pending.Peek();
+            bool ok = false;
+            yield return Upload(data, r => ok = r);
+
+            if (ok)
+            {
+                pending.Dequeue();
+                retries = 0;
+                lastSyncTime = DateTime.Now.ToString("HH:mm:ss");
+                SetStatus(SyncStatus.Success);
+            }
+            else
+            {
+                retries++;
+                if (retries >= maxRetries)
+                {
+                    SetStatus(SyncStatus.Failed);
+                    break;
+                }
+                SetStatus(SyncStatus.Offline);
+                yield return new WaitForSeconds(retryInterval);
+            }
+        }
+        isSyncing = false;
+    }
+
+    IEnumerator LoadRoutine(Action<string> cb)
+    {
+        SetStatus(SyncStatus.Syncing);
+        string cloud = null;
+
+        switch (provider)
+        {
+            case CloudProvider.CustomHTTP:
+                yield return DownloadCustom(j => cloud = j);
+                break;
+            // PlayFab / Steam stubs ready for SDK
+            default:
+                cloud = null;
+                break;
+        }
+
+        if (!string.IsNullOrEmpty(cloud))
+        {
+            // Conflict: compare timestamps after decrypt
+            string localEnc = File.Exists(LocalPath) ? File.ReadAllText(LocalPath) : null;
+            string final = ResolveConflict(cloud, localEnc);
+            File.WriteAllText(LocalPath, final);
+            OnCloudDataLoaded?.Invoke(final);
+            cb?.Invoke(final);
+        }
+        else cb?.Invoke(null);
+
+        SetStatus(cloud == null ? SyncStatus.Offline : SyncStatus.Success);
+    }
+
+    string ResolveConflict(string cloudEnc, string localEnc)
+    {
+        if (string.IsNullOrEmpty(localEnc)) return cloudEnc;
+        if (string.IsNullOrEmpty(cloudEnc)) return localEnc;
+
+        try
+        {
+            var cloud = JsonUtility.FromJson<PitySaveData>(Decrypt(cloudEnc));
+            var local = JsonUtility.FromJson<PitySaveData>(Decrypt(localEnc));
+
+            // Newest timestamp wins
+            return cloud.timestamp >= local.timestamp ? cloudEnc : localEnc;
+        }
+        catch { return localEnc; }
+    }
+
+    // -------------------- HTTP --------------------
+    IEnumerator Upload(string data, Action<bool> done)
+    {
+        if (provider != CloudProvider.CustomHTTP) { done(true); yield break; }
+
+        using var req = new UnityWebRequest($"{cloudBaseUrl}pity/{playerId}", "PUT");
+        byte[] body = Encoding.UTF8.GetBytes(data);
+        req.uploadHandler = new UploadHandlerRaw(body);
+        req.downloadHandler = new DownloadHandlerBuffer();
+        req.SetRequestHeader("Content-Type", "application/json");
+        req.timeout = 10;
+
+        yield return req.SendWebRequest();
+        done(req.result == UnityWebRequest.Result.Success);
+        if (req.result != UnityWebRequest.Result.Success) lastError = req.error;
+    }
+
+    IEnumerator DownloadCustom(Action<string> done)
+    {
+        using var req = UnityWebRequest.Get($"{cloudBaseUrl}pity/{playerId}");
+        req.timeout = 10;
+        yield return req.SendWebRequest();
+        done(req.result == UnityWebRequest.Result.Success ? req.downloadHandler.text : null);
+    }
+
+    void SetStatus(SyncStatus s)
+    {
+        currentStatus = s;
+        OnSyncStatusChanged?.Invoke(s);
+    }
+}
