@@ -1,0 +1,74 @@
+import * as THREE from "three";
+import { WEAPONS, type WeaponDef } from "./arsenal";
+
+export class WeaponSystem {
+  private current: WeaponDef;
+  private lastShot = 0;
+  private mag: number;
+  private reserve: number;
+  private reloading = false;
+
+  constructor(private scene: THREE.Scene) {
+    this.current = WEAPONS[0];
+    this.mag = this.current.mag;
+    this.reserve = this.current.reserve;
+  }
+
+  switch(index: number) {
+    this.current = WEAPONS[Math.max(0, Math.min(WEAPONS.length - 1, index))];
+    this.mag = this.current.mag;
+    this.reserve = this.current.reserve;
+    this.reloading = false;
+  }
+
+  canFire(now: number) {
+    return !this.reloading && this.mag > 0 && now - this.lastShot > this.current.cooldown;
+  }
+
+  fire(origin: THREE.Vector3, direction: THREE.Vector3, now: number) {
+    if (!this.canFire(now)) return false;
+
+    this.lastShot = now;
+    this.mag--;
+
+    // Hitscan
+    if (this.current.fire === "hitscan" || this.current.fire === "melee") {
+      const ray = new THREE.Raycaster(origin, direction.normalize(), 0, this.current.range);
+      // You can add enemy meshes here later
+      console.log(`Fired ${this.current.name} – damage ${this.current.damage}`);
+    }
+
+    // Projectile
+    if (this.current.fire === "projectile") {
+      const geo = new THREE.SphereGeometry(0.08, 6, 6);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xff0033 });
+      const proj = new THREE.Mesh(geo, mat);
+      proj.position.copy(origin);
+      proj.userData = {
+        vel: direction.clone().multiplyScalar(55),
+        life: 2.2,
+        dmg: this.current.damage,
+      };
+      this.scene.add(proj);
+    }
+
+    if (this.mag <= 0) this.startReload();
+    return true;
+  }
+
+  startReload() {
+    if (this.reloading || this.reserve <= 0) return;
+    this.reloading = true;
+    setTimeout(() => {
+      const need = this.current.mag - this.mag;
+      const take = Math.min(need, this.reserve);
+      this.mag += take;
+      this.reserve -= take;
+      this.reloading = false;
+    }, this.current.reload * 1000);
+  }
+
+  updateProjectiles(dt: number) {
+    // simple projectile cleanup can be added here
+  }
+}
