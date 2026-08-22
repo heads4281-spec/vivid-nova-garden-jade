@@ -1,0 +1,85 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+public class PityUI : MonoBehaviour
+{
+    [Header("References")]
+    public PitySystem pitySystem;
+    public Slider progressBar;
+    public TextMeshProUGUI pityText;
+    public TextMeshProUGUI trackText;
+    public Image fillImage;
+
+    [Header("Colors")]
+    public Color blueColor   = new Color(0f, 0.9f, 1f);
+    public Color redColor    = new Color(1f, 0.15f, 0.25f);
+    public Color purpleColor = new Color(0.7f, 0f, 1f);
+    public Color triuneColor = new Color(1f, 0.8f, 0.2f);
+
+    [Header("Settings")]
+    public string watchedTableID = "Boss_Vaelith";   // change per screen
+    public PityTrack watchedTrack = PityTrack.Global;
+
+    void OnEnable()
+    {
+        if (pitySystem == null) pitySystem = PitySystem.Instance;
+        if (pitySystem != null)
+            pitySystem.OnPityChanged += Refresh;
+        Refresh();
+    }
+
+    void OnDisable()
+    {
+        if (pitySystem != null)
+            pitySystem.OnPityChanged -= Refresh;
+    }
+
+    public void SetTracked(string tableID, PityTrack track)
+    {
+        watchedTableID = tableID;
+        watchedTrack = track;
+        Refresh();
+    }
+
+    void Refresh()
+    {
+        if (pitySystem == null) return;
+
+        int current = pitySystem.GetCurrentPity(watchedTableID, watchedTrack);
+        float progress = pitySystem.GetPityProgress(watchedTableID, watchedTrack);
+
+        if (progressBar != null)
+            progressBar.value = progress;
+
+        if (pityText != null)
+            pityText.text = $"{current} / {pitySystem.GetOrCreateCounterPublic(watchedTableID, watchedTrack).hardPity}";
+
+        if (trackText != null)
+            trackText.text = watchedTrack.ToString().ToUpper();
+
+        if (fillImage != null)
+        {
+            fillImage.color = watchedTrack switch
+            {
+                PityTrack.Blue   => blueColor,
+                PityTrack.Red    => redColor,
+                PityTrack.Purple => purpleColor,
+                PityTrack.Triune => triuneColor,
+                _                => Color.white
+            };
+        }
+    }
+}
+
+// Small helper extension so UI can read hardPity
+public static class PitySystemExtensions
+{
+    public static PityCounter GetOrCreateCounterPublic(this PitySystem sys, string tableID, PityTrack track)
+    {
+        // This is a public wrapper – in real code you can make GetOrCreateCounter public
+        return sys.GetType()
+                  .GetMethod("GetOrCreateCounter", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                  .Invoke(sys, new object[] { tableID, track }) as PityCounter;
+    }
+}
