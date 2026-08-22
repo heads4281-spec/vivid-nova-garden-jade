@@ -1,0 +1,151 @@
+Weapon Upgrade System – Complete & PersistentHere’s a full, ready-to-use Weapon Upgrade System that works with your existing WeaponPersistence and arsenal.ts.
+
+// src/game/weapon-upgrades.ts
+import { WEAPONS, type WeaponDef } from "./arsenal";
+import { WeaponPersistence } from "./weapon-persistence";
+
+export interface UpgradeLevel {
+  level: number;
+  damageMul: number;
+  magBonus: number;
+  reloadMul: number;
+  cooldownMul: number;
+  spreadMul: number;
+  rangeBonus: number;
+}
+
+export interface WeaponUpgradeState {
+  weaponId: number;
+  level: number;        // 0 = base → max 5
+  spentPoints: number;
+}
+
+const UPGRADE_SAVE_KEY = "crimson_sovereign_upgrades_v1";
+const MAX_LEVEL = 5;
+
+// Bonus values per level
+const LEVEL_BONUSES: UpgradeLevel[] = [
+  { level: 0, damageMul: 1.00, magBonus: 0,  reloadMul: 1.00, cooldownMul: 1.00, spreadMul: 1.00, rangeBonus: 0 },
+  { level: 1, damageMul: 1.12, magBonus: 2,  reloadMul: 0.94, cooldownMul: 0.95, spreadMul: 0.92, rangeBonus: 8 },
+  { level: 2, damageMul: 1.25, magBonus: 4,  reloadMul: 0.88, cooldownMul: 0.90, spreadMul: 0.85, rangeBonus: 16 },
+  { level: 3, damageMul: 1.40, magBonus: 6,  reloadMul: 0.82, cooldownMul: 0.85, spreadMul: 0.78, rangeBonus: 25 },
+  { level: 4, damageMul: 1.58, magBonus: 9,  reloadMul: 0.76, cooldownMul: 0.80, spreadMul: 0.70, rangeBonus: 35 },
+  { level: 5, damageMul: 1.80, magBonus: 12, reloadMul: 0.70, cooldownMul: 0.74, spreadMul: 0.62, rangeBonus: 50 },
+];
+
+export class WeaponUpgradeSystem {
+  private upgrades = new Map<number, WeaponUpgradeState>();
+  public availablePoints = 0;
+
+  constructor(private weaponData: WeaponPersistence) {
+    // Initialize every weapon at level 0
+    WEAPONS.forEach((w) => {
+      this.upgrades.set(w.id, {
+        weaponId: w.id,
+        level: 0,
+        spentPoints: 0,
+      });
+    });
+
+    this.load();
+  }
+
+  /** Current level of a weapon */
+  getLevel(weaponId: number): number {
+    return this.upgrades.get(weaponId)?.level ?? 0;
+  }
+
+  /** Bonus multipliers for a weapon */
+  getBonuses(weaponId: number): UpgradeLevel {
+    const level = Math.min(this.getLevel(weaponId), MAX_LEVEL);
+    return LEVEL_BONUSES[level];
+  }
+
+  /** Returns the weapon with all upgrades applied */
+  getUpgradedWeapon(weaponId: number): WeaponDef {
+    const base = WEAPONS.find((w) => w.id === weaponId) || WEAPONS[0];
+    const bonus = this.getBonuses(weaponId);
+
+    return {
+      ...base,
+      damage: Math.round(base.damage * bonus.damageMul),
+      mag: base.mag + bonus.magBonus,
+      reload: +(base.reload * bonus.reloadMul).toFixed(2),
+      cooldown: +(base.cooldown * bonus.cooldownMul).toFixed(3),
+      spread: +(base.spread * bonus.spreadMul).toFixed(4),
+      range: Math.round(base.range + bonus.rangeBonus),
+    };
+  }
+
+  /** Currently equipped weapon with upgrades */
+  get currentUpgraded(): WeaponDef {
+    return this.getUpgradedWeapon(this.weaponData.currentWeaponId);
+  }
+
+  /** Upgrade a weapon (costs 1 point) */
+  upgrade(weaponId: number): boolean {
+    const state = this.upgrades.get(weaponId);
+    if (!state) return false;
+    if (state.level >= MAX_LEVEL) return false;
+    if (this.availablePoints < 1) return false;
+
+    this.availablePoints -= 1;
+    state.level += 1;
+    state.spentPoints += 1;
+
+    // Keep current magazine from overflowing
+    if (weaponId === this.weaponData.currentWeaponId) {
+      const upgraded = this.getUpgradedWeapon(weaponId);
+      const live = this.weaponData.getState(weaponId);
+      live.mag = Math.min(live.mag, upgraded.mag);
+    }
+
+    this.save();
+    return true;
+  }
+
+  /** Add upgrade points (call when player earns them) */
+  addPoints(amount: number) {
+    this.availablePoints += amount;
+    this.save();
+  }
+
+  canUpgrade(weaponId: number): boolean {
+    const state = this.upgrades.get(weaponId);
+    return !!state && state.level < MAX_LEVEL && this.availablePoints > 0;
+  }
+
+  // ---------- Persistence ----------
+  save() {
+    const data = {
+      availablePoints: this.availablePoints,
+      upgrades: Array.from(this.upgrades.values()),
+    };
+    localStorage.setItem(UPGRADE_SAVE_KEY, JSON.stringify(data));
+  }
+
+  load() {
+    const raw = localStorage.getItem(UPGRADE_SAVE_KEY);
+    if (!raw) return;
+
+    try {
+      const data = JSON.parse(raw);
+      this.availablePoints = data.availablePoints ?? 0;
+
+      data.upgrades?.forEach((u: WeaponUpgradeState) => {
+        this.upgrades.set(u.weaponId, u);
+      });
+    } catch (err) {
+      console.warn("Failed to load upgrades", err);
+    }
+  }
+
+  reset() {
+    localStorage.removeItem(UPGRADE_SAVE_KEY);
+    this.availablePoints = 0;
+    this.upgrades.forEach((u) => {
+      u.level = 0;
+      u.spentPoints = 0;
+    });
+  }
+}
