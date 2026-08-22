@@ -1,0 +1,4 @@
+checkpointManager.add(new THREE.Vector3(0, 0, -8), "Threshold");
+checkpointManager.add(new THREE.Vector3(11, 0, -17), "First Spire");
+checkpointManager.add(new THREE.Vector3(-13, 0, -25), "Blood Canal");
+checkpointManager.add(new THREE.Vector3(0, 0, -40), "Palace Gate");
