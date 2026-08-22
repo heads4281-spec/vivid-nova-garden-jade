@@ -1,0 +1,5 @@
+Add the scripts:InventorySystem + EquipmentSystem on a GameObject called Systems
+InventoryUI on the Canvas
+Press I in Play Mode → Inventory opens
+Right-click / Shift+Click any weapon → Equip
+
