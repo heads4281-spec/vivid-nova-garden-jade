@@ -1,0 +1,47 @@
+import { BloodOverlay } from "../components/BloodOverlay";
+import { HealthVialManager } from "./health-vial";
+import { PlayerHealth } from "./player-health";
+
+// Inside the component
+const playerHealth = React.useRef(new PlayerHealth(100)).current;
+const [overlay, setOverlay] = React.useState({
+  damageFlash: 0,
+  lowHealthPulse: 0,
+  isDead: false,
+});
+
+useEffect(() => {
+  // ... existing setup ...
+
+  const vialManager = new HealthVialManager(scene);
+
+  // Spawn some vials near the player at start
+  vialManager.spawnAround(new THREE.Vector3(0, 0, 0), 5, 14);
+
+  // Inside animate loop:
+  playerHealth.update(dt);
+  vialManager.update(dt, playerPos, playerHealth);
+
+  // Update overlay state
+  setOverlay({
+    damageFlash: playerHealth.getDamageOverlay(),
+    lowHealthPulse: playerHealth.getLowHealthPulse(),
+    isDead: playerHealth.isDead,
+  });
+
+  // ... rest of loop
+}, []);
+
+// In the return JSX:
+return (
+  <>
+    <div ref={mountRef} style={{ width: "100vw", height: "100vh" }} />
+    <HealthHUD
+      health={playerHealth.health}
+      maxHealth={playerHealth.maxHealth}
+      armor={playerHealth.armor}
+      isDead={playerHealth.isDead}
+    />
+    <BloodOverlay {...overlay} />
+  </>
+);
