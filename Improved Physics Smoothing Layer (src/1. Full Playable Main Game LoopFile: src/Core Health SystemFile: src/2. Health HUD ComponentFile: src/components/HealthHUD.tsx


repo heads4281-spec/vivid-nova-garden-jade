@@ -1,0 +1,73 @@
+import React from "react";
+
+interface HealthHUDProps {
+  health: number;
+  maxHealth: number;
+  armor: number;
+  isDead: boolean;
+}
+
+export function HealthHUD({ health, maxHealth, armor, isDead }: HealthHUDProps) {
+  const pct = Math.max(0, Math.min(1, health / maxHealth));
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        left: 28,
+        bottom: 28,
+        zIndex: 100,
+        fontFamily: "monospace",
+        color: "#ff0033",
+        textShadow: "0 0 10px #ff0033aa",
+        pointerEvents: "none",
+        userSelect: "none",
+      }}
+    >
+      {isDead ? (
+        <div style={{ fontSize: 26, letterSpacing: 6, fontWeight: "bold" }}>
+          YOU HAVE FALLEN
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 13, marginBottom: 6, letterSpacing: 3 }}>
+            VITAL
+          </div>
+
+          {/* Health bar */}
+          <div
+            style={{
+              width: 240,
+              height: 16,
+              background: "#120008",
+              border: "1px solid #ff0033",
+              borderRadius: 3,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${pct * 100}%`,
+                height: "100%",
+                background:
+                  pct < 0.3
+                    ? "linear-gradient(90deg, #ff1144, #ff0033)"
+                    : "linear-gradient(90deg, #c41e3a, #ff0033)",
+                transition: "width 0.18s ease-out",
+              }}
+            />
+          </div>
+
+          <div style={{ fontSize: 13, marginTop: 6 }}>
+            {Math.ceil(health)} / {maxHealth}
+            {armor > 0 && (
+              <span style={{ marginLeft: 12, color: "#d4a017" }}>
+                ARMOR {Math.ceil(armor)}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
