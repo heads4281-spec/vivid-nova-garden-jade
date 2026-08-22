@@ -1,0 +1,44 @@
+import { PlayerHealth } from "./player-health";
+import { HealthHUD } from "../components/HealthHUD";
+import { EnemyManager } from "./enemy-ai";
+
+// At the top of the component
+const playerHealth = React.useRef(new PlayerHealth(100)).current;
+const [hud, setHud] = React.useState({
+  health: 100,
+  maxHealth: 100,
+  armor: 0,
+  isDead: false,
+});
+
+// Inside useEffect, after creating enemyManager:
+playerHealth.onDamage = (amount, current) => {
+  setHud((prev) => ({ ...prev, health: current }));
+  console.log(`Took ${amount} damage → ${current} HP`);
+};
+
+playerHealth.onDeath = () => {
+  setHud((prev) => ({ ...prev, isDead: true, health: 0 }));
+  console.log("Player died");
+};
+
+playerHealth.onRespawn = () => {
+  setHud({
+    health: playerHealth.health,
+    maxHealth: playerHealth.maxHealth,
+    armor: playerHealth.armor,
+    isDead: false,
+  });
+};
+
+// Inside the animate loop:
+playerHealth.update(dt);
+
+// When an enemy attacks (from EnemyManager or event):
+// playerHealth.takeDamage(damageAmount);
+
+// Example: press H to heal, R to respawn (for testing)
+window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyH") playerHealth.heal(25);
+  if (e.code === "KeyR" && playerHealth.isDead) playerHealth.respawn(true);
+});
