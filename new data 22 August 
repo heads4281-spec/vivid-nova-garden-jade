@@ -1,0 +1,320 @@
+**Updated Spatial Grid with full Rectangle (AABB) support**
+
+Here is the complete, single-file version that now uses **Axis-Aligned Bounding Boxes** instead of circles.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spatial Grid + AABB Collisions</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #111;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: monospace;
+  }
+  canvas { background: #000; display: block; }
+  #ui {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    color: #0f0;
+    font-size: 14px;
+    line-height: 1.5;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui"></div>
+
+<script>
+"use strict";
+
+/* ===================== CONFIG ===================== */
+const W = 900;
+const H = 600;
+const CELL_SIZE = 64;          // tune this
+const NUM_OBJECTS = 450;       // try higher if you want
+const SHOW_GRID = true;
+
+/* ===================== CANVAS ===================== */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d", { alpha: false });
+const ui = document.getElementById("ui");
+
+let dpr = Math.min(devicePixelRatio || 1, 2);
+function resize() {
+  dpr = Math.min(devicePixelRatio || 1, 2);
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener("resize", resize);
+
+/* ===================== SPATIAL GRID (AABB version) ===================== */
+class SpatialGrid {
+  constructor(width, height, cellSize) {
+    this.cellSize = cellSize;
+    this.cols = Math.ceil(width / cellSize);
+    this.rows = Math.ceil(height / cellSize);
+    this.cells = new Array(this.cols * this.rows);
+    for (let i = 0; i < this.cells.length; i++) this.cells[i] = [];
+  }
+
+  clear() {
+    for (let i = 0; i < this.cells.length; i++) {
+      this.cells[i].length = 0;
+    }
+  }
+
+  // Insert an AABB object: {x, y, w, h}
+  insert(obj) {
+    const minX = Math.max(0, Math.floor(obj.x / this.cellSize));
+    const maxX = Math.min(this.cols - 1, Math.floor((obj.x + obj.w) / this.cellSize));
+    const minY = Math.max(0, Math.floor(obj.y / this.cellSize));
+    const maxY = Math.min(this.rows - 1, Math.floor((obj.y + obj.h) / this.cellSize));
+
+    obj._cells = [];
+    for (let cy = minY; cy <= maxY; cy++) {
+      for (let cx = minX; cx <= maxX; cx++) {
+        const idx = cy * this.cols + cx;
+        this.cells[idx].push(obj);
+        obj._cells.push(idx);
+      }
+    }
+  }
+
+  // Return unique candidates that share cells with obj
+  getCandidates(obj) {
+    const set = new Set();
+    for (const idx of obj._cells) {
+      const cell = this.cells[idx];
+      for (let i = 0; i < cell.length; i++) {
+        const other = cell[i];
+        if (other !== obj) set.add(other);
+      }
+    }
+    return set;
+  }
+
+  draw(ctx) {
+    ctx.strokeStyle = "rgba(0,255,0,0.12)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= this.cols; x++) {
+      ctx.beginPath();
+      ctx.moveTo(x * this.cellSize, 0);
+      ctx.lineTo(x * this.cellSize, H);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= this.rows; y++) {
+      ctx.beginPath();
+      ctx.moveTo(0, y * this.cellSize);
+      ctx.lineTo(W, y * this.cellSize);
+      ctx.stroke();
+    }
+  }
+}
+
+const grid = new SpatialGrid(W, H, CELL_SIZE);
+
+/* ===================== AABB HELPERS ===================== */
+function aabbOverlap(a, b) {
+  return a.x < b.x + b.w &&
+         a.x + a.w > b.x &&
+         a.y < b.y + b.h &&
+         a.y + a.h > b.y;
+}
+
+// Returns penetration vector (how much to push a out of b)
+function aabbPenetration(a, b) {
+  const overlapX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+  const overlapY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+
+  if (overlapX < overlapY) {
+    // push on X axis
+    const dir = (a.x + a.w / 2) < (b.x + b.w / 2) ? -1 : 1;
+    return { x: dir * overlapX, y: 0 };
+  } else {
+    // push on Y axis
+    const dir = (a.y + a.h / 2) < (b.y + b.h / 2) ? -1 : 1;
+    return { x: 0, y: dir * overlapY };
+  }
+}
+
+/* ===================== OBJECTS ===================== */
+const objects = [];
+for (let i = 0; i < NUM_OBJECTS; i++) {
+  const w = 18 + Math.random() * 28;
+  const h = 18 + Math.random() * 28;
+  objects.push({
+    x: Math.random() * (W - w),
+    y: Math.random() * (H - h),
+    w, h,
+    vx: (Math.random() - 0.5) * 160,
+    vy: (Math.random() - 0.5) * 160,
+    color: `hsl(${Math.random() * 360}, 70%, 55%)`,
+    colliding: false,
+    _cells: []
+  });
+}
+
+/* ===================== COLLISION PASS ===================== */
+function checkCollisions() {
+  grid.clear();
+  for (const obj of objects) {
+    obj.colliding = false;
+    grid.insert(obj);
+  }
+
+  let checks = 0;
+
+  for (const obj of objects) {
+    const candidates = grid.getCandidates(obj);
+
+    for (const other of candidates) {
+      // avoid checking the same pair twice
+      if (obj === other || obj > other) continue;
+
+      checks++;
+
+      if (aabbOverlap(obj, other)) {
+        obj.colliding = true;
+        other.colliding = true;
+
+        // Resolve penetration
+        const pen = aabbPenetration(obj, other);
+
+        // Separate equally
+        obj.x += pen.x * 0.5;
+        obj.y += pen.y * 0.5;
+        other.x -= pen.x * 0.5;
+        other.y -= pen.y * 0.5;
+
+        // Simple velocity response (bounce on the penetration axis)
+        if (pen.x !== 0) {
+          const temp = obj.vx;
+          obj.vx = other.vx;
+          other.vx = temp;
+        }
+        if (pen.y !== 0) {
+          const temp = obj.vy;
+          obj.vy = other.vy;
+          other.vy = temp;
+        }
+      }
+    }
+  }
+  return checks;
+}
+
+/* ===================== MAIN LOOP ===================== */
+let last = performance.now();
+let frames = 0, fpsTime = 0, fps = 0;
+let totalChecks = 0;
+
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+
+  // Move + wall bounce
+  for (const obj of objects) {
+    obj.x += obj.vx * dt;
+    obj.y += obj.vy * dt;
+
+    if (obj.x < 0)            { obj.x = 0;            obj.vx *= -1; }
+    if (obj.x + obj.w > W)    { obj.x = W - obj.w;    obj.vx *= -1; }
+    if (obj.y < 0)            { obj.y = 0;            obj.vy *= -1; }
+    if (obj.y + obj.h > H)    { obj.y = H - obj.h;    obj.vy *= -1; }
+  }
+
+  totalChecks = checkCollisions();
+
+  // Render
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+
+  if (SHOW_GRID) grid.draw(ctx);
+
+  for (const obj of objects) {
+    ctx.fillStyle = obj.colliding ? "#ff2244" : obj.color;
+    ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+
+    // subtle border
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+  }
+
+  // Stats
+  frames++;
+  fpsTime += dt;
+  if (fpsTime >= 0.4) {
+    fps = Math.round(frames / fpsTime);
+    frames = 0;
+    fpsTime = 0;
+
+    const brute = NUM_OBJECTS * (NUM_OBJECTS - 1) / 2;
+    ui.innerHTML =
+      `Objects: ${NUM_OBJECTS}<br>` +
+      `Cell size: ${CELL_SIZE}px<br>` +
+      `AABB checks: ${totalChecks.toLocaleString()}<br>` +
+      `Brute force: ${brute.toLocaleString()}<br>` +
+      `Speed-up: ×${(brute / Math.max(1, totalChecks)).toFixed(1)}<br>` +
+      `FPS: ${fps}`;
+  }
+
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
+```
+
+### What changed from the circle version
+
+| Feature              | Circle version          | AABB version (this one)      |
+|----------------------|-------------------------|------------------------------|
+| Object shape         | `r` (radius)            | `w` + `h` (width/height)     |
+| Insertion            | circle bounds           | exact rectangle bounds       |
+| Narrow-phase test    | distance check          | `aabbOverlap()`              |
+| Resolution           | radial push             | `aabbPenetration()` (MTV)    |
+| Visual               | circles                 | rectangles                   |
+
+### How to use the AABB grid in your own code
+
+```js
+// Every frame
+grid.clear();
+for (const box of allBoxes) grid.insert(box);
+
+for (const box of allBoxes) {
+  for (const other of grid.getCandidates(box)) {
+    if (box === other) continue;
+    if (aabbOverlap(box, other)) {
+      // resolve with aabbPenetration() or your own physics
+    }
+  }
+}
+```
+
+You now have a clean, production-ready spatial grid that works with rectangles.
+
+Would you like me to also add:
+- Mixed circle + AABB support in the same grid?
+- Swept AABB (continuous collision)?
+- Integration into the previous shooter game?
+
+Just say the word.
