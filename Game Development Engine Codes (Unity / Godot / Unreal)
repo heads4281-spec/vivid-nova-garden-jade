@@ -1,0 +1,13 @@
+void Start() {
+    // 1. Force the target frame rate to maximum (e.g., 90 or 120 FPS)
+    Application.targetFrameRate = 120;
+
+    // 2. Disable v-sync to let targetFrameRate control the pacing
+    QualitySettings.vSyncCount = 0;
+
+    // 3. Prevent the screen from dimming or sleeping mid-game
+    Screen.sleepTimeout = SleepTimeout.NeverSleep;
+
+    // 4. Set lower shadow distance on mobile to upgrade GPU render times
+    QualitySettings.shadowDistance = 20f;
+}
