@@ -1,0 +1,296 @@
+src/game/shape-graphics-engine.ts
+/**
+ * CRIMSON SOVEREIGN — Superior Shape Graphics Engine
+ * Math shapes (polygon table) + Map ratios + % / + / - operators
+ * Auto-updating solid graphics driven by shape numbers
+ * High-quality vector + textured rendering (Three.js + Canvas)
+ * Cycle 63821 — Full Super Maps Graphics Engineering
+ */
+
+import * as THREE from "three";
+
+/* ------------------------------------------------------------------ */
+/* 1. Core Polygon Math (from your shape table)                       */
+/* ------------------------------------------------------------------ */
+
+export interface PolygonDef {
+  sides: number;          // 4=quad, 5=pent, 6=hex, 7=hept, 8=oct ...
+  triangles: number;      // sides - 2
+  angleSumDeg: number;    // (sides - 2) * 180
+  interiorAngleDeg: number;
+}
+
+/** Exact math from the polygon table you shared */
+export function getPolygonMath(sides: number): PolygonDef {
+  if (sides < 3) throw new Error("Polygon needs ≥ 3 sides");
+  const triangles = sides - 2;
+  const angleSumDeg = triangles * 180;
+  const interiorAngleDeg = angleSumDeg / sides;
+  return { sides, triangles, angleSumDeg, interiorAngleDeg };
+}
+
+/** Generate regular polygon vertices (unit size, centered at origin) */
+export function generatePolygonVertices(
+  sides: number,
+  radius = 1,
+  rotationRad = 0
+): THREE.Vector2[] {
+  const verts: THREE.Vector2[] = [];
+  const step = (Math.PI * 2) / sides;
+  for (let i = 0; i < sides; i++) {
+    const a = i * step + rotationRad - Math.PI / 2; // point-up by default
+    verts.push(new THREE.Vector2(
+      Math.cos(a) * radius,
+      Math.sin(a) * radius
+    ));
+  }
+  return verts;
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Map Ratio Engine (scaling with % + - operators)                 */
+/* ------------------------------------------------------------------ */
+
+export class MapRatioEngine {
+  /** Representative fraction, e.g. 1 : 25000 → scaleFactor = 25000 */
+  scaleFactor: number;
+
+  constructor(mapRatio = 1 / 25000) {
+    // Accept either 1:25000 or 0.00004
+    this.scaleFactor = mapRatio < 1 ? 1 / mapRatio : mapRatio;
+  }
+
+  /** World distance → map distance */
+  worldToMap(dist: number): number {
+    return dist / this.scaleFactor;
+  }
+
+  /** Map distance → world distance */
+  mapToWorld(dist: number): number {
+    return dist * this.scaleFactor;
+  }
+
+  /** Percentage scaling (use %) */
+  scaleByPercent(value: number, percent: number): number {
+    return value * (percent / 100);
+  }
+
+  /** Offset with + / - */
+  offset(value: number, delta: number): number {
+    return value + delta;
+  }
+
+  /** Full transform: scale % then offset */
+  transform(value: number, percent = 100, offset = 0): number {
+    return this.offset(this.scaleByPercent(value, percent), offset);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Superior Shape Graphics Engine                                  */
+/* ------------------------------------------------------------------ */
+
+export class ShapeGraphicsEngine {
+  private scene: THREE.Scene;
+  private mapRatio: MapRatioEngine;
+  private shapes = new Map<string, THREE.Object3D>();
+  private autoUpdate = true;
+  private shapeNumbers: Record<string, number> = {}; // drives live updates
+
+  constructor(scene: THREE.Scene, mapRatio = 1 / 25000) {
+    this.scene = scene;
+    this.mapRatio = new MapRatioEngine(mapRatio);
+  }
+
+  /** Create a solid regular polygon mesh (high quality) */
+  createSolidPolygon(
+    id: string,
+    sides: number,
+    radius: number,
+    color = 0xff2244,
+    y = 0,
+    texture?: THREE.Texture
+  ): THREE.Mesh {
+    const math = getPolygonMath(sides);
+    const verts = generatePolygonVertices(sides, radius);
+
+    // Triangulate (uses the exact triangle count from your table)
+    const shape = new THREE.Shape(verts);
+    const geometry = new THREE.ShapeGeometry(shape);
+
+    const material = texture
+      ? new THREE.MeshStandardMaterial({
+          map: texture,
+          side: THREE.DoubleSide,
+          roughness: 0.4,
+          metalness: 0.2,
+        })
+      : new THREE.MeshStandardMaterial({
+          color,
+          side: THREE.DoubleSide,
+          roughness: 0.35,
+          metalness: 0.15,
+          emissive: new THREE.Color(color).multiplyScalar(0.15),
+        });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = -Math.PI / 2; // flat on XZ ground
+    mesh.position.y = y;
+    mesh.userData = { id, sides, math, radius };
+
+    this.shapes.set(id, mesh);
+    this.scene.add(mesh);
+    this.shapeNumbers[id] = sides; // register for auto-update
+    return mesh;
+  }
+
+  /** Create extruded solid shape (3D wall / pillar style) */
+  createExtrudedPolygon(
+    id: string,
+    sides: number,
+    radius: number,
+    height: number,
+    color = 0xcc1133
+  ): THREE.Mesh {
+    const verts = generatePolygonVertices(sides, radius);
+    const shape = new THREE.Shape(verts);
+    const extrudeSettings = {
+      depth: height,
+      bevelEnabled: true,
+      bevelThickness: 0.08,
+      bevelSize: 0.06,
+      bevelSegments: 3,
+    };
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    const material = new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.3,
+      metalness: 0.25,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = height / 2;
+    mesh.userData = { id, sides, radius, height };
+
+    this.shapes.set(id, mesh);
+    this.scene.add(mesh);
+    this.shapeNumbers[id] = sides;
+    return mesh;
+  }
+
+  /** Auto-update all graphics driven by shape numbers + % / + / - */
+  updateAllGraphics(dt: number) {
+    if (!this.autoUpdate) return;
+
+    for (const [id, mesh] of this.shapes) {
+      const num = this.shapeNumbers[id] ?? 4;
+      const math = getPolygonMath(num);
+
+      // Live scale by percentage of shape number
+      const scalePercent = 80 + (num % 5) * 4; // example dynamic %
+      const baseRadius = mesh.userData.radius ?? 1;
+      const newScale = this.mapRatio.scaleByPercent(baseRadius, scalePercent);
+
+      // Subtle breathing / pulse using + -
+      const pulse = Math.sin(performance.now() * 0.001 + num) * 0.04;
+      mesh.scale.setScalar(newScale + pulse);
+
+      // Rotate slowly based on angle sum
+      mesh.rotation.z += (math.interiorAngleDeg / 10000) * dt;
+
+      // Optional: emissive intensity driven by triangle count
+      if ((mesh.material as THREE.MeshStandardMaterial).emissive) {
+        const mat = mesh.material as THREE.MeshStandardMaterial;
+        mat.emissiveIntensity = 0.1 + (math.triangles / 20);
+      }
+    }
+  }
+
+  /** Change a shape number → automatic graphic rebuild / update */
+  setShapeNumber(id: string, newSides: number) {
+    this.shapeNumbers[id] = Math.max(3, Math.floor(newSides));
+    const mesh = this.shapes.get(id);
+    if (!mesh) return;
+
+    // Rebuild geometry with new sides (superior quality live update)
+    const radius = mesh.userData.radius ?? 1;
+    const color = (mesh.material as THREE.MeshStandardMaterial).color.getHex();
+    this.scene.remove(mesh);
+    this.shapes.delete(id);
+
+    this.createSolidPolygon(id, newSides, radius, color, mesh.position.y);
+  }
+
+  /** Map-ratio aware positioning */
+  placeOnMap(id: string, mapX: number, mapZ: number, percent = 100, offsetX = 0, offsetZ = 0) {
+    const mesh = this.shapes.get(id);
+    if (!mesh) return;
+    const worldX = this.mapRatio.transform(mapX, percent, offsetX);
+    const worldZ = this.mapRatio.transform(mapZ, percent, offsetZ);
+    mesh.position.x = worldX;
+    mesh.position.z = worldZ;
+  }
+
+  /** Canvas 2D high-quality solid shape (for minimap / HUD) */
+  drawSolidShapeOnCanvas(
+    ctx: CanvasRenderingContext2D,
+    sides: number,
+    cx: number, cy: number,
+    radius: number,
+    color: string,
+    rotation = 0
+  ) {
+    const verts = generatePolygonVertices(sides, radius, rotation);
+    ctx.beginPath();
+    ctx.moveTo(cx + verts[0].x, cy + verts[0].y);
+    for (let i = 1; i < verts.length; i++) {
+      ctx.lineTo(cx + verts[i].x, cy + verts[i].y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    // Crisp edges
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  /** Enable / disable live auto graphics update */
+  setAutoUpdate(enabled: boolean) {
+    this.autoUpdate = enabled;
+  }
+
+  getShape(id: string) {
+    return this.shapes.get(id);
+  }
+
+  getAllShapeNumbers() {
+    return { ...this.shapeNumbers };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Quick integration example (drop into engine.ts)                 */
+/* ------------------------------------------------------------------ */
+
+/*
+import { ShapeGraphicsEngine } from "./shape-graphics-engine";
+
+// Inside your main engine start / constructor:
+this.shapeEngine = new ShapeGraphicsEngine(this.scene, 1/25000); // map ratio
+
+// Create solid shapes using your table numbers
+this.shapeEngine.createSolidPolygon("rune-quad", 4, 2.5, 0xff2244);
+this.shapeEngine.createSolidPolygon("rune-pent", 5, 3.0, 0x44ff88);
+this.shapeEngine.createExtrudedPolygon("pillar-hex", 6, 1.8, 4.5, 0xcc1133);
+this.shapeEngine.createSolidPolygon("gate-oct", 8, 4.0, 0x2244ff);
+
+// Place with map ratio + % + offset
+this.shapeEngine.placeOnMap("rune-quad", 120, 80, 100, +5, -3);
+
+// In your main update / animate loop:
+this.shapeEngine.updateAllGraphics(dt);
+
+// Live change a shape number → graphics auto rebuild
+// this.shapeEngine.setShapeNumber("rune-quad", 7); // becomes heptagon
+*/
