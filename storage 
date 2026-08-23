@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Infernal Citadel — Full Module + Inventory Tracker</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+
+:root {
+    --bg-deep: #050505;
+    --bg-card: #0d0d0d;
+    --accent: #c41e1e;
+    --accent-glow: #ff2a2a;
+    --text-main: #e8d5d5;
+    --text-dim: #a08080;
+    --border: #3a0a0a;
+    --loot: #b8860b;
+    --gold: #ffd700;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: var(--bg-deep);
+    color: var(--text-main);
+    font-family: 'Cormorant Garamond', serif;
+    line-height: 1.65;
+    min-height: 100vh;
+    background-image:
+        radial-gradient(ellipse at top, #1a0505 0%, transparent 60%),
+        radial-gradient(ellipse at bottom, #120000 0%, transparent 70%);
+}
+
+/* ===== STICKY INVENTORY TRACKER ===== */
+.inventory-panel {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: linear-gradient(180deg, #1a0f00 0%, #0f0800 100%);
+    border-bottom: 2px solid var(--gold);
+    box-shadow: 0 6px 25px rgba(0,0,0,0.85);
+    padding: 12px 18px 14px;
+}
+
+.inv-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.inv-top h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 1.25rem;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(255,215,0,0.4);
+}
+
+.inv-controls {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.inv-btn {
+    padding: 5px 12px;
+    background: #3a2a00;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    border-radius: 3px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.inv-btn:hover {
+    background: #5c4500;
+    box-shadow: 0 0 10px rgba(255,215,0,0.35);
+}
+
+.inv-btn.danger {
+    border-color: #c41e1e;
+    color: #ff6666;
+    background: #2a0000;
+}
+
+.inv-btn.danger:hover { background: #4a0000; }
+
+#inventoryList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    min-height: 34px;
+    max-height: 110px;
+    overflow-y: auto;
+    padding: 2px 0;
+}
+
+.inv-item {
+    background: #1a1200;
+    border: 1px solid #8b6500;
+    border-radius: 4px;
+    padding: 3px 8px 3px 10px;
+    font-size: 0.93rem;
+    color: #ffeaa0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    animation: fadeIn 0.3s ease;
+}
+
+.inv-item button {
+    background: none;
+    border: none;
+    color: #ff5555;
+    cursor: pointer;
+    font-size: 1.05rem;
+    line-height: 1;
+    padding: 0 1px;
+}
+
+.inv-item button:hover { color: #ff0000; }
+
+.inv-empty {
+    color: #666;
+    font-style: italic;
+    font-size: 0.95rem;
+    padding: 4px 0;
+}
+
+/* ===== HEADER & ROOMS ===== */
+header {
+    text-align: center;
+    padding: 40px 20px 25px;
+    border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.9rem, 5vw, 3.2rem);
+    color: var(--accent-glow);
+    text-shadow: 0 0 10px rgba(255,40,40,0.8), 0 0 30px rgba(200,0,0,0.5);
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+}
+
+header p {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+.container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 30px 18px 70px;
+}
+
+.room {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 42px;
+    overflow: hidden;
+    box-shadow: 0 0 18px rgba(150,0,0,0.15), inset 0 0 50px rgba(30,0,0,0.4);
+}
+
+.room-header {
+    background: linear-gradient(90deg, #1a0000, #2a0505, #1a0000);
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.room-number {
+    font-family: 'Cinzel', serif;
+    font-size: 1.6rem;
+    color: var(--accent);
+    text-shadow: 0 0 10px rgba(255,40,40,0.6);
+    min-width: 40px;
+}
+
+.room-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.4rem;
+    color: #ffcccc;
+}
+
+.room-subtitle {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+}
+
+.room-body { padding: 24px 26px 30px; }
+
+.room-body p {
+    margin-bottom: 14px;
+    font-size: 1.08rem;
+}
+
+.feature-list, .monster-list, .loot-list {
+    list-style: none;
+    margin: 14px 0 8px;
+}
+
+.feature-list li, .monster-list li, .loot-list li {
+    position: relative;
+    padding-left: 22px;
+    margin-bottom: 6px;
+    font-size: 1.02rem;
+    color: #d0b0b0;
+}
+
+.feature-list li::before { content: '◆'; position: absolute; left: 0; color: var(--accent); font-size: 0.7rem; top: 4px; }
+.monster-list li::before { content: '☠'; position: absolute; left: 0; color: #ff3333; }
+.loot-list li::before { content: '✦'; position: absolute; left: 0; color: var(--gold); }
+
+.hazards, .monsters, .loot, .stats {
+    margin-top: 20px;
+    padding: 13px 16px;
+    border-radius: 0 4px 4px 0;
+}
+
+.hazards { background: rgba(80,0,0,0.25); border-left: 3px solid var(--accent); }
+.monsters { background: rgba(60,0,0,0.35); border-left: 3px solid #8b0000; }
+.loot { background: rgba(40,30,0,0.35); border-left: 3px solid var(--loot); }
+.stats { background: rgba(50,0,0,0.4); border-left: 3px solid #660000; }
+
+.hazards strong, .monsters strong, .loot strong, .stats strong {
+    font-family: 'Cinzel', serif;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.hazards strong { color: var(--accent-glow); }
+.monsters strong { color: #ff5555; }
+.loot strong { color: var(--gold); }
+.stats strong { color: #ff6666; }
+
+.stat-block {
+    background: #120000;
+    border: 1px solid #4a0000;
+    border-radius: 4px;
+    padding: 11px 13px;
+    margin: 9px 0;
+    font-size: 0.93rem;
+}
+
+.stat-block h4 {
+    font-family: 'Cinzel', serif;
+    color: #ff4444;
+    margin-bottom: 4px;
+    font-size: 1.08rem;
+}
+
+.stat-block .meta { color: #cc8888; font-size: 0.88rem; margin-bottom: 5px; }
+.stat-block .line { margin: 2px 0; }
+.stat-block .label { color: #ffaaaa; font-weight: 600; }
+.cr { color: #ffcc00; font-weight: bold; }
+
+/* Loot buttons & results */
+.roll-btn, .add-btn {
+    display: inline-block;
+    margin-top: 12px;
+    margin-right: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #5a3a00, #8b6500);
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: 0.2s;
+    text-shadow: 0 0 6px rgba(255,215,0,0.4);
+}
+
+.roll-btn:hover, .add-btn:hover {
+    background: linear-gradient(135deg, #8b6500, #c9a227);
+    box-shadow: 0 0 12px rgba(255,215,0,0.35);
+    transform: translateY(-1px);
+}
+
+.roll-result {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: rgba(20,15,0,0.75);
+    border: 1px solid #b8860b;
+    border-radius: 4px;
+    display: none;
+    animation: fadeIn 0.35s ease;
+}
+
+.roll-result.visible { display: block; }
+
+.roll-result h5 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    margin-bottom: 7px;
+    font-size: 1rem;
+}
+
+.roll-result ul { list-style: none; padding: 0; }
+.roll-result li {
+    position: relative;
+    padding-left: 18px;
+    margin-bottom: 5px;
+    color: #e8d5a0;
+}
+.roll-result li::before { content: '✦'; position: absolute; left: 0; color: var(--gold); }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+footer {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    border-top: 1px solid var(--border);
+}
+
+footer span { color: var(--accent); }
+
+@media (max-width: 600px) {
+    .room-header { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .room-body { padding: 18px 16px 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== PARTY INVENTORY TRACKER ===== -->
+<div class="inventory-panel">
+    <div class="inv-top">
+        <h2>⚔ Party Inventory</h2>
+        <div class="inv-controls">
+            <button class="inv-btn" onclick="addManualItem()">+ Add Item</button>
+            <button class="inv-btn" onclick="exportInventory()">Export</button>
+            <button class="inv-btn danger" onclick="clearInventory()">Clear All</button>
+        </div>
+    </div>
+    <div id="inventoryList">
+        <span class="inv-empty">No items yet — roll loot and click “Add to Inventory”</span>
+    </div>
+</div>
+
+<header>
+    <h1>THE INFERNAL CITADEL</h1>
+    <p>Five chambers of the volcanic abyss • Full interactive module</p>
+</header>
+
+<div class="container">
+
+<!-- ==================== ROOM 1 ==================== -->
+<article class="room">
+    <div class="room-header">
+        <div class="room-number">I</div>
+        <div>
+            <div class="room-title">The Crimson Threshold</div>
+            <div class="room-subtitle">Entrance Hall</div>
+        </div>
+    </div>
+    <div class="room-body">
+        <p>A vast circular chamber 80 ft across. Glowing red portal at the top of black-stone stairs. Concentric runes pulse on the floor. Lava channels and four 25-ft winged statues with burning eyes guard the exits.</p>
+
+        <ul class="feature-list">
+            <li>Pulsing concentric runes that react to living creatures</li>
+            <li>Four colossal statues with burning eyes</li>
+            <li>Magical barrier on the main exit archway</li>
+        </ul>
+
+        <div class="hazards">
+            <strong>Hazards</strong>
+            Magical barrier requires key, blood offering, or powerful magic to pass.
+        </div>
+
+        <div class="monsters">
+            <strong>Monsters</strong>
+            <ul class="monster-list">
+                <li>4 Ashen Sentinels (CR 2)</li>
+                <li>6 Ember Imps (CR 1)</li>
+                <li>1 Portal Warden – Barbed Devil (CR 5)</li>
+            </ul>
+        </div>
+
+        <div class="stats">
+            <strong>Stat Blocks</strong>
+            <div class="stat-block">
+                <h4>Ashen Sentinel</h4>
+                <div class="meta">Medium construct • <span class="cr">CR 2 (450 XP)</span></div>
+                <div class="line"><span class="label">AC</span> 16 | <span class="label">HP</span> 45 | Speed 25 ft. | Slam +5 (2d6+3)</div>
+            </div>
+            <div class="stat-block">
+                <h4>Ember Imp</h4>
+                <div class="meta">Tiny fiend • <span class="cr">CR 1 (200 XP)</span></div>
+                <div class="line"><span class="label">AC</span> 13 | <span class="label">HP</span> 10 | Fly 40 ft. | Sting +5 (1d4+3 + 1d6 fire)</div>
+            </div>
+            <div class="stat-block">
+                <h4>Portal Warden (Barbed Devil)</h4>
+                <div class="meta">Medium fiend • <span class="cr">CR 5 (1,800 XP)</span></div>
+                <div class="line"><span class="label">AC</span> 15 | <span class="label">HP</span> 110 | Multiattack (2 claws + tail) | Hurl Flame +5 (3d6 fire)</div>
+            </div>
+        </div>
+
+        <div class="loot">
+            <strong>Loot Table</strong>
+            <ul class="loot-list">
+                <li><strong>Common</strong>: 3d6×10 gp + 2 potions of fire resistance</li>
+                <li><strong>Uncommon (50%)</strong>: Black-iron key + +1 volcanic glass dagger</li>
+                <li><strong>Rare (20%)</strong>: Burning Eye (permanent torch, 1d6 fire if thrown)</li>
+                <li><strong>Hidden (DC 15)</strong>: 1d4 soul coins + scroll of Protection from Evil and Good</li>
+            </ul>
+            <button class="roll-btn" onclick="rollLoot(1)">⚔ Roll Loot</button>
+            <div class="roll-result" id="result1"></div>
+        </div>
+    </div>
+</article>
+
+<!-- ==================== ROOM 2 ==================== -->
+<article class="room">
+    <div class="room-header">
+        <div class="room-number">II</div>
+        <div>
+            <div class="room-title">The Vein Gallery</div>
+            <div class="room-subtitle">Corridor of Flowing Magma</div>
+        </div>
+    </div>
+    <div class="room-body">
+        <p>120-ft corridor with a semi-transparent crystal wall revealing a vertical lava river. Three spiked-iron bridges cross glowing chasms. Inverted spires drip molten beads.</p>
+
+        <div class="monsters">
+            <strong>Monsters</strong>
+            <ul class="monster-list">
+                <li>3 Magma Mephits (CR ½)</li>
+                <li>2 Lava Serpents (CR 3)</li>
+                <li>1 Bridge Stalker – Shadow Demon (CR 4)</li>
+                <li>4 Cinder Spiders (CR ¼)</li>
+            </ul>
+        </div>
+
+        <div class="stats">
+            <strong>Stat Blocks</strong>
+            <div class="stat-block">
+                <h4>Magma Mephit</h4>
+                <div class="meta"><span class="cr">CR ½</span> | Death Burst 2d6 fire | Fire Breath 2d6 (15-ft cone)</div>
+            </div>
+            <div class="stat-block">
+                <h4>Lava Serpent</h4>
+                <div class="meta"><span class="cr">CR 3</span> | Bite +5 (2d8+3 + 2d6 fire) | Lava Surge 4d6 (20-ft line)</div>
+            </div>
+            <div class="stat-block">
+                <h4>Bridge Stalker (Shadow Demon)</h4>
+                <div class="meta"><span class="cr">CR 4</span> | Incorporeal | Claws +5 (2d6+3 psychic)</div>
+            </div>
+            <div class="stat-block">
+                <h4>Cinder Spider</h4>
+                <div class="meta"><span class="cr">CR ¼</span> | Bite +5 (1d4+3 + 1d6 fire + ongoing)</div>
+            </div>
+        </div>
+
+        <div class="loot">
+            <strong>Loot Table</strong>
+            <ul class="loot-list">
+                <li><strong>Common</strong>: 2d4 smoldering banners + 4d6 gp</li>
+                <li><strong>Uncommon (60%)</strong>: Boots of Lava Walking</li>
+                <li><strong>Rare (25%)</strong>: Crystal shard (+1 fire spell attacks)</li>
+                <li><strong>Hidden (DC 16)</strong>: 150 gp + greater healing potion + cursed ring</li>
+            </ul>
+            <button class="roll-btn" onclick="rollLoot(2)">⚔ Roll Loot</button>
+            <div class="roll-result" id="result2"></div>
+        </div>
+    </div>
+</article>
+
+<!-- ==================== ROOM 3 ==================== -->
+<article class="room">
+    <div class="room-header">
+        <div class="room-number">III</div>
+        <div>
+            <div class="room-title">The Ember Throne Room</div>
+            <div class="room-subtitle">Seat of Power</div>
+        </div>
+    </div>
+    <div class="room-body">
+        <p>Vast hall with the Ember Throne of living lava at the far end. Open balcony overlooks the volcanic abyss. Energy arcs between magma-veined pillars.</p>
+
+        <div class="monsters">
+            <strong>Monsters</strong>
+            <ul class="monster-list">
+                <li>2 Pillar Guardians – Fire Elementals (CR 5)</li>
+                <li>1 Throne Bound – Horned Devil (CR 11)</li>
+                <li>8 Flame Wraiths (CR 3)</li>
+                <li>1 Balcony Sentinel – Chain Devil (CR 8)</li>
+            </ul>
+        </div>
+
+        <div class="stats">
+            <strong>Stat Blocks</strong>
+            <div class="stat-block">
+                <h4>Pillar Guardian (Fire Elemental)</h4>
+                <div class="meta"><span class="cr">CR 5</span> | AC 13 | HP 102 | Touch +6 (2d6+3 fire)</div>
+            </div>
+            <div class="stat-block">
+                <h4>Throne Bound (Horned Devil)</h4>
+                <div class="meta"><span class="cr">CR 11</span> | AC 18 | HP 178 | Fork +10 (2d8+6) | Tail + infernal wound</div>
+            </div>
+            <div class="stat-block">
+                <h4>Flame Wraith</h4>
+                <div class="meta"><span class="cr">CR 3</span> | Life Drain +5 (4d6 necrotic + 2d6 fire)</div>
+            </div>
+            <div class="stat-block">
+                <h4>Balcony Sentinel (Chain Devil)</h4>
+                <div class="meta"><span class="cr">CR 8</span> | Chain +8 (2d6+4 + grapple + ongoing)</div>
+            </div>
+        </div>
+
+        <div class="loot">
+            <strong>Loot Table</strong>
+            <ul class="loot-list">
+                <li><strong>Common</strong>: 5d10×10 gp + 2d6 fire opals</li>
+                <li><strong>Uncommon (55%)</strong>: +1 Black-iron greataxe (+1d6 fire)</li>
+                <li><strong>Rare (30%)</strong>: Ember Crown (fire resistance + Hellish Rebuke 1/day)</li>
+                <li><strong>Legendary (15%)</strong>: Heart of the Ember Throne (5,000 gp, possible curse)</li>
+            </ul>
+            <button class="roll-btn" onclick="rollLoot(3)">⚔ Roll Loot</button>
+            <div class="roll-result" id="result3"></div>
+        </div>
+    </div>
+</article>
+
+<!-- ==================== ROOM 4 ==================== -->
+<article class="room">
+    <div class="room-header">
+        <div class="room-number">IV</div>
+        <div>
+            <div class="room-title">The Abyssal Observatory</div>
+            <div class="room-subtitle">High Spire Chamber</div>
+        </div>
+    </div>
+    <div class="room-body">
+        <p>Circular chamber high in a spire with open archways to the void. A slowly rotating rune platform floats in the center. Crystal lenses hang from chains.</p>
+
+        <div class="monsters">
+            <strong>Monsters</strong>
+            <ul class="monster-list">
+                <li>3 Void Raptors (CR 2)</li>
+                <li>1 Lens Specter (CR 4)</li>
+                <li>2 Rune Hounds (CR 2)</li>
+                <li>1 Astral Stalker (CR 6)</li>
+            </ul>
+        </div>
+
+        <div class="stats">
+            <strong>Stat Blocks</strong>
+            <div class="stat-block">
+                <h4>Void Raptor</h4>
+                <div class="meta"><span class="cr">CR 2</span> | Multiattack (beak + talons) | Grapple possible</div>
+            </div>
+            <div class="stat-block">
+                <h4>Lens Specter</h4>
+                <div class="meta"><span class="cr">CR 4</span> | Life Drain + Illusory Double</div>
+            </div>
+            <div class="stat-block">
+                <h4>Rune Hound</h4>
+                <div class="meta"><span class="cr">CR 2</span> | Bite + fire | Howl (frightened)</div>
+            </div>
+            <div class="stat-block">
+                <h4>Astral Stalker</h4>
+                <div class="meta"><span class="cr">CR 6</span> | Invisible | Multiattack (2 slams)</div>
+            </div>
+        </div>
+
+        <div class="loot">
+            <strong>Loot Table</strong>
+            <ul class="loot-list">
+                <li><strong>Common</strong>: 1d4 crystal fragments + fortress map</li>
+                <li><strong>Uncommon (50%)</strong>: Spyglass of the Abyss</li>
+                <li><strong>Rare (20%)</strong>: Intact crystal lens</li>
+                <li><strong>Hidden (DC 17)</strong>: Scroll of Plane Shift + 3 soul gems</li>
+            </ul>
+            <button class="roll-btn" onclick="rollLoot(4)">⚔ Roll Loot</button>
+            <div class="roll-result" id="result4"></div>
+        </div>
+    </div>
+</article>
+
+<!-- ==================== ROOM 5 ==================== -->
+<article class="room">
+    <div class="room-header">
+        <div class="room-number">V</div>
+        <div>
+            <div class="room-title">The Molten Sanctum</div>
+            <div class="room-subtitle">Inner Temple / Vault</div>
+        </div>
+    </div>
+    <div class="room-body">
+        <p>Deep cavern with a massive pillar of pure churning magma rising from a central pool. Floating platforms connected by solidified-lava bridges. Crystal shelves hold pulsing orbs and relics.</p>
+
+        <div class="monsters">
+            <strong>Monsters</strong>
+            <ul class="monster-list">
+                <li>1 Magma Colossus (CR 10)</li>
+                <li>5 Orb Guardians – Lesser Fire Elementals (CR 3)</li>
+                <li>2 Bridge Trolls – Magma-infused (CR 5)</li>
+                <li>1 Sanctum Keeper – Glabrezu (CR 9)</li>
+            </ul>
+        </div>
+
+        <div class="stats">
+            <strong>Stat Blocks</strong>
+            <div class="stat-block">
+                <h4>Magma Colossus</h4>
+                <div class="meta"><span class="cr">CR 10</span> | AC 17 | HP 178 | Slam +10 (3d8+6 + 3d6 fire) | Magma Wave 8d6</div>
+            </div>
+            <div class="stat-block">
+                <h4>Orb Guardian</h4>
+                <div class="meta"><span class="cr">CR 3</span> | Touch +5 (1d10+3 fire)</div>
+            </div>
+            <div class="stat-block">
+                <h4>Bridge Troll (Magma-infused)</h4>
+                <div class="meta"><span class="cr">CR 5</span> | Regeneration 10 | Multiattack (bite + 2 claws)</div>
+            </div>
+            <div class="stat-block">
+                <h4>Sanctum Keeper (Glabrezu)</h4>
+                <div class="meta"><span class="cr">CR 9</span> | Multiattack (2 pincers + 2 fists) | Innate spells</div>
+            </div>
+        </div>
+
+        <div class="loot">
+            <strong>Loot Table</strong>
+            <ul class="loot-list">
+                <li><strong>Common</strong>: 4d6×50 gp + 2d4 fire gems + heat-resistant cloth</li>
+                <li><strong>Uncommon (70%)</strong>: 1d3 pulsing crystal orbs</li>
+                <li><strong>Rare (35%)</strong>: +2 black-metal weapon (+1d8 fire)</li>
+                <li><strong>Legendary (20%)</strong>: Core of the Magma Pillar (15,000 gp)</li>
+                <li><strong>Hidden (DC 18)</strong>: Infernal contract + 3 soul vessels + deeper map</li>
+            </ul>
+            <button class="roll-btn" onclick="rollLoot(5)">⚔ Roll Loot</button>
+            <div class="roll-result" id="result5"></div>
+        </div>
+    </div>
+</article>
+
+</div>
+
+<footer>
+    <p>The Infernal Citadel — <span>Interactive Module</span></p>
+    <p style="margin-top:6px;font-size:0.85rem;">Loot Rolling + Party Inventory Tracker (auto-saves)</p>
+</footer>
+
+<script>
+// ===================== INVENTORY SYSTEM =====================
+let inventory = JSON.parse(localStorage.getItem('infernalInventory')) || [];
+
+function saveInventory() {
+    localStorage.setItem('infernalInventory', JSON.stringify(inventory));
+    renderInventory();
+}
+
+function renderInventory() {
+    const list = document.getElementById('inventoryList');
+    if (inventory.length === 0) {
+        list.innerHTML = '<span class="inv-empty">No items yet — roll loot and click “Add to Inventory”</span>';
+        return;
+    }
+    list.innerHTML = inventory.map((item, i) => `
+        <div class="inv-item">
+            <span>${item}</span>
+            <button onclick="removeItem(${i})" title="Remove">×</button>
+        </div>
+    `).join('');
+}
+
+function addToInventory(itemText) {
+    if (!itemText || itemText.trim() === '') return;
+    inventory.push(itemText.trim());
+    saveInventory();
+}
+
+function removeItem(index) {
+    inventory.splice(index, 1);
+    saveInventory();
+}
+
+function clearInventory() {
+    if (confirm('Clear the entire party inventory? This cannot be undone.')) {
+        inventory = [];
+        saveInventory();
+    }
+}
+
+function addManualItem() {
+    const item = prompt('Enter item name to add to inventory:');
+    if (item && item.trim()) {
+        addToInventory(item.trim());
+    }
+}
+
+function exportInventory() {
+    if (inventory.length === 0) {
+        alert('Inventory is empty.');
+        return;
+    }
+    const text = '=== Infernal Citadel Party Inventory ===\n\n' + inventory.map((item, i) => `${i+1}. ${item}`).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Inventory copied to clipboard!');
+    }).catch(() => {
+        prompt('Copy this inventory:', text);
+    });
+}
+
+// ===================== LOOT ROLLING =====================
+function d(sides) { return Math.floor(Math.random() * sides) + 1; }
+function roll(num, sides) {
+    let total = 0;
+    for (let i = 0; i < num; i++) total += d(sides);
+    return total;
+}
+function chance(percent) { return Math.random() * 100 < percent; }
+
+const lootTables = {
+    1: {
+        name: "The Crimson Threshold",
+        common: () => `${roll(3,6)*10} gp + 2 potions of fire resistance`,
+        uncommon: { chance: 50, text: "Black-iron key + +1 volcanic glass dagger" },
+        rare: { chance: 20, text: "Burning Eye of the Statue (permanent torch, 1d6 fire if thrown)" },
+        hidden: { chance: 40, text: "Hidden casket: 1d4 soul coins + scroll of Protection from Evil and Good" }
+    },
+    2: {
+        name: "The Vein Gallery",
+        common: () => `${roll(2,4)} smoldering banners + ${roll(4,6)} gp in cooled lava`,
+        uncommon: { chance: 60, text: "Boots of Lava Walking" },
+        rare: { chance: 25, text: "Crystal shard (+1 to fire spell attack rolls)" },
+        hidden: { chance: 35, text: "Iron coffer: 150 gp + potion of greater healing + cursed heating ring" }
+    },
+    3: {
+        name: "The Ember Throne Room",
+        common: () => `${roll(5,10)*10} gp + ${roll(2,6)} fire opals`,
+        uncommon: { chance: 55, text: "+1 Black-iron greataxe (extra 1d6 fire)" },
+        rare: { chance: 30, text: "Ember Crown (fire resistance + Hellish Rebuke 1/day)" },
+        legendary: { chance: 15, text: "Heart of the Ember Throne (5,000 gp — possible curse)" }
+    },
+    4: {
+        name: "The Abyssal Observatory",
+        common: () => `${roll(1,4)} crystal lens fragments + fortress map`,
+        uncommon: { chance: 50, text: "Spyglass of the Abyss" },
+        rare: { chance: 20, text: "Intact crystal lens (advantage on planar Arcana)" },
+        hidden: { chance: 30, text: "Scroll of Plane Shift + 3 soul gems" }
+    },
+    5: {
+        name: "The Molten Sanctum",
+        common: () => `${roll(4,6)*50} gp + ${roll(2,4)} rare fire gems + heat-resistant cloth`,
+        uncommon: { chance: 70, text: `${roll(1,3)} pulsing crystal orbs` },
+        rare: { chance: 35, text: "+2 black-metal weapon (extra 1d8 fire)" },
+        legendary: { chance: 20, text: "Core of the Magma Pillar (15,000 gp)" },
+        hidden: { chance: 25, text: "Infernal contract + 3 diamond soul vessels + deeper map" }
+    }
+};
+
+function rollLoot(roomNum) {
+    const table = lootTables[roomNum];
+    const resultDiv = document.getElementById(`result${roomNum}`);
+    let found = [];
+    let itemsToAdd = [];
+
+    // Common always
+    const commonText = table.common();
+    found.push(`<strong>Common:</strong> ${commonText}`);
+    itemsToAdd.push(commonText);
+
+    if (table.uncommon && chance(table.uncommon.chance)) {
+        found.push(`<strong>Uncommon:</strong> ${table.uncommon.text}`);
+        itemsToAdd.push(table.uncommon.text);
+    }
+    if (table.rare && chance(table.rare.chance)) {
+        found.push(`<strong>Rare:</strong> ${table.rare.text}`);
+        itemsToAdd.push(table.rare.text);
+    }
+    if (table.legendary && chance(table.legendary.chance)) {
+        found.push(`<strong>Legendary:</strong> ${table.legendary.text}`);
+        itemsToAdd.push(table.legendary.text);
+    }
+    if (table.hidden && chance(table.hidden.chance)) {
+        found.push(`<strong>Hidden:</strong> ${table.hidden.text}`);
+        itemsToAdd.push(table.hidden.text);
+    }
+
+    if (found.length === 1) {
+        found.push("<em>No uncommon / rare / hidden items this time.</em>");
+    }
+
+    // Build result with Add buttons
+    let html = `<h5>🎲 Loot Results — ${table.name}</h5><ul>`;
+    found.forEach((line, idx) => {
+        html += `<li>${line}</li>`;
+    });
+    html += `</ul>`;
+
+    // Single "Add All to Inventory" button
+    const safeItems = itemsToAdd.map(i => i.replace(/'/g, "\\'"));
+    html += `<button class="add-btn" onclick='addMultipleToInventory(${JSON.stringify(itemsToAdd)})'>➕ Add All to Inventory</button>`;
+
+    resultDiv.innerHTML = html;
+    resultDiv.classList.add('visible');
+    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function addMultipleToInventory(items) {
+    items.forEach(item => addToInventory(item));
+    alert(`${items.length} item(s) added to Party Inventory!`);
+}
+
+// Initialize inventory on load
+renderInventory();
+</script>
+
+</body>
+</html>
