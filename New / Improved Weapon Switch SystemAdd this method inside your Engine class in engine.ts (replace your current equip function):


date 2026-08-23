@@ -36,3 +36,55 @@ equip(index: number) {
   // 6. Optional: play a short energy burst sound
   // this.audio.play("energy_switch");
 }
+// Better recoil profiles – more punch, better recovery
+const ARCH: Record<string, any> = {
+  rifle: {
+    pitch: 1.15,
+    yaw: 0.55,
+    roll: 0.18,
+    first: 1.85,
+    ads: 0.62,
+    camStiff: 32,
+    camDamp: 12.5,
+    vmStiff: 28,
+    vmDamp: 14,
+    snap: 0.75,
+    idle: 0.92,
+    heat: 0.085,
+    heatDecay: 1.15,
+    spreadHeat: 0.7,
+    vmZ: 0.085,
+    vmY: 0.028,
+    vmX: 0.012,
+    vmPitch: 0.04,
+    vmYaw: 0.025,
+    vmRoll: 0.015,
+    fov: 0.048,
+    melee: false
+  },
+  smg: {
+    pitch: 0.72,
+    yaw: 0.85,
+    roll: 0.22,
+    first: 1.4,
+    ads: 0.7,
+    camStiff: 26,
+    camDamp: 14,
+    vmStiff: 22,
+    vmDamp: 16,
+    snap: 0.65,
+    idle: 0.88,
+    heat: 0.055,
+    heatDecay: 1.4,
+    spreadHeat: 0.9,
+    vmZ: 0.06,
+    vmY: 0.02,
+    vmX: 0.018,
+    vmPitch: 0.03,
+    vmYaw: 0.035,
+    vmRoll: 0.02,
+    fov: 0.035,
+    melee: false
+  },
+  // Add the rest following the same style (beam, rail, melee, etc.)
+};
