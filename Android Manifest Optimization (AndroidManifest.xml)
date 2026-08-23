@@ -1,0 +1,8 @@
+<application
+    <!-- Forces hardware accelerated rendering across all windows -->
+    android:hardwareAccelerated="true"
+    <!-- Signals to the OS that this app is a high-priority game -->
+    android:appCategory="game">
+    
+    <meta-data android:name="android.max_aspect" android:value="2.4" />
+</application>
