@@ -1,0 +1,161 @@
+// src/game/effects.ts
+import * as THREE from "three";
+
+export class EffectSystem {
+  private scene: THREE.Scene;
+  private camera: THREE.Camera;
+
+  // Muzzle flash light
+  private flashLight: THREE.PointLight;
+
+  // Spark pool
+  private sparkPool: THREE.Mesh[] = [];
+  private readonly MAX_SPARKS = 90;
+
+  constructor(scene: THREE.Scene, camera: THREE.Camera) {
+    this.scene = scene;
+    this.camera = camera;
+
+    // Create muzzle flash light (attached to camera so it moves with the gun)
+    this.flashLight = new THREE.PointLight(0xff2200, 0, 16, 2);
+    this.flashLight.castShadow = false;
+    this.flashLight.layers.enable(1); // weapon layer
+    this.camera.add(this.flashLight);
+  }
+
+  /**
+   * Strong cinematic muzzle flash
+   */
+  muzzleFlash(color: number = 0xff3300, intensity: number = 20, duration: number = 0.07) {
+    this.flashLight.color.setHex(color);
+    this.flashLight.intensity = intensity;
+    this.flashLight.distance = 15;
+
+    const start = performance.now();
+
+    const fade = () => {
+      const elapsed = (performance.now() - start) / 1000;
+      const t = Math.min(elapsed / duration, 1);
+
+      this.flashLight.intensity = intensity * (1 - t) ** 1.5;
+
+      if (t < 1) {
+        requestAnimationFrame(fade);
+      } else {
+        this.flashLight.intensity = 0;
+      }
+    };
+
+    requestAnimationFrame(fade);
+  }
+
+  /**
+   * Better spark / impact effect
+   * type: "energy" | "metal" | "blood" | "rune"
+   */
+  spark(
+    position: THREE.Vector3,
+    type: "energy" | "metal" | "blood" | "rune" = "energy",
+    count: number = 12
+  ) {
+    const colorMap = {
+      energy: 0xff2200,
+      metal: 0xffaa55,
+      blood: 0xaa0000,
+      rune: 0xff0044,
+    };
+
+    const color = colorMap[type];
+
+    for (let i = 0; i < count; i++) {
+      const mesh = this.getSpark();
+      mesh.position.copy(position);
+      mesh.visible = true;
+
+      const mat = mesh.material as THREE.MeshBasicMaterial;
+      mat.color.setHex(color);
+      mat.opacity = 1;
+
+      const scale = 0.035 + Math.random() * 0.07;
+      mesh.scale.setScalar(scale);
+
+      // Velocity
+      const vel = new THREE.Vector3(
+        (Math.random() - 0.5) * 9,
+        Math.random() * 7 + 1,
+        (Math.random() - 0.5) * 9
+      );
+
+      (mesh as any).vel = vel;
+      (mesh as any).life = 0.35 + Math.random() * 0.35;
+      (mesh as any).maxLife = (mesh as any).life;
+    }
+  }
+
+  private getSpark(): THREE.Mesh {
+    // Reuse from pool
+    for (const mesh of this.sparkPool) {
+      if (!mesh.visible) return mesh;
+    }
+
+    // Create new if needed
+    if (this.sparkPool.length >= this.MAX_SPARKS) {
+      return this.sparkPool[0]; // fallback
+    }
+
+    const geo = new THREE.SphereGeometry(1, 5, 5);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xff2200,
+      transparent: true,
+      depthWrite: false,
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.visible = false;
+    this.scene.add(mesh);
+    this.sparkPool.push(mesh);
+
+    return mesh;
+  }
+
+  /**
+   * Call this every frame
+   */
+  update(dt: number) {
+    for (const mesh of this.sparkPool) {
+      if (!mesh.visible) continue;
+
+      const data = mesh as any;
+      data.life -= dt;
+
+      if (data.life <= 0) {
+        mesh.visible = false;
+        continue;
+      }
+
+      // Move
+      mesh.position.addScaledVector(data.vel, dt);
+      data.vel.y -= 14 * dt; // gravity
+
+      // Fade
+      const t = data.life / data.maxLife;
+      (mesh.material as THREE.MeshBasicMaterial).opacity = t * t;
+    }
+  }
+
+  /**
+   * Clean up
+   */
+  dispose() {
+    for (const mesh of this.sparkPool) {
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+      this.scene.remove(mesh);
+    }
+    this.sparkPool.length = 0;
+
+    this.camera.remove(this.flashLight);
+    this.flashLight.dispose();
+  }
+}
+import { EffectSystem } from "./effects";this.effects = new EffectSystem(this.scene, this.camera);this.effects.update(dt);
