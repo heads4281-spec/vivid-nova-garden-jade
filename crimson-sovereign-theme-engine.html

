@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CRIMSON SOVEREIGN – Theme Engine</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;touch-action:none}
+  body{background:#030308;overflow:hidden;font-family:system-ui,sans-serif;color:#ffccd5}
+  canvas{display:block;width:100vw;height:100vh}
+  #ui{
+    position:absolute;top:14px;left:14px;z-index:30;
+    background:rgba(8,0,5,0.88);backdrop-filter:blur(14px);
+    border:1px solid #ff2244;border-radius:14px;
+    padding:14px 18px;font-size:13.5px;line-height:1.5;
+    max-width:360px;pointer-events:none;
+    color:#ffd6de;          /* readable light crimson text */
+    text-shadow:0 0 8px rgba(255,40,70,0.45);
+  }
+  #ui b{color:#ff3355;font-size:15px}
+  #status{color:#ff99aa;font-size:12px;margin-top:7px}
+  #mobile-controls{
+    position:absolute;bottom:18px;left:0;right:0;z-index:25;
+    display:none;justify-content:space-between;padding:0 18px;pointer-events:none;
+  }
+  .btn{
+    width:70px;height:70px;border-radius:50%;
+    background:rgba(255,30,60,0.35);border:2px solid #ff3355;
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:bold;color:#ffe0e6;user-select:none;
+  }
+  #joystick{
+    width:110px;height:110px;border-radius:50%;
+    background:rgba(255,40,70,0.12);border:2px solid rgba(255,50,80,0.55);
+    position:relative;
+  }
+  #knob{
+    width:48px;height:48px;border-radius:50%;background:#ff2244;
+    position:absolute;top:31px;left:31px;
+    box-shadow:0 0 18px #ff2244;
+  }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <b>CRIMSON SOVEREIGN</b><br>
+  Smart AI • Super Art • Auto Glitch Fix<br>
+  Theme: Gothic Crimson Citadel<br>
+  <div id="status">Systems online • Glitch Guardian active</div>
+</div>
+
+<div id="mobile-controls">
+  <div id="joystick"><div id="knob"></div></div>
+  <div class="btn" id="btn-jump">JUMP</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ================================================================
+   CRIMSON SOVEREIGN – SMART AI + SUPER ART + AUTO GLITCH FIX
+   Theme matched to your scanned citadel (black + glowing crimson)
+   ================================================================ */
+
+const IS_MOBILE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+const IS_LOW = IS_MOBILE || (navigator.hardwareConcurrency || 4) <= 4;
+
+// -------------------- GLITCH GUARDIAN --------------------
+class GlitchGuardian {
+  constructor(engine) {
+    this.engine = engine;
+    this.tick = 0;
+  }
+  update() {
+    this.tick++;
+    if (this.tick % 25 !== 0) return;
+
+    const body = this.engine.playerBody;
+    // Fix NaN / Infinity
+    if (!isFinite(body.position.x) || !isFinite(body.position.y) || !isFinite(body.position.z)) {
+      body.position.set(0, 6, 18);
+      body.velocity.set(0, 0, 0);
+    }
+    // Extreme velocity
+    if (body.velocity.length() > 70) body.velocity.multiplyScalar(0.12);
+    // Underground
+    if (body.position.y < -4) {
+      body.position.y = 6;
+      body.velocity.y = 0;
+    }
+    // AI bodies
+    this.engine.agents.forEach(a => {
+      if (!isFinite(a.body.position.x)) {
+        a.body.position.copy(a.home);
+        a.body.velocity.set(0,0,0);
+      }
+    });
+  }
+}
+
+// -------------------- SUPER ART (crimson energy) --------------------
+class SuperArt {
+  static createOrb(radius, hue = 0.0) {
+    const geo = new THREE.SphereGeometry(radius, 20, 16);
+    const mat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color().setHSL(hue, 0.95, 0.45),
+      emissive: new THREE.Color().setHSL(hue, 1.0, 0.35),
+      emissiveIntensity: 0.7,
+      roughness: 0.2,
+      metalness: 0.55
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.userData.art = true;
+    mesh.userData.phase = Math.random() * Math.PI * 2;
+    mesh.userData.baseY = 0;
+    return mesh;
+  }
+
+  static update(mesh, time) {
+    if (!mesh.userData.art) return;
+    const s = 1 + Math.sin(time * 2.4 + mesh.userData.phase) * 0.12;
+    mesh.scale.setScalar(s);
+    mesh.rotation.y += 0.012;
+    mesh.position.y = mesh.userData.baseY + Math.sin(time * 1.8 + mesh.userData.phase) * 0.35;
+    mesh.material.emissiveIntensity = 0.55 + Math.sin(time * 3.2 + mesh.userData.phase) * 0.35;
+  }
+}
+
+// -------------------- SMART AI --------------------
+class SmartAI {
+  constructor(mesh, home) {
+    this.mesh = mesh;
+    this.body = new PhysicsBody(mesh, { mass: 0.85, radius: 1.05 });
+    this.home = home.clone();
+    this.state = "idle";
+    this.timer = 0;
+    this.speed = 7.2 + Math.random() * 2.8;
+  }
+
+  update(dt, playerPos) {
+    this.timer -= dt;
+    const dist = this.body.position.distanceTo(playerPos);
+
+    if (dist < 15) this.state = "chase";
+    else if (this.state === "chase" && dist > 24) this.state = "return";
+    else if (this.timer <= 0) {
+      this.state = Math.random() > 0.42 ? "wander" : "idle";
+      this.timer = 2.1 + Math.random() * 2.4;
+    }
+
+    let dir = new THREE.Vector3();
+    if (this.state === "chase") {
+      dir.subVectors(playerPos, this.body.position);
+    } else if (this.state === "return") {
+      dir.subVectors(this.home, this.body.position);
+    } else if (this.state === "wander") {
+      dir.set((Math.random()-0.5)*2, 0, (Math.random()-0.5)*2);
+    }
+
+    dir.y = 0;
+    if (dir.length() > 1.2) {
+      dir.normalize().multiplyScalar(this.speed);
+      this.body.velocity.x = dir.x;
+      this.body.velocity.z = dir.z;
+      this.mesh.lookAt(this.body.position.x + dir.x, this.body.position.y, this.body.position.z + dir.z);
+    } else {
+      this.body.velocity.x *= 0.86;
+      this.body.velocity.z *= 0.86;
+    }
+  }
+}
+
+// -------------------- PHYSICS --------------------
+class PhysicsBody {
+  constructor(mesh, opts = {}) {
+    this.mesh = mesh;
+    this.position = mesh.position;
+    this.velocity = new THREE.Vector3();
+    this.force = new THREE.Vector3();
+    this.mass = opts.mass || 1;
+    this.radius = opts.radius || 1;
+    this.restitution = opts.restitution || 0.22;
+    this.friction = opts.friction || 0.84;
+    this.isStatic = opts.isStatic || false;
+    this.onGround = false;
+  }
+  applyForce(f) { if (!this.isStatic) this.force.add(f); }
+  integrate(dt) {
+    if (this.isStatic) return;
+    this.velocity.add(this.force.clone().divideScalar(this.mass).multiplyScalar(dt));
+    this.position.add(this.velocity.clone().multiplyScalar(dt));
+    this.force.set(0,0,0);
+    this.velocity.multiplyScalar(0.994);
+  }
+}
+
+class PhysicsWorld {
+  constructor() {
+    this.bodies = [];
+    this.gravity = new THREE.Vector3(0, -29, 0);
+    this.fixedDt = 1/60;
+    this.acc = 0;
+  }
+  add(b) { this.bodies.push(b); }
+  step(dt) {
+    this.acc += Math.min(dt, 0.05);
+    while (this.acc >= this.fixedDt) {
+      this.fixedUpdate(this.fixedDt);
+      this.acc -= this.fixedDt;
+    }
+  }
+  fixedUpdate(dt) {
+    for (const b of this.bodies) if (!b.isStatic) b.applyForce(this.gravity.clone().multiplyScalar(b.mass));
+    for (const b of this.bodies) b.integrate(dt);
+    this.resolve();
+  }
+  resolve() {
+    const groundY = 0;
+    for (const body of this.bodies) {
+      if (body.isStatic) continue;
+      if (body.position.y - body.radius < groundY) {
+        body.position.y = groundY + body.radius;
+        if (body.velocity.y < 0) {
+          body.velocity.y *= -body.restitution;
+          body.velocity.x *= body.friction;
+          body.velocity.z *= body.friction;
+        }
+        body.onGround = true;
+      } else body.onGround = false;
+
+      for (const other of this.bodies) {
+        if (other === body || !other.isStatic) continue;
+        const box = new THREE.Box3().setFromObject(other.mesh);
+        const closest = new THREE.Vector3(
+          Math.max(box.min.x, Math.min(body.position.x, box.max.x)),
+          Math.max(box.min.y, Math.min(body.position.y, box.max.y)),
+          Math.max(box.min.z, Math.min(body.position.z, box.max.z))
+        );
+        const distVec = body.position.clone().sub(closest);
+        const dist = distVec.length();
+        if (dist < body.radius && dist > 0.0001) {
+          const n = distVec.normalize();
+          body.position.add(n.clone().multiplyScalar(body.radius - dist + 0.002));
+          const vn = body.velocity.dot(n);
+          if (vn < 0) {
+            body.velocity.add(n.clone().multiplyScalar(-(1 + body.restitution) * vn));
+            const tan = body.velocity.clone().sub(n.clone().multiplyScalar(body.velocity.dot(n)));
+            body.velocity.sub(tan.multiplyScalar(1 - body.friction));
+          }
+        }
+      }
+    }
+  }
+}
+
+// -------------------- SHAPES (dark + crimson) --------------------
+function mat(c, emissive = 0x000000) {
+  return new THREE.MeshStandardMaterial({
+    color: c,
+    emissive: emissive,
+    emissiveIntensity: emissive === 0x000000 ? 0 : 0.45,
+    roughness: 0.28,
+    metalness: 0.35
+  });
+}
+function sphere(r, c, e) { return new THREE.Mesh(new THREE.SphereGeometry(r, IS_LOW?14:26, IS_LOW?10:18), mat(c, e)); }
+function cube(s, c) { return new THREE.Mesh(new THREE.BoxGeometry(s,s,s), mat(c)); }
+function cylinder(r, h, c) { return new THREE.Mesh(new THREE.CylinderGeometry(r,r,h, IS_LOW?12:24), mat(c)); }
+function cone(r, h, c) { return new THREE.Mesh(new THREE.ConeGeometry(r,h, IS_LOW?12:24), mat(c)); }
+function pyramid(s, c) { return new THREE.Mesh(new THREE.TetrahedronGeometry(s), mat(c)); }
+
+// -------------------- MAIN ENGINE --------------------
+class CrimsonThemeEngine {
+  constructor() {
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x030308);
+    this.scene.fog = new THREE.FogExp2(0x030308, 0.011);
+
+    this.camera = new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 320);
+    this.renderer = new THREE.WebGLRenderer({ antialias: !IS_LOW, powerPreference: "high-performance" });
+    this.renderer.setSize(innerWidth, innerHeight);
+    this.renderer.setPixelRatio(IS_LOW ? 1 : Math.min(devicePixelRatio, 1.7));
+    this.renderer.shadowMap.enabled = !IS_LOW;
+    document.body.appendChild(this.renderer.domElement);
+
+    // Crimson lighting
+    this.scene.add(new THREE.AmbientLight(0x2a1018, 0.5));
+    const sun = new THREE.DirectionalLight(0xff4466, 1.15);
+    sun.position.set(18, 38, 14);
+    sun.castShadow = !IS_LOW;
+    this.scene.add(sun);
+    // Extra red accent light
+    const redLight = new THREE.PointLight(0xff2244, 1.8, 60);
+    redLight.position.set(0, 12, 0);
+    this.scene.add(redLight);
+
+    this.physics = new PhysicsWorld();
+    this.agents = [];
+    this.art = [];
+    this.guardian = new GlitchGuardian(this);
+
+    // Player (bright crimson)
+    this.playerMesh = sphere(1.15, 0xff3355, 0xff2244);
+    this.playerMesh.castShadow = true;
+    this.scene.add(this.playerMesh);
+    this.playerBody = new PhysicsBody(this.playerMesh, { mass: 1.15, radius: 1.15 });
+    this.physics.add(this.playerBody);
+
+    this.buildWorld();
+    this.spawnAI();
+    this.spawnSuperArt();
+    this.setupInput();
+    this.clock = new THREE.Clock();
+    this.animate();
+  }
+
+  buildWorld() {
+    // Dark ground with subtle red tint
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(260, 260),
+      new THREE.MeshStandardMaterial({ color: 0x0a0608, roughness: 0.92, metalness: 0.1 })
+    );
+    ground.rotation.x = -Math.PI/2;
+    ground.receiveShadow = true;
+    this.scene.add(ground);
+
+    // Dark gothic shapes with crimson accents
+    const shapes = [
+      { fn: sphere,   args: [3.3, 0x1a0a0e, 0xff2244], pos: [-18, 3.3, 0] },
+      { fn: cube,     args: [4.8, 0x12080c], pos: [-7, 2.4, 0] },
+      { fn: cylinder, args: [2.7, 6.5, 0x180a10], pos: [6, 3.25, 0] },
+      { fn: cone,     args: [3.4, 7.5, 0x1c0c14], pos: [18, 3.75, 0] },
+      { fn: pyramid,  args: [4.4, 0x14080e], pos: [0, 3.3, -12] }
+    ];
+
+    shapes.forEach(s => {
+      const m = s.fn(...s.args);
+      m.position.set(...s.pos);
+      m.castShadow = true;
+      this.scene.add(m);
+      this.physics.add(new PhysicsBody(m, { isStatic: true }));
+    });
+
+    // Subtle grid in deep red-black
+    this.scene.add(new THREE.GridHelper(90, 45, 0x3a1520, 0x150810));
+  }
+
+  spawnAI() {
+    const count = IS_LOW ? 3 : 5;
+    for (let i = 0; i < count; i++) {
+      const m = sphere(1.0, 0x66aaff, 0x4488ff);
+      const pos = new THREE.Vector3((Math.random()-0.5)*26, 2, (Math.random()-0.5)*26);
+      m.position.copy(pos);
+      this.scene.add(m);
+      const agent = new SmartAI(m, pos);
+      this.physics.add(agent.body);
+      this.agents.push(agent);
+    }
+  }
+
+  spawnSuperArt() {
+    const count = IS_LOW ? 5 : 9;
+    for (let i = 0; i < count; i++) {
+      const orb = SuperArt.createOrb(0.55 + Math.random()*0.85, 0.0); // pure crimson hue
+      orb.position.set((Math.random()-0.5)*40, 1.8 + Math.random()*5, (Math.random()-0.5)*40);
+      orb.userData.baseY = orb.position.y;
+      this.scene.add(orb);
+      this.art.push(orb);
+    }
+  }
+
+  setupInput() {
+    this.keys = {};
+    this.mobileMove = new THREE.Vector2();
+    this.jump = false;
+
+    window.addEventListener("keydown", e => this.keys[e.code] = true);
+    window.addEventListener("keyup", e => this.keys[e.code] = false);
+
+    if (IS_MOBILE) {
+      document.getElementById("mobile-controls").style.display = "flex";
+      const joy = document.getElementById("joystick");
+      const knob = document.getElementById("knob");
+      let active = false, sx, sy;
+      joy.addEventListener("touchstart", e => {
+        e.preventDefault(); active = true;
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      });
+      joy.addEventListener("touchmove", e => {
+        if (!active) return; e.preventDefault();
+        const dx = e.touches[0].clientX - sx;
+        const dy = e.touches[0].clientY - sy;
+        const max = 30, len = Math.min(Math.hypot(dx, dy), max);
+        const a = Math.atan2(dy, dx);
+        knob.style.transform = `translate(${Math.cos(a)*len}px,${Math.sin(a)*len}px)`;
+        this.mobileMove.set(Math.cos(a)*(len/max), Math.sin(a)*(len/max));
+      });
+      const end = () => { active=false; knob.style.transform="translate(0,0)"; this.mobileMove.set(0,0); };
+      joy.addEventListener("touchend", end);
+      document.getElementById("btn-jump").addEventListener("touchstart", e => {e.preventDefault(); this.jump=true;});
+      document.getElementById("btn-jump").addEventListener("touchend", () => this.jump=false);
+    }
+
+    window.addEventListener("resize", () => {
+      this.camera.aspect = innerWidth / innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(innerWidth, innerHeight);
+    });
+  }
+
+  update(dt) {
+    // Player
+    const move = new THREE.Vector3();
+    if (this.keys["KeyW"] || this.mobileMove.y < -0.25) move.z -= 1;
+    if (this.keys["KeyS"] || this.mobileMove.y > 0.25) move.z += 1;
+    if (this.keys["KeyA"] || this.mobileMove.x < -0.25) move.x -= 1;
+    if (this.keys["KeyD"] || this.mobileMove.x > 0.25) move.x += 1;
+
+    const speed = IS_LOW ? 15 : 20;
+    if (move.lengthSq() > 0) {
+      move.normalize().multiplyScalar(speed);
+      this.playerBody.velocity.x = move.x;
+      this.playerBody.velocity.z = move.z;
+    } else {
+      this.playerBody.velocity.x *= 0.87;
+      this.playerBody.velocity.z *= 0.87;
+    }
+
+    if ((this.keys["Space"] || this.jump) && this.playerBody.onGround) {
+      this.playerBody.velocity.y = 14;
+      this.playerBody.onGround = false;
+      this.jump = false;
+    }
+
+    this.physics.step(dt);
+    this.playerMesh.position.copy(this.playerBody.position);
+
+    // Smart AI
+    this.agents.forEach(a => {
+      a.update(dt, this.playerBody.position);
+      a.mesh.position.copy(a.body.position);
+    });
+
+    // Super Art animation
+    const t = this.clock.elapsedTime;
+    this.art.forEach(o => SuperArt.update(o, t));
+
+    // Auto glitch fix
+    this.guardian.update();
+
+    // Camera
+    const camTarget = this.playerBody.position.clone().add(new THREE.Vector3(0, 7.0, 15));
+    this.camera.position.lerp(camTarget, 0.09);
+    this.camera.lookAt(this.playerBody.position.x, this.playerBody.position.y + 1.2, this.playerBody.position.z);
+
+    document.getElementById("status").textContent =
+      `AI: ${this.agents.length} | Super Art: ${this.art.length} | Glitch Guardian: Active`;
+  }
+
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    this.update(this.clock.getDelta());
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+// Launch
+new CrimsonThemeEngine();
+</script>
+</body>
+</html>
