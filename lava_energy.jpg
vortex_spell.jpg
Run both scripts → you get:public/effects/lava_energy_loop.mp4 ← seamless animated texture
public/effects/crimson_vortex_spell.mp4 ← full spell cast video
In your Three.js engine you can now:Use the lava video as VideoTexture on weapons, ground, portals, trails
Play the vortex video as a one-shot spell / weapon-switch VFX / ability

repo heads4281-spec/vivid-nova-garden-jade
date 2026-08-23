@@ -1,0 +1,85 @@
+"""
+CRIMSON SOVEREIGN — Living Ground & Energy Terrain Generator
+Creates full animated ground levels with flowing red energy cracks, solid steps feel, hills & downhill motion.
+Uses the complete improved WanI2V engine we built.
+"""
+
+from __future__ import annotations
+import gc, logging, math, os, random, sys, time, types
+from contextlib import nullcontext
+from functools import partial
+from typing import Optional, Tuple, Union
+import numpy as np
+import torch
+import torch.distributed as dist
+import torchvision.transforms.functional as TF
+from PIL import Image
+from tqdm import tqdm
+
+# === PASTE THE FULL IMPROVED WanI2V CLASS HERE (the hardened version we finalized) ===
+# (Copy the entire WanI2V class from the previous hardened scripts)
+
+from .utils.utils import save_video
+from wan.configs import WAN_CONFIGS, MAX_AREA_CONFIGS
+
+def generate_living_ground(
+    image_path: str = "palace_ground.jpg",          # the first image you just sent
+    ckpt_dir: str = "path/to/Wan2.1-I2V-A14B",
+    output_path: str = "public/levels/crimson_ground_alive.mp4",
+    quality: str = "ultra",
+    seed: int = 42,
+):
+    img = Image.open(image_path).convert("RGB")
+
+    prompt = (
+        "Cinematic full environment animation of a dark gothic palace ground and grand staircase, "
+        "black stone floor with glowing crimson red energy cracks that slowly flow and pulse like living lava, "
+        "the energy veins move and breathe, solid stone steps feel heavy and real, subtle camera drift forward "
+        "as if walking up the stairs, red lightning in the stormy sky, giant blood moon, volumetric red fog, "
+        "highly detailed, mythic Crimson Sovereign style, seamless looping atmosphere, 8k masterpiece"
+    )
+
+    negative = (
+        "blurry, static, flat, deformed architecture, floating objects, cartoon, low detail, "
+        "bright daylight, blue sky, text, watermark, shaky camera"
+    )
+
+    cfg = WAN_CONFIGS["i2v-A14B"]
+    area = MAX_AREA_CONFIGS.get("1280*720", 1280 * 720)
+
+    presets = {
+        "game":      dict(steps=40, guide=6.5, frames=81),
+        "ultra":     dict(steps=50, guide=7.5, frames=97),
+        "cinematic": dict(steps=60, guide=8.0, frames=121),
+    }
+    p = presets.get(quality, presets["ultra"])
+
+    pipeline = WanI2V(
+        config=cfg,
+        checkpoint_dir=ckpt_dir,
+        t5_cpu=True,
+        init_on_cpu=True,
+        convert_model_dtype=True,
+    )
+
+    print(f"Generating {quality.upper()} Living Ground & Stairs...")
+    video = pipeline.generate(
+        input_prompt=prompt,
+        img=img,
+        max_area=area,
+        frame_num=p["frames"],
+        sampling_steps=p["steps"],
+        guide_scale=p["guide"],
+        n_prompt=negative,
+        seed=seed,
+        offload_model=True,
+        progress_desc="Animating Crimson Ground & Stairs"
+    )
+
+    if video is not None:
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        save_video(tensor=video[None], save_file=output_path, fps=cfg.sample_fps,
+                   nrow=1, normalize=True, value_range=(-1, 1))
+        print(f"✓ Living ground level saved → {output_path}")
+        return output_path
+    return None
