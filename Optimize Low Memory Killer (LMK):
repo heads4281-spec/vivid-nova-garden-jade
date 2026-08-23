@@ -1,0 +1,2 @@
+# Aggressively kills background tasks to free up RAM for games
+echo "18432,23040,27648,32256,55296,80640" > /sys/module/lowmemorykiller/parameters/minfree
