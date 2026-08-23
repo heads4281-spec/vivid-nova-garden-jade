@@ -1,0 +1,315 @@
+**WebSocket real-time sync implemented.**
+
+Here’s a complete, ready-to-use solution that turns your CRIMSON SOVEREIGN into a true real-time multiplayer game server.
+
+### What you get
+- Real-time sync of players, fog/blood levels, broadcasts, stats, news, and codes
+- Automatic reconnection
+- Shared world state across all connected clients
+- Master commands that instantly update everyone
+- Works with your existing GitHub `config.json` (still auto-updates every 30s as fallback)
+
+---
+
+### 1. WebSocket Server (Node.js)
+
+Create a file called `server.js` in your GitHub repo:
+
+```js
+// server.js - CRIMSON SOVEREIGN Real-time Game Server
+const WebSocket = require('ws');
+const http = require('http');
+
+const PORT = process.env.PORT || 8080;
+
+// Shared world state
+let world = {
+  version: "2.2.0-ws",
+  players: {},
+  playerCount: 0,
+  fog: 42,
+  blood: 67,
+  mythCycles: 100000,
+  loreMode: "blood",
+  identifier: "CNLMMR · SOVEREIGN LV 6294 · 10 000 OPEN-WORLD MOMENTS",
+  codeFlavour: "This code thickens blood in the canals. The Milky Way hungers with the palace.",
+  news: [
+    "WebSocket real-time sync online",
+    "All codes active · One game server",
+    "Master broadcasts now instant"
+  ],
+  validCodes: ["63821", "62821", "99812", "15785"]
+};
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('CRIMSON SOVEREIGN WebSocket Server is running\n');
+});
+
+const wss = new WebSocket.Server({ server });
+
+function broadcast(data, exclude = null) {
+  const msg = JSON.stringify(data);
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN && client !== exclude) {
+      client.send(msg);
+    }
+  });
+}
+
+function updatePlayerCount() {
+  world.playerCount = Object.keys(world.players).length;
+  broadcast({ type: 'state', world });
+}
+
+wss.on('connection', (ws, req) => {
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  world.players[id] = {
+    id,
+    name: `Sovereign-${id.slice(-4)}`,
+    class: null,
+    joined: Date.now()
+  };
+  updatePlayerCount();
+
+  // Send full state to new player
+  ws.send(JSON.stringify({ type: 'welcome', id, world }));
+
+  ws.on('message', (raw) => {
+    try {
+      const msg = JSON.parse(raw);
+
+      switch (msg.type) {
+        case 'join':
+          if (msg.name) world.players[id].name = msg.name;
+          if (msg.class) world.players[id].class = msg.class;
+          updatePlayerCount();
+          break;
+
+        case 'broadcast':
+          broadcast({
+            type: 'broadcast',
+            from: world.players[id].name,
+            text: msg.text,
+            time: Date.now()
+          });
+          break;
+
+        case 'grant':
+          // Master can grant resources (simple demo)
+          broadcast({
+            type: 'grant',
+            stat: msg.stat,
+            amount: msg.amount,
+            from: world.players[id].name
+          });
+          break;
+
+        case 'setWorld':
+          // Master updates shared world values
+          if (msg.fog !== undefined) world.fog = msg.fog;
+          if (msg.blood !== undefined) world.blood = msg.blood;
+          if (msg.loreMode) {
+            world.loreMode = msg.loreMode;
+            if (msg.loreMode === 'blood') {
+              world.codeFlavour = "This code thickens blood in the canals. The Milky Way hungers with the palace.";
+              world.identifier = "CNLMMR · SOVEREIGN LV 6294 · 10 000 OPEN-WORLD MOMENTS";
+            } else {
+              world.codeFlavour = "This code stills the fog. The galaxy turns slow and polite.";
+              world.identifier = "TKNYRT · SOVEREIGN LV 4793 · 10 000 OPEN-WORLD MOMENTS";
+            }
+          }
+          if (msg.news) world.news = msg.news;
+          broadcast({ type: 'state', world });
+          break;
+
+        case 'ping':
+          ws.send(JSON.stringify({ type: 'pong' }));
+          break;
+      }
+    } catch (e) {
+      console.error('Bad message', e);
+    }
+  });
+
+  ws.on('close', () => {
+    delete world.players[id];
+    updatePlayerCount();
+  });
+});
+
+// Light ambient simulation
+setInterval(() => {
+  world.fog = Math.max(10, Math.min(90, world.fog + (Math.random() * 6 - 3)));
+  world.blood = Math.max(10, Math.min(95, world.blood + (Math.random() * 6 - 3)));
+  broadcast({ type: 'state', world });
+}, 12000);
+
+server.listen(PORT, () => {
+  console.log(`CRIMSON SOVEREIGN WebSocket Server running on port ${PORT}`);
+});
+```
+
+**package.json** (also put in the repo):
+
+```json
+{
+  "name": "crimson-sovereign-server",
+  "version": "2.2.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
+```
+
+---
+
+### 2. How to run / deploy the server
+
+**Local test**
+```bash
+npm install
+node server.js
+```
+Server runs at `ws://localhost:8080`
+
+**Free cloud deploy (recommended)**  
+- Railway.app, Render.com, or Fly.io  
+- Connect your GitHub repo  
+- It will detect the Node app and give you a public URL like:  
+  `wss://crimson-sovereign-xxxx.up.railway.app`
+
+---
+
+### 3. Updated Client (index.html)
+
+Replace the WebSocket part in your existing `index.html`.  
+Add this near the top of the `<script>` section and update the connection URL:
+
+```js
+// ============== WEBSOCKET REAL-TIME ==============
+const WS_URL = "wss://YOUR-SERVER-URL";   // ← change this after deploy
+// Example: "wss://crimson-sovereign-production.up.railway.app"
+// Local test: "ws://localhost:8080"
+
+let socket = null;
+let myId = null;
+let reconnectAttempts = 0;
+
+function connectWebSocket() {
+  if (socket && socket.readyState === WebSocket.OPEN) return;
+
+  socket = new WebSocket(WS_URL);
+
+  socket.onopen = () => {
+    console.log("WebSocket connected");
+    document.getElementById("updateStatus").textContent = "LIVE · WS";
+    document.getElementById("updateStatus").style.background = "#1a5c1a";
+    reconnectAttempts = 0;
+    log("Real-time sync connected");
+  };
+
+  socket.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+
+    switch (msg.type) {
+      case "welcome":
+        myId = msg.id;
+        applyWorldState(msg.world);
+        break;
+
+      case "state":
+        applyWorldState(msg.world);
+        break;
+
+      case "broadcast":
+        log(`BROADCAST [${msg.from}]: ${msg.text}`);
+        break;
+
+      case "grant":
+        if (stats[msg.stat] !== undefined) {
+          stats[msg.stat] += msg.amount;
+          document.getElementById("stat-" + msg.stat).textContent = stats[msg.stat];
+        }
+        log(`${msg.from} granted +${msg.amount} ${msg.stat}`);
+        break;
+
+      case "pong":
+        // keep-alive ok
+        break;
+    }
+  };
+
+  socket.onclose = () => {
+    document.getElementById("updateStatus").textContent = "RECONNECTING...";
+    document.getElementById("updateStatus").style.background = "#5c4a1a";
+    log("WebSocket disconnected – reconnecting...");
+    setTimeout(connectWebSocket, Math.min(1000 * Math.pow(2, reconnectAttempts++), 15000));
+  };
+
+  socket.onerror = () => {
+    socket.close();
+  };
+}
+
+function applyWorldState(world) {
+  if (!world) return;
+  document.getElementById("playerCount").textContent = world.playerCount;
+  document.getElementById("fogLevel").textContent = Math.round(world.fog) + "%";
+  document.getElementById("bloodLevel").textContent = Math.round(world.blood) + "%";
+  document.getElementById("identifier").textContent = world.identifier;
+  document.getElementById("codeFlavour").textContent = world.codeFlavour;
+
+  // Update news
+  const newsFeed = document.getElementById("newsFeed");
+  if (newsFeed && world.news) {
+    newsFeed.innerHTML = world.news.map(n => `<div class="news-item">• ${n}</div>`).join("");
+  }
+}
+
+function sendWS(data) {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(data));
+  }
+}
+
+// Call this on page load
+connectWebSocket();
+
+// Keep-alive ping every 25s
+setInterval(() => sendWS({ type: "ping" }), 25000);
+```
+
+Also update your existing functions to use the WebSocket:
+
+```js
+// Example: replace your old broadcast function
+function broadcast() {
+  const text = document.getElementById("broadcastMsg").value.trim();
+  if (text) {
+    sendWS({ type: "broadcast", text });
+    document.getElementById("broadcastMsg").value = "";
+  }
+}
+
+// Example: grant resource now goes to everyone
+function grantResource() {
+  const stat = document.getElementById("grantStat").value;
+  const amount = parseInt(document.getElementById("grantAmount").value) || 0;
+  sendWS({ type: "grant", stat, amount });
+}
+```
+
+---
+
+### Final result
+- All players see the same fog/blood levels, player count, and news in real time
+- Master broadcasts appear instantly for everyone
+- When someone joins or leaves, the count updates live
+- Still falls back to your GitHub `config.json` if the WebSocket is temporarily down
+
+Just deploy the `server.js` + `package.json`, put the public `wss://` URL into the client, and you have a fully automatic real-time game server.
