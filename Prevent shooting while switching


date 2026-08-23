@@ -1,0 +1,4 @@
+shoot() {
+  if (this.switchLock > 0) return;   // ← add this line
+  // ... rest of your shoot code
+}
