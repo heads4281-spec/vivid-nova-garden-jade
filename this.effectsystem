@@ -1,0 +1,132 @@
+**Here’s Number 1 – Final Integration Patch**
+
+This is the exact code you need to make the new `EffectSystem` work with your upgraded weapon system.
+
+---
+
+### 1. Import the EffectSystem
+
+At the top of `src/game/engine.ts`:
+
+```ts
+import { EffectSystem } from "./effects";
+```
+
+---
+
+### 2. Create the EffectSystem
+
+Inside your `start()` method (or wherever you initialize systems), add:
+
+```ts
+this.effects = new EffectSystem(this.scene, this.camera);
+```
+
+Also declare it in the class:
+
+```ts
+private effects!: EffectSystem;
+```
+
+---
+
+### 3. Update every frame
+
+Inside your main visual/update loop (usually `visual(dt)` or `frame()`), add:
+
+```ts
+this.effects.update(dt);
+```
+
+---
+
+### 4. Integration inside `equip()` (Weapon Switch)
+
+Replace your current `equip` method with this fully upgraded version:
+
+```ts
+equip(index: number) {
+  if (!this.canEquip(index) || index === this.weapon) return;
+
+  // Feedback
+  this.audio.ui("equip");
+  this.trauma = Math.min(1, this.trauma + 0.28);
+  this.vmKickZ = -0.22;
+  this.vmKickY = -0.06;
+  this.switchLock = 0.18;
+
+  // Crimson flash
+  this.effects.muzzleFlash(0xff0033, 14, 0.14);
+
+  // Actual switch
+  this.weapon = index;
+  this.recoilSim.reset();
+  this.charge = 0;
+  this.reloadT = 0;
+  this.showView(WEAPONS[index].view);
+}
+```
+
+---
+
+### 5. Integration inside `shoot()`
+
+At the top of your `shoot()` method, keep the lock check, then after you successfully fire, add the effect calls:
+
+```ts
+shoot() {
+  if (this.switchLock > 0) return;
+  if (this.reloadT > 0) return;
+
+  const w = WEAPONS[this.weapon];
+  const now = performance.now() / 1000;
+
+  if (now - this.lastShot[this.weapon] < w.cooldown) return;
+
+  if (this.mag[this.weapon] <= 0 && !this.infAmmo) {
+    this.audio.ui("empty");
+    this.startReload();
+    return;
+  }
+
+  // Consume ammo
+  if (!this.infAmmo) this.mag[this.weapon]--;
+  this.lastShot[this.weapon] = now;
+
+  // ===== NEW EFFECTS =====
+  const flashColor = (w.fire === "beam" || w.fire === "rail") ? 0xff0033 : 0xff4400;
+  this.effects.muzzleFlash(flashColor, w.fire === "melee" ? 9 : 22, 0.07);
+
+  this.recoilSim.fire(w, { ads: this.ads, firstShot: true });
+  this.trauma = Math.min(1, this.trauma + (w.fire === "melee" ? 0.18 : 0.32));
+
+  // ===== YOUR ORIGINAL FIRE LOGIC =====
+  if (w.fire === "hitscan" || w.fire === "rail") {
+    this.hitscan(w.damage, w.spread * this.recoilSim.spreadMul(), w.range);
+  } else if (w.fire === "projectile") {
+    this.spawnProj(...);
+  } else if (w.fire === "melee") {
+    this.melee(w.damage, w.range);
+  }
+
+  this.audio.weapon(w.nameKey || "shot");
+}
+```
+
+---
+
+### 6. Optional: Better hit sparks
+
+Wherever you currently call your old spark function after a hit, replace it with:
+
+```ts
+this.effects.spark(hitPoint, "energy", 12);   // or "blood", "metal", "rune"
+```
+
+---
+
+That’s it.  
+
+After you paste these changes, your weapon switching and gunfire will have the strong crimson flashes, better impact effects, and much higher quality feel.
+
+Would you like me to move to **Number 2** (Living Ground + Solid Stairs)
