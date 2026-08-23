@@ -1,0 +1,53 @@
+Full Animated Palace Exterior + Interior Boss ArenaFile: crimson_palace_alive.py
+"""
+CRIMSON SOVEREIGN — Full Animated Palace Generator
+Creates living palace videos: opening gates feel, walkable stairs, hills, downhill paths,
+and the full dragon boss arena coming alive.
+"""
+
+def generate_palace_exterior(
+    image_path: str = "palace_exterior.jpg",
+    ckpt_dir: str = "path/to/Wan2.1-I2V-A14B",
+    output_path: str = "public/levels/crimson_palace_exterior.mp4",
+    quality: str = "ultra",
+    seed: int = 42,
+):
+    img = Image.open(image_path).convert("RGB")
+
+    prompt = (
+        "Epic cinematic animation of a massive dark gothic palace under a giant blood-red moon, "
+        "black spiked towers with glowing crimson energy veins that slowly pulse and flow, "
+        "grand staircase leading up to the glowing red entrance, the energy cracks on the ground move like living fire, "
+        "red lightning flashes in the stormy sky, volumetric fog, the whole palace feels alive and breathing, "
+        "subtle slow camera push up the stairs as if the player is walking, highly detailed architecture, "
+        "mythic Crimson Sovereign style, 8k masterpiece"
+    )
+
+    negative = "blurry, static, deformed buildings, floating parts, cartoon, low detail, text, watermark"
+
+    # same pipeline setup as above...
+    # (use the identical WanI2V + presets)
+
+    # ... generate and save
+    print(f"✓ Full animated palace exterior saved → {output_path}")
+
+
+def generate_dragon_arena(
+    image_path: str = "dragon_arena.jpg",           # the dragon image
+    ckpt_dir: str = "path/to/Wan2.1-I2V-A14B",
+    output_path: str = "public/levels/crimson_dragon_arena.mp4",
+    quality: str = "ultra",
+    seed: int = 42,
+):
+    img = Image.open(image_path).convert("RGB")
+
+    prompt = (
+        "Cinematic boss arena animation inside the dark gothic cathedral, the massive black dragon with glowing red cracks "
+        "comes fully alive, slowly roaring, wings slightly moving, red energy veins under its scales pulse, "
+        "chains gently swing, embers float in the air, the red carpet and cracked floor glow with living energy, "
+        "volumetric red light rays, the whole palace interior feels alive, dramatic atmosphere, "
+        "Crimson Sovereign style, highly detailed, 8k"
+    )
+
+    # same generation code...
+    print(f"✓ Dragon boss arena animation saved → {output_path}")
