@@ -1,0 +1,67 @@
+// src/game/spatial-hash.ts
+import type { AABB } from "./world";
+
+export class SpatialHash {
+  private cellSize: number;
+  private map = new Map<string, AABB[]>();
+
+  constructor(cellSize = 8) {
+    this.cellSize = cellSize;
+  }
+
+  clear() {
+    this.map.clear();
+  }
+
+  private key(x: number, z: number) {
+    const cx = Math.floor(x / this.cellSize);
+    const cz = Math.floor(z / this.cellSize);
+    return `${cx},${cz}`;
+  }
+
+  insert(box: AABB) {
+    const minCX = Math.floor(box.minX / this.cellSize);
+    const maxCX = Math.floor(box.maxX / this.cellSize);
+    const minCZ = Math.floor(box.minZ / this.cellSize);
+    const maxCZ = Math.floor(box.maxZ / this.cellSize);
+
+    for (let cx = minCX; cx <= maxCX; cx++) {
+      for (let cz = minCZ; cz <= maxCZ; cz++) {
+        const k = `${cx},${cz}`;
+        if (!this.map.has(k)) this.map.set(k, []);
+        this.map.get(k)!.push(box);
+      }
+    }
+  }
+
+  query(x: number, z: number, radius: number): AABB[] {
+    const result: AABB[] = [];
+    const seen = new Set<AABB>();
+
+    const minCX = Math.floor((x - radius) / this.cellSize);
+    const maxCX = Math.floor((x + radius) / this.cellSize);
+    const minCZ = Math.floor((z - radius) / this.cellSize);
+    const maxCZ = Math.floor((z + radius) / this.cellSize);
+
+    for (let cx = minCX; cx <= maxCX; cx++) {
+      for (let cz = minCZ; cz <= maxCZ; cz++) {
+        const list = this.map.get(`${cx},${cz}`);
+        if (!list) continue;
+        for (const box of list) {
+          if (!seen.has(box)) {
+            seen.add(box);
+            result.push(box);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  rebuild(colliders: AABB[]) {
+    this.clear();
+    for (const box of colliders) {
+      this.insert(box);
+    }
+  }
+}
