@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CRIMSON SOVEREIGN – A* Pathfinding</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;touch-action:none}
+  body{background:#010105;overflow:hidden;font-family:system-ui,sans-serif;color:#fff}
+  canvas{display:block;width:100vw;height:100vh}
+  #ui{
+    position:absolute;top:12px;left:12px;z-index:30;
+    background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);
+    border:1px solid #ff3355;border-radius:12px;
+    padding:12px 16px;font-size:13px;line-height:1.45;
+    max-width:360px;pointer-events:none;
+  }
+  #ui b{color:#ff4466}
+  #status{color:#88ffcc;font-size:12px;margin-top:6px}
+  #mobile-controls{
+    position:absolute;bottom:18px;left:0;right:0;z-index:25;
+    display:none;justify-content:space-between;padding:0 18px;pointer-events:none;
+  }
+  .btn{
+    width:68px;height:68px;border-radius:50%;
+    background:rgba(255,50,80,0.4);border:2px solid #ff4466;
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:bold;color:#fff;user-select:none;
+  }
+  #joystick{
+    width:108px;height:108px;border-radius:50%;
+    background:rgba(255,255,255,0.07);border:2px solid rgba(255,100,120,0.5);
+    position:relative;
+  }
+  #knob{
+    width:46px;height:46px;border-radius:50%;background:#ff4466;
+    position:absolute;top:31px;left:31px;
+  }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <b>CRIMSON SOVEREIGN</b><br>
+  A* Pathfinding<br>
+  <div id="status">A* system ready</div>
+</div>
+
+<div id="mobile-controls">
+  <div id="joystick"><div id="knob"></div></div>
+  <div class="btn" id="btn-jump">JUMP</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ================================================================
+   CRIMSON SOVEREIGN – COMPLETE A* PATHFINDING ENGINE
+   ================================================================ */
+
+const IS_MOBILE = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+const IS_LOW = IS_MOBILE || (navigator.hardwareConcurrency || 4) <= 4;
+
+// -------------------- A* GRID --------------------
+class AStarGrid {
+  constructor(worldSize = 90, cellSize = 2.2) {
+    this.cellSize = cellSize;
+    this.size = Math.floor(worldSize / cellSize);
+    this.half = this.size / 2;
+    this.blocked = new Uint8Array(this.size * this.size);
+  }
+
+  index(x, z) { return z * this.size + x; }
+
+  worldToGrid(x, z) {
+    const gx = Math.floor(x / this.cellSize + this.half);
+    const gz = Math.floor(z / this.cellSize + this.half);
+    return {
+      x: Math.max(0, Math.min(this.size - 1, gx)),
+      z: Math.max(0, Math.min(this.size - 1, gz))
+    };
+  }
+
+  gridToWorld(gx, gz) {
+    return {
+      x: (gx - this.half + 0.5) * this.cellSize,
+      z: (gz - this.half + 0.5) * this.cellSize
+    };
+  }
+
+  setBlocked(x, z, radius = 3.0) {
+    const c = this.worldToGrid(x, z);
+    const r = Math.ceil(radius / this.cellSize);
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const gx = c.x + dx, gz = c.z + dz;
+        if (gx >= 0 && gz >= 0 && gx < this.size && gz < this.size) {
+          this.blocked[this.index(gx, gz)] = 1;
+        }
+      }
+    }
+  }
+
+  isWalkable(gx, gz) {
+    if (gx < 0 || gz < 0 || gx >= this.size || gz >= this.size) return false;
+    return this.blocked[this.index(gx, gz)] === 0;
+  }
+
+  // Full A* implementation
+  findPath(startX, startZ, endX, endZ) {
+    const start = this.worldToGrid(startX, startZ);
+    const end = this.worldToGrid(endX, endZ);
+
+    if (!this.isWalkable(end.x, end.z)) return null;
+
+    const open = [];
+    const cameFrom = new Map();
+    const gScore = new Map();
+    const fScore = new Map();
+    const key = (x, z) => `${x},${z}`;
+
+    open.push(start);
+    gScore.set(key(start.x, start.z), 0);
+    fScore.set(key(start.x, start.z), this.heuristic(start, end));
+
+    const dirs = [
+      [1,0],[-1,0],[0,1],[0,-1],
+      [1,1],[1,-1],[-1,1],[-1,-1]
+    ];
+
+    while (open.length > 0) {
+      // Get node with lowest f-score
+      open.sort((a, b) => (fScore.get(key(a.x, a.z)) || Infinity) - (fScore.get(key(b.x, b.z)) || Infinity));
+      const current = open.shift();
+      const cKey = key(current.x, current.z);
+
+      if (current.x === end.x && current.z === end.z) {
+        // Reconstruct path
+        const path = [];
+        let curr = current;
+        while (curr) {
+          const w = this.gridToWorld(curr.x, curr.z);
+          path.push(new THREE.Vector3(w.x, 0, w.z));
+          const prev = cameFrom.get(key(curr.x, curr.z));
+          if (!prev) break;
+          const [px, pz] = prev.split(',').map(Number);
+          curr = { x: px, z: pz };
+        }
+        path.reverse();
+        return this.smoothPath(path);
+      }
+
+      for (const [dx, dz] of dirs) {
+        const nx = current.x + dx;
+        const nz = current.z + dz;
+        if (!this.isWalkable(nx, nz)) continue;
+
+        const nKey = key(nx, nz);
+        const moveCost = (dx !== 0 && dz !== 0) ? 1.414 : 1;
+        const tentativeG = (gScore.get(cKey) || 0) + moveCost;
+
+        if (tentativeG < (gScore.get(nKey) || Infinity)) {
+          cameFrom.set(nKey, cKey);
+          gScore.set(nKey, tentativeG);
+          fScore.set(nKey, tentativeG + this.heuristic({x: nx, z: nz}, end));
+
+          if (!open.some(n => n.x === nx && n.z === nz)) {
+            open.push({ x: nx, z: nz });
+          }
+        }
+      }
+    }
+    return null; // no path found
+  }
+
+  heuristic(a, b) {
+    // Octile distance (good for 8-directional movement)
+    const dx = Math.abs(a.x - b.x);
+    const dz = Math.abs(a.z - b.z);
+    return Math.max(dx, dz) + (Math.SQRT2 - 1) * Math.min(dx, dz);
+  }
+
+  // Path smoothing
+  smoothPath(path) {
+    if (path.length <= 2) return path;
+    const smoothed = [path[0]];
+    let i = 0;
+    while (i < path.length - 1) {
+      let furthest = i + 1;
+      for (let j = i + 2; j < path.length; j++) {
+        if (this.lineWalkable(path[i], path[j])) furthest = j;
+        else break;
+      }
+      smoothed.push(path[furthest]);
+      i = furthest;
+    }
+    return smoothed;
+  }
+
+  lineWalkable(a, b) {
+    const steps = 10;
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const x = a.x + (b.x - a.x) * t;
+      const z = a.z + (b.z - a.z) * t;
+      const g = this.worldToGrid(x, z);
+      if (!this.isWalkable(g.x, g.z)) return false;
+    }
+    return true;
+  }
+}
+
+// -------------------- A* AI AGENT --------------------
+class AStarAI {
+  constructor(mesh, home, grid) {
+    this.mesh = mesh;
+    this.body = new PhysicsBody(mesh, { mass: 0.9, radius: 1.05 });
+    this.home = home.clone();
+    this.grid = grid;
+    this.state = "idle";
+    this.path = [];
+    this.pathIndex = 0;
+    this.repathTimer = 0;
+    this.speed = 7.5 + Math.random() * 2.8;
+  }
+
+  update(dt, playerPos) {
+    this.repathTimer -= dt;
+    const dist = this.body.position.distanceTo(playerPos);
+
+    // State machine
+    if (dist < 16) this.state = "chase";
+    else if (this.state === "chase" && dist > 26) this.state = "return";
+    else if (this.repathTimer <= 0 && this.state !== "chase") {
+      this.state = Math.random() > 0.4 ? "wander" : "idle";
+      this.repathTimer = 2.5 + Math.random() * 2;
+    }
+
+    // Request new path when needed
+    if (this.repathTimer <= 0 || this.path.length === 0 || this.pathIndex >= this.path.length) {
+      let target = null;
+      if (this.state === "chase") target = playerPos;
+      else if (this.state === "return") target = this.home;
+      else if (this.state === "wander") {
+        target = new THREE.Vector3(
+          this.home.x + (Math.random() - 0.5) * 20,
+          0,
+          this.home.z + (Math.random() - 0.5) * 20
+        );
+      }
+
+      if (target) {
+        const newPath = this.grid.findPath(
+          this.body.position.x, this.body.position.z,
+          target.x, target.z
+        );
+        if (newPath && newPath.length > 1) {
+          this.path = newPath;
+          this.pathIndex = 0;
+        }
+      }
+      this.repathTimer = this.state === "chase" ? 0.55 : 2.2;
+    }
+
+    // Follow the path
+    if (this.path.length > 0 && this.pathIndex < this.path.length) {
+      const waypoint = this.path[this.pathIndex];
+      const to = new THREE.Vector3().subVectors(waypoint, this.body.position);
+      to.y = 0;
+      const d = to.length();
+
+      if (d < 1.5) {
+        this.pathIndex++;
+      } else {
+        to.normalize().multiplyScalar(this.speed);
+        this.body.velocity.x = to.x;
+        this.body.velocity.z = to.z;
+        this.mesh.lookAt(this.body.position.x + to.x, this.body.position.y, this.body.position.z + to.z);
+      }
+    } else {
+      this.body.velocity.x *= 0.85;
+      this.body.velocity.z *= 0.85;
+    }
+  }
+}
+
+// -------------------- PHYSICS --------------------
+class PhysicsBody {
+  constructor(mesh, opts = {}) {
+    this.mesh = mesh;
+    this.position = mesh.position;
+    this.velocity = new THREE.Vector3();
+    this.force = new THREE.Vector3();
+    this.mass = opts.mass || 1;
+    this.radius = opts.radius || 1;
+    this.restitution = opts.restitution || 0.25;
+    this.friction = opts.friction || 0.84;
+    this.isStatic = opts.isStatic || false;
+    this.onGround = false;
+  }
+  applyForce(f) { if (!this.isStatic) this.force.add(f); }
+  integrate(dt) {
+    if (this.isStatic) return;
+    this.velocity.add(this.force.clone().divideScalar(this.mass).multiplyScalar(dt));
+    this.position.add(this.velocity.clone().multiplyScalar(dt));
+    this.force.set(0, 0, 0);
+    this.velocity.multiplyScalar(0.993);
+  }
+}
+
+class PhysicsWorld {
+  constructor() {
+    this.bodies = [];
+    this.gravity = new THREE.Vector3(0, -30, 0);
+    this.fixedDt = 1 / 60;
+    this.acc = 0;
+  }
+  add(b) { this.bodies.push(b); }
+  step(dt) {
+    this.acc += Math.min(dt, 0.05);
+    while (this.acc >= this.fixedDt) {
+      this.fixedUpdate(this.fixedDt);
+      this.acc -= this.fixedDt;
+    }
+  }
+  fixedUpdate(dt) {
+    for (const b of this.bodies) if (!b.isStatic) b.applyForce(this.gravity.clone().multiplyScalar(b.mass));
+    for (const b of this.bodies) b.integrate(dt);
+    this.resolve();
+  }
+  resolve() {
+    const groundY = 0;
+    for (const body of this.bodies) {
+      if (body.isStatic) continue;
+      if (body.position.y - body.radius < groundY) {
+        body.position.y = groundY + body.radius;
+        if (body.velocity.y < 0) {
+          body.velocity.y *= -body.restitution;
+          body.velocity.x *= body.friction;
+          body.velocity.z *= body.friction;
+        }
+        body.onGround = true;
+      } else body.onGround = false;
+
+      for (const other of this.bodies) {
+        if (other === body || !other.isStatic) continue;
+        const box = new THREE.Box3().setFromObject(other.mesh);
+        const closest = new THREE.Vector3(
+          Math.max(box.min.x, Math.min(body.position.x, box.max.x)),
+          Math.max(box.min.y, Math.min(body.position.y, box.max.y)),
+          Math.max(box.min.z, Math.min(body.position.z, box.max.z))
+        );
+        const distVec = body.position.clone().sub(closest);
+        const dist = distVec.length();
+        if (dist < body.radius && dist > 0.0001) {
+          const n = distVec.normalize();
+          body.position.add(n.clone().multiplyScalar(body.radius - dist + 0.002));
+          const vn = body.velocity.dot(n);
+          if (vn < 0) {
+            body.velocity.add(n.clone().multiplyScalar(-(1 + body.restitution) * vn));
+            const tan = body.velocity.clone().sub(n.clone().multiplyScalar(body.velocity.dot(n)));
+            body.velocity.sub(tan.multiplyScalar(1 - body.friction));
+          }
+        }
+      }
+    }
+  }
+}
+
+// -------------------- SHAPES --------------------
+function mat(c) { return new THREE.MeshStandardMaterial({ color: c, roughness: 0.33, metalness: 0.18 }); }
+function sphere(r, c) { return new THREE.Mesh(new THREE.SphereGeometry(r, IS_LOW ? 16 : 28, IS_LOW ? 12 : 20), mat(c)); }
+function cube(s, c) { return new THREE.Mesh(new THREE.BoxGeometry(s, s, s), mat(c)); }
+function prism(w, h, d, c) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c)); }
+function cylinder(r, h, c) { return new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, IS_LOW ? 14 : 28), mat(c)); }
+function cone(r, h, c) { return new THREE.Mesh(new THREE.ConeGeometry(r, h, IS_LOW ? 14 : 28), mat(c)); }
+function pyramid(s, c) { return new THREE.Mesh(new THREE.TetrahedronGeometry(s), mat(c)); }
+
+// -------------------- MAIN ENGINE --------------------
+class AStarEngine {
+  constructor() {
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x010105);
+    this.scene.fog = new THREE.FogExp2(0x010105, 0.01);
+
+    this.camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.1, 350);
+    this.renderer = new THREE.WebGLRenderer({ antialias: !IS_LOW, powerPreference: "high-performance" });
+    this.renderer.setSize(innerWidth, innerHeight);
+    this.renderer.setPixelRatio(IS_LOW ? 1 : Math.min(devicePixelRatio, 1.75));
+    this.renderer.shadowMap.enabled = !IS_LOW;
+    document.body.appendChild(this.renderer.domElement);
+
+    this.scene.add(new THREE.AmbientLight(0x2a2a48, 0.55));
+    const sun = new THREE.DirectionalLight(0xfff0e0, 1.2);
+    sun.position.set(22, 40, 15);
+    sun.castShadow = !IS_LOW;
+    this.scene.add(sun);
+
+    // A* Grid
+    this.grid = new AStarGrid(90, IS_LOW ? 2.5 : 2.1);
+
+    this.physics = new PhysicsWorld();
+    this.agents = [];
+
+    // Player
+    this.playerMesh = sphere(1.15, 0xff3355);
+    this.playerMesh.castShadow = true;
+    this.scene.add(this.playerMesh);
+    this.playerBody = new PhysicsBody(this.playerMesh, { mass: 1.15, radius: 1.15 });
+    this.physics.add(this.playerBody);
+
+    this.buildWorld();
+    this.spawnAgents();
+    this.setupInput();
+    this.clock = new THREE.Clock();
+    this.animate();
+  }
+
+  buildWorld() {
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(280, 280),
+      new THREE.MeshStandardMaterial({ color: 0x08080f, roughness: 0.94 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    this.scene.add(ground);
+
+    const shapes = [
+      { fn: sphere,   args: [3.4, 0xff2244], pos: [-19, 3.4, 0] },
+      { fn: cube,     args: [5, 0x33ff88],   pos: [-8, 2.5, 0] },
+      { fn: prism,    args: [7, 3.6, 4.2, 0x4488ff], pos: [4, 1.8, 0] },
+      { fn: cylinder, args: [2.9, 6.8, 0xffaa22], pos: [14, 3.4, 0] },
+      { fn: cone,     args: [3.6, 7.8, 0xcc44ff], pos: [24, 3.9, 0] },
+      { fn: pyramid,  args: [4.6, 0xff6688], pos: [0, 3.4, -13] }
+    ];
+
+    shapes.forEach(s => {
+      const m = s.fn(...s.args);
+      m.position.set(...s.pos);
+      m.castShadow = true;
+      this.scene.add(m);
+      this.physics.add(new PhysicsBody(m, { isStatic: true }));
+      this.grid.setBlocked(s.pos[0], s.pos[2], 3.3);
+    });
+
+    this.scene.add(new THREE.GridHelper(100, 50, 0x222244, 0x111122));
+  }
+
+  spawnAgents() {
+    const count = IS_LOW ? 3 : 5;
+    for (let i = 0; i < count; i++) {
+      const m = sphere(1.05, 0x66aaff);
+      const pos = new THREE.Vector3((Math.random() - 0.5) * 28, 2, (Math.random() - 0.5) * 28);
+      m.position.copy(pos);
+      this.scene.add(m);
+      const agent = new AStarAI(m, pos, this.grid);
+      this.physics.add(agent.body);
+      this.agents.push(agent);
+    }
+  }
+
+  setupInput() {
+    this.keys = {};
+    this.mobileMove = new THREE.Vector2();
+    this.jump = false;
+
+    window.addEventListener("keydown", e => this.keys[e.code] = true);
+    window.addEventListener("keyup", e => this.keys[e.code] = false);
+
+    if (IS_MOBILE) {
+      document.getElementById("mobile-controls").style.display = "flex";
+      const joy = document.getElementById("joystick");
+      const knob = document.getElementById("knob");
+      let active = false, sx, sy;
+      joy.addEventListener("touchstart", e => {
+        e.preventDefault(); active = true;
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      });
+      joy.addEventListener("touchmove", e => {
+        if (!active) return; e.preventDefault();
+        const dx = e.touches[0].clientX - sx;
+        const dy = e.touches[0].clientY - sy;
+        const max = 30, len = Math.min(Math.hypot(dx, dy), max);
+        const a = Math.atan2(dy, dx);
+        knob.style.transform = `translate(${Math.cos(a) * len}px, ${Math.sin(a) * len}px)`;
+        this.mobileMove.set(Math.cos(a) * (len / max), Math.sin(a) * (len / max));
+      });
+      const end = () => { active = false; knob.style.transform = "translate(0,0)"; this.mobileMove.set(0, 0); };
+      joy.addEventListener("touchend", end);
+      document.getElementById("btn-jump").addEventListener("touchstart", e => { e.preventDefault(); this.jump = true; });
+      document.getElementById("btn-jump").addEventListener("touchend", () => this.jump = false);
+    }
+
+    window.addEventListener("resize", () => {
+      this.camera.aspect = innerWidth / innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(innerWidth, innerHeight);
+    });
+  }
+
+  update(dt) {
+    // Player
+    const move = new THREE.Vector3();
+    if (this.keys["KeyW"] || this.mobileMove.y < -0.25) move.z -= 1;
+    if (this.keys["KeyS"] || this.mobileMove.y > 0.25) move.z += 1;
+    if (this.keys["KeyA"] || this.mobileMove.x < -0.25) move.x -= 1;
+    if (this.keys["KeyD"] || this.mobileMove.x > 0.25) move.x += 1;
+
+    const speed = IS_LOW ? 15 : 21;
+    if (move.lengthSq() > 0) {
+      move.normalize().multiplyScalar(speed);
+      this.playerBody.velocity.x = move.x;
+      this.playerBody.velocity.z = move.z;
+    } else {
+      this.playerBody.velocity.x *= 0.86;
+      this.playerBody.velocity.z *= 0.86;
+    }
+
+    if ((this.keys["Space"] || this.jump) && this.playerBody.onGround) {
+      this.playerBody.velocity.y = 14.2;
+      this.playerBody.onGround = false;
+      this.jump = false;
+    }
+
+    this.physics.step(dt);
+    this.playerMesh.position.copy(this.playerBody.position);
+
+    // A* Agents
+    this.agents.forEach(agent => {
+      agent.update(dt, this.playerBody.position);
+      agent.mesh.position.copy(agent.body.position);
+    });
+
+    // Camera
+    const camTarget = this.playerBody.position.clone().add(new THREE.Vector3(0, 7.2, 15.5));
+    this.camera.position.lerp(camTarget, 0.09);
+    this.camera.lookAt(this.playerBody.position.x, this.playerBody.position.y + 1.3, this.playerBody.position.z);
+
+    document.getElementById("status").textContent =
+      `A* active | Agents: ${this.agents.length} | Grid: ${this.grid.size}×${this.grid.size}`;
+  }
+
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    this.update(this.clock.getDelta());
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+// Start
+new AStarEngine();
+</script>
+</body>
+</html>
