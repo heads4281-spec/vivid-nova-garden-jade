@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Infernal Citadel — Five Rooms</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+
+        :root {
+            --bg-deep: #050505;
+            --bg-card: #0d0d0d;
+            --accent: #c41e1e;
+            --accent-glow: #ff2a2a;
+            --text-main: #e8d5d5;
+            --text-dim: #a08080;
+            --border: #3a0a0a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Cormorant Garamond', serif;
+            line-height: 1.7;
+            background-image: 
+                radial-gradient(ellipse at top, #1a0505 0%, transparent 60%),
+                radial-gradient(ellipse at bottom, #120000 0%, transparent 70%);
+            min-height: 100vh;
+        }
+
+        /* Glowing particles effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(2px 2px at 20% 30%, rgba(255, 40, 40, 0.3), transparent),
+                radial-gradient(2px 2px at 40% 70%, rgba(255, 20, 20, 0.2), transparent),
+                radial-gradient(1px 1px at 90% 40%, rgba(255, 60, 60, 0.25), transparent),
+                radial-gradient(1px 1px at 60% 10%, rgba(255, 30, 30, 0.2), transparent);
+            pointer-events: none;
+            z-index: 0;
+            animation: drift 40s linear infinite;
+        }
+
+        @keyframes drift {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-100px); }
+        }
+
+        header {
+            text-align: center;
+            padding: 60px 20px 40px;
+            position: relative;
+            z-index: 1;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(to bottom, rgba(40, 0, 0, 0.4), transparent);
+        }
+
+        header h1 {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(2.2rem, 6vw, 3.8rem);
+            color: var(--accent-glow);
+            text-shadow: 
+                0 0 10px rgba(255, 40, 40, 0.8),
+                0 0 30px rgba(200, 0, 0, 0.5),
+                0 0 60px rgba(150, 0, 0, 0.3);
+            letter-spacing: 4px;
+            margin-bottom: 12px;
+        }
+
+        header p {
+            font-size: 1.25rem;
+            color: var(--text-dim);
+            font-style: italic;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .room {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 50px;
+            overflow: hidden;
+            box-shadow: 
+                0 0 20px rgba(150, 0, 0, 0.15),
+                inset 0 0 60px rgba(30, 0, 0, 0.4);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .room:hover {
+            transform: translateY(-4px);
+            box-shadow: 
+                0 0 30px rgba(200, 20, 20, 0.25),
+                inset 0 0 80px rgba(40, 0, 0, 0.5);
+        }
+
+        .room-header {
+            background: linear-gradient(90deg, #1a0000, #2a0505, #1a0000);
+            padding: 22px 30px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .room-number {
+            font-family: 'Cinzel', serif;
+            font-size: 1.8rem;
+            color: var(--accent);
+            text-shadow: 0 0 12px rgba(255, 40, 40, 0.6);
+            min-width: 50px;
+        }
+
+        .room-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.6rem;
+            color: #ffcccc;
+            letter-spacing: 1px;
+        }
+
+        .room-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        .room-body {
+            padding: 30px 32px 36px;
+        }
+
+        .room-body p {
+            margin-bottom: 18px;
+            font-size: 1.15rem;
+            color: var(--text-main);
+        }
+
+        .room-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .feature-list {
+            margin: 22px 0 10px;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        .feature-list li {
+            position: relative;
+            padding-left: 28px;
+            margin-bottom: 10px;
+            font-size: 1.08rem;
+            color: #d0b0b0;
+        }
+
+        .feature-list li::before {
+            content: '◆';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+            font-size: 0.75rem;
+            top: 4px;
+            text-shadow: 0 0 8px rgba(255, 40, 40, 0.7);
+        }
+
+        .hazards {
+            margin-top: 25px;
+            padding: 16px 20px;
+            background: rgba(80, 0, 0, 0.25);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .hazards strong {
+            color: var(--accent-glow);
+            font-family: 'Cinzel', serif;
+            letter-spacing: 1px;
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            border-top: 1px solid var(--border);
+            position: relative;
+            z-index: 1;
+        }
+
+        footer span {
+            color: var(--accent);
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .room-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
+            .room-body {
+                padding: 22px 20px 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>THE INFERNAL CITADEL</h1>
+    <p>Five chambers carved from the heart of the volcanic abyss</p>
+</header>
+
+<div class="container">
+
+    <!-- ROOM 1 -->
+    <article class="room">
+        <div class="room-header">
+            <div class="room-number">I</div>
+            <div>
+                <div class="room-title">The Crimson Threshold</div>
+                <div class="room-subtitle">Entrance Hall</div>
+            </div>
+        </div>
+        <div class="room-body">
+            <p>A vast, circular chamber roughly 80 feet across and 60 feet high. The glowing red portal you entered through sits at the top of a wide, cracked black-stone staircase that descends into the room. Concentric circles of ancient runes cover the entire floor; they pulse slowly with deep crimson light in time with a low, rhythmic thrum that seems to come from the fortress itself.</p>
+            
+            <p>Thin channels of glowing lava run along the base of the walls and cross the floor in geometric patterns, casting everything in shifting blood-red illumination. Four colossal statues of winged, horned figures stand against the walls—each 25 feet tall, carved from the same dark stone as the fortress, their eyes burning with actual fire. Between them, heavy iron-bound doors of black metal lead deeper into the citadel.</p>
+            
+            <p>The air is thick with heat and the sharp scent of sulfur and scorched stone. Distant roars and the constant rush of falling lava echo from below. The runes on the floor react to living creatures: they brighten when stepped on and leave faint glowing footprints that fade after a few seconds.</p>
+
+            <ul class="feature-list">
+                <li>Pulsing concentric runes that react to living presence</li>
+                <li>Four 25-ft winged horned statues with burning eyes</li>
+                <li>Lava channels forming geometric patterns across the floor</li>
+                <li>Heavy iron-bound doors of black metal leading deeper</li>
+            </ul>
+
+            <div class="hazards">
+                <strong>Hazards & Interaction</strong>
+                A faint magical barrier shimmers across the main exit archway, requiring either a specific key, blood offering, or powerful magic to pass safely.
+            </div>
+        </div>
+    </article>
+
+    <!-- ROOM 2 -->
+    <article class="room">
+        <div class="room-header">
+            <div class="room-number">II</div>
+            <div>
+                <div class="room-title">The Vein Gallery</div>
+                <div class="room-subtitle">Corridor of Flowing Magma</div>
+            </div>
+        </div>
+        <div class="room-body">
+            <p>A long, slightly curved corridor 120 feet in length, 20 feet wide, and 40 feet high. One entire long wall is formed of semi-transparent dark crystal or solidified magma glass, behind which a massive vertical river of bright red lava flows continuously, filling the hall with intense heat and flickering crimson light. The opposite wall is solid black stone etched with sharp, angular reliefs of forgotten battles and demonic faces.</p>
+            
+            <p>Three narrow spiked-iron bridges cross gaps where the floor has collapsed into glowing cracks that drop into darkness. Inverted black spires hang from the ceiling like stone stalactites, some dripping slow beads of molten rock that hiss and solidify before hitting the ground. Small side alcoves contain empty stone pedestals and faded banners that still smolder at the edges.</p>
+
+            <ul class="feature-list">
+                <li>Semi-transparent crystal wall revealing a vertical lava river</li>
+                <li>Three spiked-iron bridges spanning glowing chasms</li>
+                <li>Inverted black spires dripping molten beads</li>
+                <li>Smoldering banners and empty stone pedestals in alcoves</li>
+            </ul>
+
+            <div class="hazards">
+                <strong>Hazards & Interaction</strong>
+                The temperature is punishingly high near the crystal wall. Walking too close causes mild heat damage over time. Occasional bursts of pressurized steam or small lava sprays erupt from the cracks without warning. The constant roar of the lava river masks quieter sounds.
+            </div>
+        </div>
+    </article>
+
+    <!-- ROOM 3 -->
+    <article class="room">
+        <div class="room-header">
+            <div class="room-number">III</div>
+            <div>
+                <div class="room-title">The Ember Throne Room</div>
+                <div class="room-subtitle">Seat of Power</div>
+            </div>
+        </div>
+        <div class="room-body">
+            <p>An immense rectangular hall 100 feet long, 60 feet wide, and over 80 feet high. The vaulted ceiling is lost in shadow, supported by thick pillars of black stone wrapped in living veins of glowing magma. At the far end rises the Ember Throne: a jagged construct of fused rock and slowly moving lava, its seat a shallow pool of molten stone that never cools. Red energy arcs between the surrounding pillars like silent lightning.</p>
+            
+            <p>Behind the throne, a wide open balcony looks out over the endless volcanic abyss, the floating islands, and the central beam of red light that plunges into the depths. The floor is a cracked mosaic of polished obsidian that glows from magma channels running beneath it. Every surface is covered in sharp, angular carvings of demonic figures, forgotten gods, and swirling flame motifs.</p>
+
+            <ul class="feature-list">
+                <li>The Ember Throne of living lava and fused black rock</li>
+                <li>Red energy arcs crackling between magma-veined pillars</li>
+                <li>Open balcony overlooking the volcanic abyss</li>
+                <li>Cracked obsidian floor glowing from beneath</li>
+            </ul>
+
+            <div class="hazards">
+                <strong>Hazards & Interaction</strong>
+                Sitting on or even approaching the throne causes the energy arcs to intensify and the carvings to shift subtly, as if watching. Any attempt to claim the throne without proper authority triggers defensive magic — flames, spectral guardians, or a surge of pure heat.
+            </div>
+        </div>
+    </article>
+
+    <!-- ROOM 4 -->
+    <article class="room">
+        <div class="room-header">
+            <div class="room-number">IV</div>
+            <div>
+                <div class="room-title">The Abyssal Observatory</div>
+                <div class="room-subtitle">High Spire Chamber</div>
+            </div>
+        </div>
+        <div class="room-body">
+            <p>A circular chamber 50 feet in diameter located high in one of the outer spires. Large open archways on three sides give unobstructed views of the starless void, the cascading lava falls, the floating rock islands, and the full sprawl of the fortress below. A great circular platform of rune-etched black stone, 20 feet across, floats three feet above the floor and slowly rotates clockwise.</p>
+            
+            <p>Heavy chains hang from the high ceiling, each ending in a large crystalline lens or mirror that catches and focuses the red light from the abyss into shifting geometric patterns across the walls and floor. The runes on the floating platform light up in sequence as it turns, forming temporary constellations or maps of the surrounding hellscape.</p>
+
+            <ul class="feature-list">
+                <li>Slowly rotating rune-etched floating platform</li>
+                <li>Crystal lenses on heavy chains projecting shifting patterns</li>
+                <li>Open archways revealing the full volcanic landscape</li>
+                <li>Spiral staircase leading both higher and deeper</li>
+            </ul>
+
+            <div class="hazards">
+                <strong>Hazards & Interaction</strong>
+                The wind that blows through the open sides is hot and carries the distant sounds of cracking stone. Standing on the rotating platform grants a supernatural sense of the fortress’s layout. Falling from an open archway means a very long drop into the glowing chasm.
+            </div>
+        </div>
+    </article>
+
+    <!-- ROOM 5 -->
+    <article class="room">
+        <div class="room-header">
+            <div class="room-number">V</div>
+            <div>
+                <div class="room-title">The Molten Sanctum</div>
+                <div class="room-subtitle">Inner Temple / Vault</div>
+            </div>
+        </div>
+        <div class="room-body">
+            <p>A vast natural cavern enlarged into a cathedral-like space deep beneath the fortress, roughly 90 feet across and 70 feet high. A single massive pillar of pure, slowly churning magma rises from a wide circular pool in the center, illuminating the entire chamber with intense red-orange light. Several floating platforms of black stone, connected by narrow bridges of solidified lava, hover at different heights around the central pillar.</p>
+            
+            <p>The walls are lined with shelves and niches of dark crystal holding sealed orbs that pulse in time with the magma, ancient weapons of black metal and glowing red edges, and relics wrapped in heat-resistant cloth. The floor nearest the pool is cracked and unstable; closer to the walls it is solid and carved with protective runes. A constant deep heartbeat-like pulse vibrates through the stone, synchronized with the rising and falling of the central magma column.</p>
+
+            <ul class="feature-list">
+                <li>Central pillar of pure churning magma rising from a pool</li>
+                <li>Floating platforms connected by solidified-lava bridges</li>
+                <li>Dark crystal shelves holding pulsing orbs and relics</li>
+                <li>Protective runes carved into the outer floor</li>
+            </ul>
+
+            <div class="hazards">
+                <strong>Hazards & Interaction</strong>
+                The heat is extreme near the center — prolonged exposure without protection causes serious burns. The floating platforms shift slightly over time. Some crystal orbs contain stored magical energy, trapped spirits, or visions; touching them without care can trigger powerful effects (beneficial or catastrophic). A hidden staircase behind one niche leads even deeper.
+            </div>
+        </div>
+    </article>
+
+</div>
+
+<footer>
+    <p>The Infernal Citadel — <span>Five Chambers of the Abyss</span></p>
+    <p style="margin-top: 8px; font-size: 0.85rem;">Generated for exploration • Dark fantasy setting</p>
+</footer>
+
+</body>
+</html>
