@@ -1,0 +1,225 @@
+**Number 3 – VideoManager**
+
+This is the central system that controls **all** your animated videos cleanly and efficiently.
+
+---
+
+### File: `src/game/video-manager.ts`
+
+```ts
+// src/game/video-manager.ts
+import * as THREE from "three";
+
+type VideoEntry = {
+  video: HTMLVideoElement;
+  texture: THREE.VideoTexture;
+  mesh?: THREE.Mesh;
+  playing: boolean;
+};
+
+export class VideoManager {
+  private scene: THREE.Scene;
+  private videos = new Map<string, VideoEntry>();
+
+  constructor(scene: THREE.Scene) {
+    this.scene = scene;
+  }
+
+  /**
+   * Load a video and optionally create a mesh for it
+   */
+  load(
+    id: string,
+    path: string,
+    options: {
+      loop?: boolean;
+      autoplay?: boolean;
+      width?: number;
+      height?: number;
+      position?: THREE.Vector3;
+      rotation?: THREE.Euler;
+      asGround?: boolean;
+    } = {}
+  ) {
+    if (this.videos.has(id)) {
+      console.warn(`Video ${id} already loaded`);
+      return;
+    }
+
+    const video = document.createElement("video");
+    video.src = path;
+    video.loop = options.loop ?? true;
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = "anonymous";
+    video.preload = "auto";
+
+    const texture = new THREE.VideoTexture(video);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+
+    let mesh: THREE.Mesh | undefined;
+
+    if (options.width && options.height) {
+      const geo = new THREE.PlaneGeometry(options.width, options.height);
+      const mat = new THREE.MeshBasicMaterial({
+        map: texture,
+        side: THREE.DoubleSide,
+        transparent: false,
+      });
+
+      mesh = new THREE.Mesh(geo, mat);
+
+      if (options.asGround) {
+        mesh.rotation.x = -Math.PI / 2;
+      }
+
+      if (options.position) mesh.position.copy(options.position);
+      if (options.rotation) mesh.rotation.copy(options.rotation);
+
+      this.scene.add(mesh);
+    }
+
+    this.videos.set(id, {
+      video,
+      texture,
+      mesh,
+      playing: false,
+    });
+
+    if (options.autoplay) {
+      this.play(id);
+    }
+  }
+
+  play(id: string) {
+    const entry = this.videos.get(id);
+    if (!entry || entry.playing) return;
+
+    entry.video.currentTime = 0;
+    entry.video.play().catch(() => {});
+    entry.playing = true;
+  }
+
+  pause(id: string) {
+    const entry = this.videos.get(id);
+    if (!entry || !entry.playing) return;
+
+    entry.video.pause();
+    entry.playing = false;
+  }
+
+  stop(id: string) {
+    const entry = this.videos.get(id);
+    if (!entry) return;
+
+    entry.video.pause();
+    entry.video.currentTime = 0;
+    entry.playing = false;
+  }
+
+  isPlaying(id: string): boolean {
+    return this.videos.get(id)?.playing ?? false;
+  }
+
+  getTexture(id: string): THREE.VideoTexture | null {
+    return this.videos.get(id)?.texture ?? null;
+  }
+
+  getMesh(id: string): THREE.Mesh | null {
+    return this.videos.get(id)?.mesh ?? null;
+  }
+
+  /**
+   * Pause all videos (useful when tab is hidden or for performance)
+   */
+  pauseAll() {
+    this.videos.forEach((_, id) => this.pause(id));
+  }
+
+  dispose() {
+    this.videos.forEach((entry) => {
+      entry.video.pause();
+      entry.video.src = "";
+      entry.texture.dispose();
+
+      if (entry.mesh) {
+        entry.mesh.geometry.dispose();
+        (entry.mesh.material as THREE.Material).dispose();
+        this.scene.remove(entry.mesh);
+      }
+    });
+
+    this.videos.clear();
+  }
+}
+```
+
+---
+
+### How to use it in `engine.ts`
+
+**1. Import**
+```ts
+import { VideoManager } from "./video-manager";
+```
+
+**2. Create it**
+```ts
+this.videoManager = new VideoManager(this.scene);
+```
+
+**3. Load your videos** (example)
+
+```ts
+// Living Ground
+this.videoManager.load("ground", "/levels/crimson_ground_alive.mp4", {
+  width: 120,
+  height: 120,
+  asGround: true,
+  position: new THREE.Vector3(0, -0.02, 0),
+  autoplay: true,
+  loop: true,
+});
+
+// Dragon Arena (load but don't play yet)
+this.videoManager.load("dragonArena", "/levels/crimson_dragon_arena.mp4", {
+  width: 40,
+  height: 25,
+  position: new THREE.Vector3(0, 8, -30),
+  autoplay: false,
+  loop: true,
+});
+
+// Cyber Ninja NPC
+this.videoManager.load("ninja", "/npcs/cyber_ninja_idle.mp4", {
+  width: 2.2,
+  height: 3.4,
+  position: new THREE.Vector3(12, 1.7, 8),
+  autoplay: true,
+  loop: true,
+});
+```
+
+**4. Control later**
+```ts
+// When player enters boss room
+this.videoManager.play("dragonArena");
+
+// When leaving
+this.videoManager.pause("dragonArena");
+```
+
+---
+
+### Benefits
+
+- One clean place to manage all videos
+- Easy play / pause / stop
+- Good performance (you can pause videos that are far away)
+- Ready for your living ground, palace, dragon arena, ninja, and effects
+
+---
+
+Would you like me to continue with **Number 4 – NPC Billboard system** (for the cyber-ninja)?
