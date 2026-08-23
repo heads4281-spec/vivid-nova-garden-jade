@@ -1,0 +1,68 @@
+**HTML5 game performance optimization** focuses on keeping frame rates high (ideally 60 FPS), reducing jank, lowering battery use, and ensuring smooth play on both desktop and mobile.
+
+### 1. Rendering Pipeline
+- Prefer a single `<canvas>` (or WebGL) over many DOM elements. Canvas is far faster for games.
+- Always drive the main loop with `requestAnimationFrame` instead of `setInterval`/`setTimeout`.
+- Only redraw what changed (dirty rectangles or layered canvases for static backgrounds).
+- Batch draw calls: use sprite sheets / texture atlases so you minimize state changes.
+- For 2D: stick to `CanvasRenderingContext2D` unless you need heavy effects — then use WebGL (via libraries like PixiJS or Three.js).
+- Avoid `getImageData` / `putImageData` every frame; they are very expensive.
+
+```js
+function gameLoop(timestamp) {
+  const dt = timestamp - lastTime;
+  lastTime = timestamp;
+  update(dt);
+  render();
+  requestAnimationFrame(gameLoop);
+}
+requestAnimationFrame(gameLoop);
+```
+
+### 2. JavaScript & Game Logic
+- Keep the update loop lightweight. Move heavy work (pathfinding, AI, physics) to Web Workers when possible.
+- Use object pooling for frequently created/destroyed objects (bullets, particles, enemies) to avoid garbage-collection spikes.
+- Prefer typed arrays (`Float32Array`, `Uint8Array`) for large datasets.
+- Minimize allocations inside the hot loop (no new objects, arrays, or closures every frame).
+- Use spatial partitioning (quadtrees, grids) for collision detection instead of O(n²) checks.
+
+### 3. Assets & Loading
+- Compress images (WebP or optimized PNG). Use sprite sheets.
+- Load assets progressively or on demand; show a loading screen.
+- Decode audio with the Web Audio API and reuse `AudioBuffer`s.
+- Prefer power-of-two textures if using WebGL.
+- Cache assets in IndexedDB or the Cache API for offline/replay scenarios.
+
+### 4. Mobile & Cross-Device Tips
+- Scale the canvas to the device pixel ratio carefully (`window.devicePixelRatio`) but clamp it on low-end devices to avoid overdraw.
+- Use touch events efficiently; avoid passive listeners only when you need `preventDefault`.
+- Detect low-end hardware and lower particle counts, resolution, or effects.
+- Pause the game (and audio) when the tab is hidden (`visibilitychange` event).
+- Test on real devices — Chrome DevTools remote debugging is essential.
+
+### 5. Profiling & Measurement
+- Chrome DevTools → Performance tab: record a session, look for long frames, GC pauses, and paint times.
+- Use `performance.now()` or the built-in FPS counter.
+- Watch for forced synchronous layout / reflow (avoid reading layout properties after writes).
+- Lighthouse or WebPageTest can give high-level scores, but game-specific profiling is more useful.
+
+### 6. Common Libraries That Help
+- **Rendering**: PixiJS (excellent 2D WebGL), Phaser, Babylon.js, Three.js.
+- **Physics**: Matter.js, Planck.js, or Cannon.js (keep bodies simple).
+- **Audio**: Howler.js or native Web Audio.
+- These libraries already implement many of the optimizations above.
+
+### Quick Wins Checklist
+| Area              | Action                                      | Impact     |
+|-------------------|---------------------------------------------|------------|
+| Loop              | `requestAnimationFrame`                     | High       |
+| Objects           | Object pooling                              | High       |
+| Drawing           | Sprite sheets + batching                    | High       |
+| Collisions        | Spatial hash / quadtree                     | High       |
+| Assets            | WebP + compression                          | Medium     |
+| GC                | Minimize allocations in hot path            | High       |
+| Mobile            | Cap DPR + reduce particles on low-end       | Medium-High|
+
+Start by measuring (DevTools Performance), fix the biggest bottlenecks first, then iterate. Most HTML5 games become smooth once the render and update loops stop doing unnecessary work every frame.
+
+If you share a specific engine (Phaser, custom canvas, Pixi, etc.) or a code snippet that’s lagging, I can give more targeted advice.
