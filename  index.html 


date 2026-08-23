@@ -1878,4 +1878,516 @@ function animate() {
     if ((keys['Space'] || infJump) && canJump) { velocity.y = 0.36; canJump = false; }
   }
 
-  const camOff = new THREE.Vector3(Math.sin(yaw)*7.2, 3.0 + pitch*2.8, Ma
+  const camOff = new THREE.Vector3(Math.sin(yaw)*7.2, 3.0 + pitch*2.8, Ma; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CRIMSON SOVEREIGN — BSP Rotation Visualization</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050000;color:#e8c4c4;font-family:'Cormorant Garamond',serif;overflow:hidden;height:100vh}
+#title-screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#1a0000 0%,#050000 70%);z-index:100;transition:opacity .8s}
+#title-screen.hidden{opacity:0;pointer-events:none}
+.top-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:6px;color:#ff2a2a;margin-bottom:18px}
+h1{font-family:'Cinzel',serif;font-size:clamp(42px,9vw,92px);font-weight:700;color:#ff1a1a;text-shadow:0 0 40px rgba(255,0,0,.5);letter-spacing:4px;margin-bottom:28px;text-align:center}
+.lore{text-align:center;max-width:620px;font-size:17px;line-height:1.6;color:#d4a0a0;margin-bottom:42px;font-style:italic}
+.lore em{color:#ff6666}
+.buttons{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-bottom:48px}
+.btn{font-family:'Cinzel',serif;font-size:13px;letter-spacing:2px;padding:14px 28px;background:transparent;border:1px solid #ff3333;color:#ffcccc;cursor:pointer;transition:all .25s}
+.btn:hover{background:#ff1a1a;color:#fff;box-shadow:0 0 25px rgba(255,30,30,.4)}
+#game-ui{position:absolute;inset:0;pointer-events:none;display:none}
+#top-left{position:absolute;top:16px;left:16px;font-size:14px;line-height:1.4;text-shadow:0 0 8px #f00;font-family:system-ui}
+#crosshair{position:absolute;top:50%;left:50%;width:12px;height:12px;border:2px solid #ff4444;border-radius:50%;transform:translate(-50%,-50%);opacity:.7}
+#controls{position:absolute;bottom:24px;right:24px;display:grid;grid-template-columns:repeat(3,56px);gap:10px;pointer-events:auto}
+.ctrl-btn{width:56px;height:56px;border-radius:50%;background:rgba(40,0,0,.75);border:2px solid #ff3333;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
+#fire{background:#c00}
+#mod-menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:380px;background:rgba(10,0,0,.96);border:1px solid #ff3333;border-radius:8px;padding:20px;display:none;pointer-events:auto;z-index:50;font-family:system-ui;color:#ffcccc}
+#mod-menu h2{font-family:'Cinzel',serif;color:#ff1a1a;margin-bottom:15px;text-align:center;letter-spacing:2px}
+.mod-row{display:flex;justify-content:space-between;align-items:center;margin:10px 0;font-size:14px}
+.mod-row button{background:#330000;border:1px solid #ff4444;color:#fff;padding:6px 12px;cursor:pointer;border-radius:4px;min-width:70px}
+.mod-row button:hover{background:#ff1a1a}
+#mod-status{position:absolute;top:16px;right:16px;font-size:13px;color:#ff6666;text-shadow:0 0 6px #f00;display:none}
+</style>
+</head>
+<body>
+
+<div id="title-screen">
+  <div class="top-label">TYPE VII · FULL COLOUR CYCLE</div>
+  <h1>CRIMSON SOVEREIGN</h1>
+  <div class="lore">You were never meant to cross the rift.<br>The wound sang in the language of dying stars and living blood.<br><em>Come home.</em></div>
+  <div class="buttons">
+    <button class="btn" id="enter-btn">ENTER THE PALACE</button>
+    <button class="btn">FULL LORE CODEX</button>
+    <button class="btn">THRESHOLD BRIEFING</button>
+  </div>
+</div>
+
+<div id="game-ui">
+  <div id="top-left">
+    ZONE · THE THRESHOLD<br>
+    Claim the outer Names — <span id="names">0</span>/4<br>
+    BSP ROTATION VISUALIZATION<br>
+    VIEW · SPECTATE
+  </div>
+  <div id="crosshair"></div>
+  <div id="mod-status">MOD MENU (F1)</div>
+  <div id="controls">
+    <div class="ctrl-btn" data-action="jump">JUMP</div>
+    <div class="ctrl-btn" data-action="sprint">SPRINT</div>
+    <div class="ctrl-btn" id="fire" data-action="fire">FIRE</div>
+  </div>
+</div>
+
+<div id="mod-menu">
+  <h2>CRIMSON DEBUG</h2>
+  <div class="mod-row"><span>Godmode</span><button id="god-btn">OFF</button></div>
+  <div class="mod-row"><span>Noclip</span><button id="noclip-btn">OFF</button></div>
+  <div class="mod-row"><span>Speed x3</span><button id="speed-btn">OFF</button></div>
+  <div class="mod-row"><span>Infinite Jump</span><button id="infjump-btn">OFF</button></div>
+  <div class="mod-row"><span>BSP Overlay</span><button id="bsp-overlay-btn">OFF</button></div>
+  <div class="mod-row"><span>New BSP Dungeon</span><button id="new-dungeon">GENERATE</button></div>
+  <div class="mod-row"><span>Unlock All Names</span><button id="unlock-all">UNLOCK</button></div>
+  <div class="mod-row"><span>Close Menu</span><button id="close-mod">F1 / ESC</button></div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ===================== STATE =====================
+let godmode=false, noclip=false, speedBoost=false, infJump=false, showBSP=false;
+let claimed=0;
+const keys={};
+let velocity=new THREE.Vector3();
+let canJump=true;
+let yaw=0, pitch=0.25;
+let pointerLocked=false;
+
+// ===================== SCENE =====================
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0a0202);
+scene.fog=new THREE.FogExp2(0x1a0505,0.032);
+
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,0.1,200);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+document.body.appendChild(renderer.domElement);
+renderer.domElement.style.display='none';
+
+const amb=new THREE.AmbientLight(0x220808,0.35);
+scene.add(amb);
+const dir=new THREE.DirectionalLight(0xff3333,0.85);
+dir.position.set(12,22,10);
+scene.add(dir);
+
+// ===================== BSP =====================
+const CELL = 3.5;
+const MAP_W = 48;
+const MAP_H = 48;
+let grid = [];
+let rooms = [];
+let bspRoot = null;
+const dungeonGroup = new THREE.Group();
+const bspOverlayGroup = new THREE.Group();
+bspOverlayGroup.visible = false;
+scene.add(dungeonGroup);
+scene.add(bspOverlayGroup);
+
+class BSPNode {
+  constructor(x, y, w, h) {
+    this.x = x; this.y = y; this.w = w; this.h = h;
+    this.left = null; this.right = null;
+    this.room = null;
+    this.depth = 0;
+    this.splitVertical = false; // true = vertical split (left/right), false = horizontal
+  }
+}
+
+function splitNode(node, depth = 0) {
+  node.depth = depth;
+  if (depth > 5 || node.w < 10 || node.h < 10) return;
+
+  // Decide orientation (rotation of the partition plane)
+  const splitVertical = Math.random() > 0.5;
+  node.splitVertical = splitVertical;
+  let splitPos;
+
+  if (splitVertical) {
+    // Vertical split → plane rotated 90° around Y (cuts left/right)
+    if (node.w < 14) return;
+    splitPos = 5 + Math.floor(Math.random() * (node.w - 10));
+    node.left  = new BSPNode(node.x, node.y, splitPos, node.h);
+    node.right = new BSPNode(node.x + splitPos, node.y, node.w - splitPos, node.h);
+  } else {
+    // Horizontal split → plane rotated 0° (cuts top/bottom)
+    if (node.h < 14) return;
+    splitPos = 5 + Math.floor(Math.random() * (node.h - 10));
+    node.left  = new BSPNode(node.x, node.y, node.w, splitPos);
+    node.right = new BSPNode(node.x, node.y + splitPos, node.w, node.h - splitPos);
+  }
+
+  splitNode(node.left, depth + 1);
+  splitNode(node.right, depth + 1);
+}
+
+function createRooms(node) {
+  if (node.left || node.right) {
+    if (node.left)  createRooms(node.left);
+    if (node.right) createRooms(node.right);
+    return;
+  }
+
+  const pad = 1;
+  const rw = Math.max(3, node.w - 2 - Math.floor(Math.random() * 3));
+  const rh = Math.max(3, node.h - 2 - Math.floor(Math.random() * 3));
+  const rx = node.x + pad + Math.floor(Math.random() * Math.max(1, node.w - rw - pad * 2));
+  const ry = node.y + pad + Math.floor(Math.random() * Math.max(1, node.h - rh - pad * 2));
+
+  node.room = {x: rx, y: ry, w: rw, h: rh, cx: rx + rw/2, cy: ry + rh/2};
+  rooms.push(node.room);
+
+  for (let y = ry; y < ry + rh; y++)
+    for (let x = rx; x < rx + rw; x++)
+      if (y >= 0 && y < MAP_H && x >= 0 && x < MAP_W)
+        grid[y][x] = 1;
+}
+
+function connectRooms(node) {
+  if (!node.left || !node.right) return;
+  connectRooms(node.left);
+  connectRooms(node.right);
+
+  function getRoom(n) {
+    if (n.room) return n.room;
+    if (n.left)  { const r = getRoom(n.left);  if (r) return r; }
+    if (n.right) { const r = getRoom(n.right); if (r) return r; }
+    return null;
+  }
+
+  const roomA = getRoom(node.left);
+  const roomB = getRoom(node.right);
+  if (!roomA || !roomB) return;
+
+  let x = Math.floor(roomA.cx);
+  let y = Math.floor(roomA.cy);
+  const tx = Math.floor(roomB.cx);
+  const ty = Math.floor(roomB.cy);
+
+  while (x !== tx) {
+    grid[y][x] = 1;
+    if (y + 1 < MAP_H) grid[y + 1][x] = 1;
+    x += Math.sign(tx - x);
+  }
+  while (y !== ty) {
+    grid[y][x] = 1;
+    if (x + 1 < MAP_W) grid[y][x + 1] = 1;
+    y += Math.sign(ty - y);
+  }
+}
+
+// ========== DEPTH + ROTATION COLORING ==========
+function depthToColor(depth) {
+  const t = Math.min(depth / 6, 1.0);
+  const hue = 0.0 + t * 0.55;
+  const sat = 0.85 - t * 0.25;
+  const light = 0.35 + t * 0.25;
+  return new THREE.Color().setHSL(hue, sat, light);
+}
+
+function clearBSPOverlay() {
+  while (bspOverlayGroup.children.length) {
+    const c = bspOverlayGroup.children[0];
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) {
+      if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+      else c.material.dispose();
+    }
+    bspOverlayGroup.remove(c);
+  }
+}
+
+function buildBSPOverlay(node) {
+  if (!node) return;
+
+  const worldX = (node.x + node.w / 2 - MAP_W / 2) * CELL;
+  const worldZ = (node.y + node.h / 2 - MAP_H / 2) * CELL;
+  const w = node.w * CELL;
+  const h = node.h * CELL;
+
+  // ===== LEAF NODES — depth coloring =====
+  if (!node.left && !node.right) {
+    const color = depthToColor(node.depth);
+    const mat = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.20,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.3, h - 0.3), mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(worldX, 0.11, worldZ);
+    bspOverlayGroup.add(mesh);
+
+    // Room outline (gold)
+    if (node.room) {
+      const rw = node.room.w * CELL;
+      const rh = node.room.h * CELL;
+      const rx = (node.room.x + node.room.w / 2 - MAP_W / 2) * CELL;
+      const rz = (node.room.y + node.room.h / 2 - MAP_H / 2) * CELL;
+
+      const roomMat = new THREE.LineBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0.95 });
+      const roomGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(rw, rh));
+      const roomLines = new THREE.LineSegments(roomGeo, roomMat);
+      roomLines.rotation.x = -Math.PI / 2;
+      roomLines.position.set(rx, 0.28, rz);
+      bspOverlayGroup.add(roomLines);
+    }
+  } 
+  // ===== INTERNAL NODES — rotation (orientation) visualization =====
+  else if (node.left && node.right) {
+    const isVertical = node.splitVertical; // true = vertical plane (rotated 90°)
+    const baseColor = isVertical ? 0x00e5ff : 0xff00aa; // cyan = vertical, magenta = horizontal
+    const opacity = Math.max(0.35, 0.85 - node.depth * 0.08);
+
+    const splitMat = new THREE.LineBasicMaterial({ 
+      color: baseColor, 
+      transparent: true, 
+      opacity: opacity 
+    });
+
+    let points = [];
+    if (isVertical) {
+      // Vertical split line (runs along Z)
+      const sx = (node.left.x + node.left.w - MAP_W / 2) * CELL;
+      points = [
+        new THREE.Vector3(sx, 0.40, (node.y - MAP_H / 2) * CELL),
+        new THREE.Vector3(sx, 0.40, (node.y + node.h - MAP_H / 2) * CELL)
+      ];
+    } else {
+      // Horizontal split line (runs along X)
+      const sz = (node.left.y + node.left.h - MAP_H / 2) * CELL;
+      points = [
+        new THREE.Vector3((node.x - MAP_W / 2) * CELL, 0.40, sz),
+        new THREE.Vector3((node.x + node.w - MAP_W / 2) * CELL, 0.40, sz)
+      ];
+    }
+
+    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geo, splitMat);
+    bspOverlayGroup.add(line);
+
+    // Rotation indicator ticks (small perpendicular marks showing orientation)
+    const tickMat = new THREE.LineBasicMaterial({ color: baseColor, transparent: true, opacity: opacity * 0.9 });
+    const mid = points[0].clone().lerp(points[1], 0.5);
+    const tickLen = 1.1;
+
+    if (isVertical) {
+      // ticks go left-right
+      const t1 = [mid.clone().add(new THREE.Vector3(-tickLen, 0, 0)), mid.clone().add(new THREE.Vector3(tickLen, 0, 0))];
+      const tGeo = new THREE.BufferGeometry().setFromPoints(t1);
+      bspOverlayGroup.add(new THREE.Line(tGeo, tickMat));
+    } else {
+      // ticks go forward-back
+      const t1 = [mid.clone().add(new THREE.Vector3(0, 0, -tickLen)), mid.clone().add(new THREE.Vector3(0, 0, tickLen))];
+      const tGeo = new THREE.BufferGeometry().setFromPoints(t1);
+      bspOverlayGroup.add(new THREE.Line(tGeo, tickMat));
+    }
+  }
+
+  if (node.left)  buildBSPOverlay(node.left);
+  if (node.right) buildBSPOverlay(node.right);
+}
+
+function generateDungeon() {
+  while (dungeonGroup.children.length) dungeonGroup.remove(dungeonGroup.children[0]);
+  clearBSPOverlay();
+  rooms = [];
+  grid = Array.from({length: MAP_H}, () => Array(MAP_W).fill(0));
+
+  bspRoot = new BSPNode(1, 1, MAP_W - 2, MAP_H - 2);
+  splitNode(bspRoot);
+  createRooms(bspRoot);
+  connectRooms(bspRoot);
+
+  // Real dungeon geometry
+  const wallMat = new THREE.MeshStandardMaterial({color: 0x3a1010, roughness: 0.88, metalness: 0.08});
+  const floorMat = new THREE.MeshStandardMaterial({color: 0x140808, roughness: 0.92});
+  const wallGeo = new THREE.BoxGeometry(CELL, 3.8, CELL);
+  const floorGeo = new THREE.BoxGeometry(CELL, 0.15, CELL);
+
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      const wx = (x - MAP_W / 2) * CELL;
+      const wz = (y - MAP_H / 2) * CELL;
+      if (grid[y][x] === 1) {
+        const f = new THREE.Mesh(floorGeo, floorMat);
+        f.position.set(wx, 0, wz);
+        dungeonGroup.add(f);
+      } else {
+        let near = false;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++)
+            if (grid[y + dy] && grid[y + dy][x + dx] === 1) near = true;
+        if (near) {
+          const w = new THREE.Mesh(wallGeo, wallMat);
+          w.position.set(wx, 1.9, wz);
+          dungeonGroup.add(w);
+        }
+      }
+    }
+  }
+
+  rooms.forEach(r => {
+    const light = new THREE.PointLight(0xff1a1a, 1.0, 16);
+    light.position.set((r.cx - MAP_W / 2) * CELL, 2.8, (r.cy - MAP_H / 2) * CELL);
+    dungeonGroup.add(light);
+  });
+
+  if (rooms.length > 0) {
+    const start = rooms[0];
+    player.position.set((start.cx - MAP_W / 2) * CELL, 0, (start.cy - MAP_H / 2) * CELL);
+    velocity.set(0, 0, 0);
+  }
+
+  // Collectibles
+  names.forEach(n => scene.remove(n));
+  names.length = 0;
+  claimed = 0;
+  document.getElementById('names').textContent = '0';
+
+  const usable = rooms.slice(1);
+  for (let i = 0; i < 4 && usable.length; i++) {
+    const r = usable.splice(Math.floor(Math.random() * usable.length), 1)[0];
+    const n = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.65, 0),
+      new THREE.MeshStandardMaterial({color: 0xffaa00, emissive: 0xaa4400, emissiveIntensity: 0.85})
+    );
+    n.position.set((r.cx - MAP_W / 2) * CELL, 1.35, (r.cy - MAP_H / 2) * CELL);
+    n.userData = {collected: false};
+    scene.add(n);
+    names.push(n);
+  }
+
+  orbs.forEach(o => scene.remove(o));
+  orbs.length = 0;
+  for (let i = 0; i < 4; i++) {
+    const r = rooms[Math.floor(Math.random() * rooms.length)];
+    const o = new THREE.Mesh(
+      new THREE.SphereGeometry(0.48, 16, 16),
+      new THREE.MeshStandardMaterial({color: 0xff2222, emissive: 0x880000, emissiveIntensity: 1.1})
+    );
+    o.position.set(
+      (r.cx - MAP_W / 2) * CELL + (Math.random() - 0.5) * 2.5,
+      1.4,
+      (r.cy - MAP_H / 2) * CELL + (Math.random() - 0.5) * 2.5
+    );
+    scene.add(o);
+    orbs.push(o);
+  }
+
+  // Build overlay with rotation visualization
+  buildBSPOverlay(bspRoot);
+  bspOverlayGroup.visible = showBSP;
+}
+
+// ===================== PLAYER =====================
+const player = new THREE.Group();
+const body = new THREE.Mesh(
+  new THREE.CapsuleGeometry(0.38, 1.15, 4, 8),
+  new THREE.MeshStandardMaterial({color: 0xcc1133, roughness: 0.35, metalness: 0.45})
+);
+body.position.y = 1.05;
+player.add(body);
+const head = new THREE.Mesh(
+  new THREE.SphereGeometry(0.3, 12, 12),
+  new THREE.MeshStandardMaterial({color: 0xf5e6d3})
+);
+head.position.y = 2.0;
+player.add(head);
+scene.add(player);
+
+const names = [], orbs = [];
+
+// ===================== INPUT =====================
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'F1') toggleModMenu();
+  if (e.code === 'Escape') document.getElementById('mod-menu').style.display = 'none';
+});
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+renderer.domElement.addEventListener('click', () => renderer.domElement.requestPointerLock());
+document.addEventListener('pointerlockchange', () => {
+  pointerLocked = document.pointerLockElement === renderer.domElement;
+});
+document.addEventListener('mousemove', e => {
+  if (pointerLocked) {
+    yaw -= e.movementX * 0.002;
+    pitch -= e.movementY * 0.002;
+    pitch = Math.max(-1.1, Math.min(1.1, pitch));
+  }
+});
+
+// ===================== MOD MENU =====================
+function toggleModMenu() {
+  const m = document.getElementById('mod-menu');
+  m.style.display = m.style.display === 'block' ? 'none' : 'block';
+  document.getElementById('mod-status').style.display = 'block';
+}
+document.getElementById('god-btn').onclick = () => {
+  godmode = !godmode;
+  document.getElementById('god-btn').textContent = godmode ? 'ON' : 'OFF';
+};
+document.getElementById('noclip-btn').onclick = () => {
+  noclip = !noclip;
+  document.getElementById('noclip-btn').textContent = noclip ? 'ON' : 'OFF';
+};
+document.getElementById('speed-btn').onclick = () => {
+  speedBoost = !speedBoost;
+  document.getElementById('speed-btn').textContent = speedBoost ? 'ON' : 'OFF';
+};
+document.getElementById('infjump-btn').onclick = () => {
+  infJump = !infJump;
+  document.getElementById('infjump-btn').textContent = infJump ? 'ON' : 'OFF';
+};
+document.getElementById('bsp-overlay-btn').onclick = () => {
+  showBSP = !showBSP;
+  bspOverlayGroup.visible = showBSP;
+  document.getElementById('bsp-overlay-btn').textContent = showBSP ? 'ON' : 'OFF';
+};
+document.getElementById('new-dungeon').onclick = () => generateDungeon();
+document.getElementById('unlock-all').onclick = () => {
+  names.forEach(n => { if (!n.userData.collected) { n.userData.collected = true; n.visible = false; claimed++; }});
+  document.getElementById('names').textContent = claimed;
+};
+document.getElementById('close-mod').onclick = () => document.getElementById('mod-menu').style.display = 'none';
+
+document.querySelectorAll('.ctrl-btn').forEach(b => {
+  b.onclick = () => {
+    if (b.dataset.action === 'jump' && (canJump || infJump)) { velocity.y = 0.36; canJump = false; }
+    if (b.dataset.action === 'sprint') speedBoost = !speedBoost;
+  };
+});
+
+// ===================== START =====================
+document.getElementById('enter-btn').onclick = () => {
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('game-ui').style.display = 'block';
+  renderer.domElement.style.display = 'block';
+  generateDungeon();
+  setTimeout(() => renderer.domElement.requestPointerLock(), 400);
+};
+
+// ===================== COLLISION =====================
+function isWall(x, z) {
+  const gx = Math.floor(x / CELL + MAP_W / 2);
+  const gz = Math.floor(z / CELL + MAP_H / 2);
+  if (gz < 0 || gz >= MAP_H || gx < 0 || gx >= MAP_W) return true;
+  return grid; }
