@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spatial Grid Collisions – Full Implementation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: monospace; }
+  canvas { background: #000; display: block; }
+  #ui { position: absolute; top: 12px; left: 12px; color: #0f0; font-size: 14px; line-height: 1.5; pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui"></div>
+
+<script>
+"use strict";
+
+/* ===================== CONFIG ===================== */
+const W = 900;
+const H = 600;
+const CELL_SIZE = 64;               // important: tune this
+const NUM_OBJECTS = 600;            // try 1000–2000
+const SHOW_GRID = true;
+
+/* ===================== CANVAS ===================== */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d", { alpha: false });
+const ui = document.getElementById("ui");
+
+let dpr = Math.min(devicePixelRatio || 1, 2);
+function resize() {
+  dpr = Math.min(devicePixelRatio || 1, 2);
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener("resize", resize);
+
+/* ===================== SPATIAL GRID ===================== */
+class SpatialGrid {
+  constructor(width, height, cellSize) {
+    this.cellSize = cellSize;
+    this.cols = Math.ceil(width / cellSize);
+    this.rows = Math.ceil(height / cellSize);
+    this.cells = new Array(this.cols * this.rows);
+    for (let i = 0; i < this.cells.length; i++) this.cells[i] = [];
+  }
+
+  clear() {
+    for (let i = 0; i < this.cells.length; i++) this.cells[i].length = 0;
+  }
+
+  // Insert object that has .x .y .r (radius)
+  insert(obj) {
+    const minX = Math.max(0, Math.floor((obj.x - obj.r) / this.cellSize));
+    const maxX = Math.min(this.cols - 1, Math.floor((obj.x + obj.r) / this.cellSize));
+    const minY = Math.max(0, Math.floor((obj.y - obj.r) / this.cellSize));
+    const maxY = Math.min(this.rows - 1, Math.floor((obj.y + obj.r) / this.cellSize));
+
+    obj._cells = [];                       // remember which cells it occupies
+    for (let cy = minY; cy <= maxY; cy++) {
+      for (let cx = minX; cx <= maxX; cx++) {
+        const idx = cy * this.cols + cx;
+        this.cells[idx].push(obj);
+        obj._cells.push(idx);
+      }
+    }
+  }
+
+  // Get all potential collision candidates for an object
+  // (objects in the same cells)
+  getCandidates(obj) {
+    const candidates = new Set();
+    for (const idx of obj._cells) {
+      const cell = this.cells[idx];
+      for (let i = 0; i < cell.length; i++) {
+        const other = cell[i];
+        if (other !== obj) candidates.add(other);
+      }
+    }
+    return candidates;
+  }
+
+  // Debug draw
+  draw(ctx) {
+    ctx.strokeStyle = "rgba(0,255,0,0.15)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= this.cols; x++) {
+      ctx.beginPath();
+      ctx.moveTo(x * this.cellSize, 0);
+      ctx.lineTo(x * this.cellSize, H);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= this.rows; y++) {
+      ctx.beginPath();
+      ctx.moveTo(0, y * this.cellSize);
+      ctx.lineTo(W, y * this.cellSize);
+      ctx.stroke();
+    }
+  }
+}
+
+const grid = new SpatialGrid(W, H, CELL_SIZE);
+
+/* ===================== OBJECTS ===================== */
+const objects = [];
+for (let i = 0; i < NUM_OBJECTS; i++) {
+  objects.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    vx: (Math.random() - 0.5) * 180,
+    vy: (Math.random() - 0.5) * 180,
+    r: 6 + Math.random() * 10,
+    color: `hsl(${Math.random()*360},70%,60%)`,
+    colliding: false,
+    _cells: []
+  });
+}
+
+/* ===================== COLLISION CHECK ===================== */
+function checkCollisions() {
+  // 1. Clear & rebuild grid
+  grid.clear();
+  for (const obj of objects) {
+    obj.colliding = false;
+    grid.insert(obj);
+  }
+
+  // 2. Check only nearby objects
+  let checks = 0;
+  for (const obj of objects) {
+    const candidates = grid.getCandidates(obj);
+    for (const other of candidates) {
+      // avoid double-checking the same pair
+      if (obj === other || obj > other) continue;   // simple id trick
+
+      checks++;
+      const dx = other.x - obj.x;
+      const dy = other.y - obj.y;
+      const distSq = dx*dx + dy*dy;
+      const minDist = obj.r + other.r;
+
+      if (distSq < minDist * minDist) {
+        obj.colliding = true;
+        other.colliding = true;
+
+        // simple elastic response
+        const dist = Math.sqrt(distSq) || 0.001;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const overlap = minDist - dist;
+
+        // separate
+        obj.x -= nx * overlap * 0.5;
+        obj.y -= ny * overlap * 0.5;
+        other.x += nx * overlap * 0.5;
+        other.y += ny * overlap * 0.5;
+
+        // bounce
+        const dvx = obj.vx - other.vx;
+        const dvy = obj.vy - other.vy;
+        const impact = dvx * nx + dvy * ny;
+        if (impact < 0) {
+          obj.vx -= impact * nx;
+          obj.vy -= impact * ny;
+          other.vx += impact * nx;
+          other.vy += impact * ny;
+        }
+      }
+    }
+  }
+  return checks;
+}
+
+/* ===================== UPDATE & RENDER ===================== */
+let last = performance.now();
+let frames = 0, fpsTime = 0, fps = 0;
+let totalChecks = 0;
+
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+
+  // Move
+  for (const obj of objects) {
+    obj.x += obj.vx * dt;
+    obj.y += obj.vy * dt;
+
+    // bounce off walls
+    if (obj.x < obj.r)          { obj.x = obj.r;          obj.vx *= -1; }
+    if (obj.x > W - obj.r)      { obj.x = W - obj.r;      obj.vx *= -1; }
+    if (obj.y < obj.r)          { obj.y = obj.r;          obj.vy *= -1; }
+    if (obj.y > H - obj.r)      { obj.y = H - obj.r;      obj.vy *= -1; }
+  }
+
+  // Spatial grid collisions
+  totalChecks = checkCollisions();
+
+  // Render
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+
+  if (SHOW_GRID) grid.draw(ctx);
+
+  for (const obj of objects) {
+    ctx.beginPath();
+    ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI * 2);
+    ctx.fillStyle = obj.colliding ? "#ff2244" : obj.color;
+    ctx.fill();
+  }
+
+  // Stats
+  frames++;
+  fpsTime += dt;
+  if (fpsTime >= 0.4) {
+    fps = Math.round(frames / fpsTime);
+    frames = 0;
+    fpsTime = 0;
+
+    const bruteForce = NUM_OBJECTS * (NUM_OBJECTS - 1) / 2;
+    ui.innerHTML =
+      `Objects: ${NUM_OBJECTS}<br>` +
+      `Cell size: ${CELL_SIZE}px<br>` +
+      `Collision checks: ${totalChecks.toLocaleString()}<br>` +
+      `Brute force would be: ${bruteForce.toLocaleString()}<br>` +
+      `Speed-up: ×${(bruteForce / Math.max(1,totalChecks)).toFixed(1)}<br>` +
+      `FPS: ${fps}`;
+  }
+
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
