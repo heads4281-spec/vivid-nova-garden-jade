@@ -1,0 +1,28 @@
+https://YOUR-USERNAME.github.io/crimson-sovereign/?code=63821
+{
+  "version": "2.1.0",
+  "lastUpdate": "2026-08-23T09:53:00Z",
+  "primaryCode": "63821",
+  "validCodes": ["63821", "62821", "99812", "15785"],
+  "mythCycles": 100000,
+  "sovereignLevel": 6294,
+  "identifier": "CNLMMR · SOVEREIGN LV 6294 · 10 000 OPEN-WORLD MOMENTS",
+  "loreMode": "blood",
+  "loreText": "You were never meant to cross the rift. The wound sang in the language of dying stars and living blood. Come home.",
+  "codeFlavour": "This code thickens blood in the canals. The Milky Way hungers with the palace.",
+  "fog": 42,
+  "blood": 67,
+  "playersOnline": 1,
+  "news": [
+    "Full merge complete – all old and new codes active",
+    "Automatic GitHub update system online",
+    "Master server controls fully enabled"
+  ],
+  "classes": ["Ankh Warden", "Night Reaver", "Void Gunner", "Blood Weaver", "Hooded Hunter"],
+  "defaultStats": {
+    "strength": 12,
+    "magic": 8,
+    "attack": 15,
+    "minerals": 40
+  }
+}
