@@ -1,0 +1,122 @@
+**Number 5 – Full Polish Pass**  
+Putting everything together cleanly.
+
+Here’s a clean final structure and checklist so your whole system works together properly.
+
+---
+
+### Recommended Final File Structure
+
+```
+src/game/
+├── engine.ts              ← main engine (already upgraded)
+├── effects.ts             ← muzzle flash + sparks
+├── video-manager.ts       ← controls all videos
+├── living-ground.ts       ← living ground helper
+├── npc-billboard.ts       ← cyber-ninja & future NPCs
+├── recoil.ts              ← improved profiles
+├── arsenal.ts
+├── world.ts
+└── ...
+```
+
+---
+
+### Clean Initialization Order (inside `start()`)
+
+```ts
+// 1. Core systems
+this.effects = new EffectSystem(this.scene, this.camera);
+this.videoManager = new VideoManager(this.scene);
+
+// 2. Load important videos
+this.videoManager.load("ground", "/levels/crimson_ground_alive.mp4", {
+  width: 120,
+  height: 120,
+  asGround: true,
+  position: new THREE.Vector3(0, -0.02, 0),
+  autoplay: true,
+  loop: true,
+});
+
+this.videoManager.load("dragonArena", "/levels/crimson_dragon_arena.mp4", {
+  width: 42,
+  height: 26,
+  position: new THREE.Vector3(0, 9, -32),
+  autoplay: false,
+  loop: true,
+});
+
+// 3. Create NPC
+this.ninja = new NPCBillboard(
+  this.videoManager,
+  this.camera,
+  "cyberNinja",
+  "/npcs/cyber_ninja_idle.mp4",
+  new THREE.Vector3(14, 1.8, 9),
+  2.5,
+  3.8
+);
+
+// 4. Optional living ground helper (if you still want it separate)
+this.livingGround = new LivingGround(this.scene, "/levels/crimson_ground_alive.mp4");
+```
+
+---
+
+### Clean Update Loop
+
+Inside your main `visual(dt)` or `frame()`:
+
+```ts
+// Effects
+this.effects.update(dt);
+
+// NPCs
+this.ninja?.update();
+
+// Optional: pause distant videos for performance
+const distToNinja = this.camera.position.distanceTo(this.ninja.position);
+if (distToNinja > 40) {
+  this.ninja.pause();
+} else {
+  this.ninja.play();
+}
+```
+
+---
+
+### Final Polish Checklist
+
+- [x] Weapon switch has weight + crimson flash
+- [x] Gunfire has strong muzzle flash + better sparks
+- [x] Recoil feels punchier
+- [x] Reload has feedback
+- [x] Living ground video playing under solid collision
+- [x] Cyber-ninja stands in the world and faces the player
+- [x] VideoManager controls everything cleanly
+- [x] Performance friendly (videos can be paused when far)
+
+---
+
+### What You Have Now
+
+You now have a solid foundation:
+
+- Better gunplay
+- Living environments
+- Animated NPCs
+- Clean video system
+- Good performance practices
+
+---
+
+**Next possible steps** (if you want to continue):
+
+1. Add more NPCs easily
+2. Trigger the dragon arena video when entering the boss room
+3. Add simple interaction with the ninja (talk / fight)
+4. Performance + mobile optimization
+5. Something else you want
+
+Just tell me what you want to do next.
