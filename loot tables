@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Infernal Citadel — Five Rooms</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+
+        :root {
+            --bg-deep: #050505;
+            --bg-card: #0d0d0d;
+            --accent: #c41e1e;
+            --accent-glow: #ff2a2a;
+            --text-main: #e8d5d5;
+            --text-dim: #a08080;
+            --border: #3a0a0a;
+            --monster: #8b0000;
+            --loot: #b8860b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Cormorant Garamond', serif;
+            line-height: 1.7;
+            background-image: 
+                radial-gradient(ellipse at top, #1a0505 0%, transparent 60%),
+                radial-gradient(ellipse at bottom, #120000 0%, transparent 70%);
+            min-height: 100vh;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(2px 2px at 20% 30%, rgba(255, 40, 40, 0.3), transparent),
+                radial-gradient(2px 2px at 40% 70%, rgba(255, 20, 20, 0.2), transparent),
+                radial-gradient(1px 1px at 90% 40%, rgba(255, 60, 60, 0.25), transparent),
+                radial-gradient(1px 1px at 60% 10%, rgba(255, 30, 30, 0.2), transparent);
+            pointer-events: none;
+            z-index: 0;
+            animation: drift 40s linear infinite;
+        }
+
+        @keyframes drift {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-100px); }
+        }
+
+        header {
+            text-align: center;
+            padding: 60px 20px 40px;
+            position: relative;
+            z-index: 1;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(to bottom, rgba(40, 0, 0, 0.4), transparent);
+        }
+
+        header h1 {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(2.2rem, 6vw, 3.8rem);
+            color: var(--accent-glow);
+            text-shadow: 
+                0 0 10px rgba(255, 40, 40, 0.8),
+                0 0 30px rgba(200, 0, 0, 0.5),
+                0 0 60px rgba(150, 0, 0, 0.3);
+            letter-spacing: 4px;
+            margin-bottom: 12px;
+        }
+
+        header p {
+            font-size: 1.25rem;
+            color: var(--text-dim);
+            font-style: italic;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .room {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 50px;
+            overflow: hidden;
+            box-shadow: 
+                0 0 20px rgba(150, 0, 0, 0.15),
+                inset 0 0 60px rgba(30, 0, 0, 0.4);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .room:hover {
+            transform: translateY(-4px);
+            box-shadow: 
+                0 0 30px rgba(200, 20, 20, 0.25),
+                inset 0 0 80px rgba(40, 0, 0, 0.5);
+        }
+
+        .room-header {
+            background: linear-gradient(90deg, #1a0000, #2a0505, #1a0000);
+            padding: 22px 30px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .room-number {
+            font-family: 'Cinzel', serif;
+            font-size: 1.8rem;
+            color: var(--accent);
+            text-shadow: 0 0 12px rgba(255, 40, 40, 0.6);
+            min-width: 50px;
+        }
+
+        .room-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.6rem;
+            color: #ffcccc;
+            letter-spacing: 1px;
+        }
+
+        .room-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        .room-body {
+            padding: 30px 32px 36px;
+        }
+
+        .room-body p {
+            margin-bottom: 18px;
+            font-size: 1.15rem;
+            color: var(--text-main);
+        }
+
+        .feature-list {
+            margin: 22px 0 10px;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        .feature-list li {
+            position: relative;
+            padding-left: 28px;
+            margin-bottom: 10px;
+            font-size: 1.08rem;
+            color: #d0b0b0;
+        }
+
+        .feature-list li::before {
+            content: '◆';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+            font-size: 0.75rem;
+            top: 4px;
+            text-shadow: 0 0 8px rgba(255, 40, 40, 0.7);
+        }
+
+        .hazards, .monsters, .loot {
+            margin-top: 25px;
+            padding: 16px 20px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .hazards {
+            background: rgba(80, 0, 0, 0.25);
+            border-left: 3px solid var(--accent);
+        }
+
+        .monsters {
+            background: rgba(60, 0, 0, 0.35);
+            border-left: 3px solid #8b0000;
+        }
+
+        .loot {
+            background: rgba(40, 30, 0, 0.35);
+            border-left: 3px solid #b8860b;
+        }
+
+        .hazards strong, .monsters strong, .loot strong {
+            font-family: 'Cinzel', serif;
+            letter-spacing: 1px;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .hazards strong { color: var(--accent-glow); }
+        .monsters strong { color: #ff5555; }
+        .loot strong { color: #ffd700; }
+
+        .monster-list, .loot-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .monster-list li, .loot-list li {
+            position: relative;
+            padding-left: 22px;
+            margin-bottom: 8px;
+            font-size: 1.05rem;
+            color: #e0b0b0;
+        }
+
+        .monster-list li::before {
+            content: '☠';
+            position: absolute;
+            left: 0;
+            color: #ff3333;
+            font-size: 0.9rem;
+        }
+
+        .loot-list li::before {
+            content: '✦';
+            position: absolute;
+            left: 0;
+            color: #ffd700;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            border-top: 1px solid var(--border);
+            position: relative;
+            z-index: 1;
+        }
+
+        footer span {
+            color: var(--accent);
+        }
+
+        @media (max-width: 600px) {
+            .room-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
+            .room-body {
+                padding: 22px 20px 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>THE INFERNAL CITADEL</h1>
+    <p>Five chambers carved from the heart of the volcanic abyss</p>
+</header>
+
+<div class="container">
+
+    <!-- ROOM 1 -->
+    <article class="room">
+        <div class="room-header">
+            <div class="room-number">I</div>
+            <div>
+                <div class="room-title">The Crimson Threshold</div>
+                <div class="room-subtitle">Entrance Hall</div>
+            </div>
+        </div>
+        <div class="room-body">
+            <p>A vast, circular chamber roughly 80 feet across and 60 feet high. The glowing red portal you entered through sits at the top of a wide, cracked black-stone staircase that descends into the room. Concentric circles of ancient runes cover the entire floor; they pulse slowly with deep crimson light in time with a low, rhythmic thrum that seems to come from the fortress itself.</p>
+            
+            <p>Thin channels of glowing lava run along the base of the walls and cross the floor in geometric patterns, casting everything in shifting blood-red illumination. Four colossal statues of winged, horned figures stand against the walls—each 25 feet tall, carved from the same dark stone as the fortress, their eyes burning with actual fire. Between them, heavy iron-bound doors of black metal lead deeper into the citadel.</p>
+            
+            <p>The air is thick with heat and the sharp scent of sulfur and scorched stone. Distant roars and the constant rush of falling lava echo from below. The runes on the floor react to living creatures: they brighten when stepped on and leave faint glowing footprints that fade after a few seconds.</p>
+
+            <ul class="feature-list">
+                <li>Pulsing concentric runes that react to living presence</li>
+                <li>Four 25-ft winged horned statues with burning eyes</li>
+                <li>Lava channels forming geometric patterns across the floor</li>
+                <li>Heavy iron-bound doors of black metal leading deeper</li>
+            </ul>
+
+            <div class="hazards">
+                <strong>Hazards & Interaction</strong>
+                A faint magical barrier shimmers across the main exit archway, requiring either a specific key, blood offering, or powerful magic to pass safely.
+            </div>
+
+            <div class="monsters">
+                <strong>Monster Placements</strong>
+                <ul class="monster-list">
+                    <li><strong>4 Ashen Sentinels</strong> — Animated stone guardians that step down from the winged statues when intruders approach the central runes. Immune to fire, slow but hit hard with crushing fists.</li>
+                    <li><strong>6 Ember Imps</strong> — Small winged demons that cling to the ceiling and lava channels. They throw molten sparks and try to herd prey toward the rune trap.</li>
+                    <li><strong>1 Portal Warden (Barbed Devil)</strong> — Stands motionless near the exit archway. Only activates if the magical barrier is disturbed or if more than half the imps are slain.</li>
+                </ul>
+            </div>
+
+            <div class="loot">
+                <strong>Loot Table</strong>
+                <ul class="loot-list">
+                    <li><strong>Common (always present)</strong>: 3d6 × 10 gold pieces scattered among the base of the statues + 2 potions of fire resistance.</li>
+                    <li><strong>Uncommon (50% chance)</strong>: A black-iron key etched with glowing runes (opens the barrier to Room II) and a +1 dagger of volcanic glass.</li>
+                    <li><strong>Rare (20% chance)</strong>: One of the statue’s burning eyes (can be pried out) — functions as a permanent torch that never extinguishes and deals 1d6 fire damage if thrown.</li>
+                    <li><strong>Hidden</strong>: Beneath the central rune circle (DC 15 Investigation) — a small casket containing 1d4 soul coins and a scroll of Protection from Evil and Good.</li>
+                </ul>
+            </div>
+        </div>
+    </article>
+
+    <!-- ROOM 2 -->
+    <article class="room">
+        <div class="room-header">
+            <div class="room-number">II</div>
+            <div>
+                <div class="room-title">The Vein Gallery</div>
+                <div class="room-subtitle">Corridor of Flowing Magma</div>
+            </div>
+        </div>
+        <div class="room-body">
+            <p>A long, slightly curved corridor 120 feet in length, 20 feet wide, and 40 feet high. One entire long wall is formed of semi-transparent dark crystal or solidified magma glass, behind which a massive vertical river of bright red lava flows continuously, filling the hall with intense heat and flickering crimson light. The opposite wall is solid black stone etched with sharp, angular reliefs of forgotten battles and demonic faces.</p>
+            
+            <p>Three narrow spiked-iron bridges cross gaps where the floor has collapsed into glowing cracks that drop into darkness. Inverted black spires hang from the ceiling like stone stalactites, some dripping slow beads of molten rock that hiss and solidify before hitting the ground. Small side alcoves contain empty stone pedestals and faded banners that still smolder at the edges.</p>
+
+            <ul class="feature-list">
+                <li>Semi-transparent crystal wall revealing a vertical lava river</li>
+                <li>Three spiked-iron bridges spanning glowing chasms</li>
+                <li>Inverted black spires dripping molten beads</li>
+                <li>Smoldering banners and empty stone pedestals in alcoves</li>
+            </ul>
+
+            <div class="hazards">
+                <strong>Hazards & Interaction</strong>
+                The temperature is punishingly high near the crystal wall. Walking too close causes mild heat damage over time. Occasional bursts of pressurized steam or small lava sprays erupt from the cracks without warning. The constant roar of the lava river masks quieter sounds.
+            </div>
+
+            <div class="monsters">
+                <strong>Monster Placements</strong>
+                <ul class="monster-list">
+                    <li><strong>3 Magma Mephits</strong> — Hide inside the crystal wall and burst out when characters cross the first bridge. They explode on death, spraying molten rock.</li>
+                    <li><strong>2 Lava Serpents</strong> — Long, eel-like creatures that swim within the lava river behind the crystal. They can momentarily solidify parts of the wall to strike through it.</li>
+                    <li><strong>1 Bridge Stalker (Shadow Demon)</strong> — Lurks beneath the middle iron bridge in the glowing cracks. Attempts to drag a lone traveler into the abyss below.</li>
+                    <li><strong>4 Cinder Spiders</strong> — Fist-sized arachnids that drop from the inverted spires. Their bites inject liquid heat that continues burning for several rounds.</li>
+                </ul>
+            </div>
+
+            <div class="loot">
+                <strong>Loot Table</strong>
+                <ul class="loot-list">
+                    <li><strong>Common</strong>: 2d4 smoldering banners (can be used as torches for 1 hour each) + 4d6 gold pieces fused into cooled lava chunks.</li>
+                    <li><strong>Uncommon (60% chance)</strong>: A pair of boots of lava walking (allow safe crossing of magma for 10 minutes once per day) found in an alcove pedestal.</li>
+                    <li><strong>Rare (25% chance)</strong>: Crystal shard broken from the lava wall — acts as a focus for fire spells and grants +1 to spell attack rolls with fire damage.</li>
+                    <li><strong>Hidden (DC 16 Perception under the middle bridge)</strong>: A locked iron coffer containing 150 gold, a potion of greater healing, and a cursed ring that slowly heats the wearer’s hand.</li>
+                </ul>
+            </div>
+        </div>
+    </article>
+
+    <!-- ROOM 3 -->
+    <article class="room">
+        <div class="room-header">
+            <div class="room-number">III</div>
+            <div>
+                <div class="room-title">The Ember Throne Room</div>
+                <div class="room-subtitle">Seat of Power</div>
+            </div>
+        </div>
+        <div class="room-body">
+            <p>An immense rectangular hall 100 feet long, 60 feet wide, and over 80 feet high. The vaulted ceiling is lost in shadow, supported by thick pillars of black stone wrapped in living veins of glowing magma. At the far end rises the Ember Throne: a jagged construct of fused rock and slowly moving lava, its seat a shallow pool of molten stone that never cools. Red energy arcs between the surrounding pillars like silent lightning.</p>
+            
+            <p>Behind the throne, a wide open balcony looks out over the endless volcanic abyss, the floating islands, and the central beam of red light that plunges into the depths. The floor is a cracked mosaic of polished obsidian that glows from magma channels running beneath it. Every surface is covered in sharp, angular carvings of demonic figures, forgotten gods, and swirling flame motifs.</p>
+
+            <ul class="feature-list">
+                <li>The Ember Throne of living lava and fused black rock</li>
+                <li>Red energy arcs crackling between magma-veined pillars</li>
+                <li>Open balcony overlooking the volcanic abyss</li>
+                <li>Cracked obsidian floor glowing from beneath</li>
+            </ul>
+
+            <div class="hazards">
+                <strong>Hazards & Interaction</strong>
+                Sitting on or even approaching the throne causes the energy arcs to intensify and the carvings to shift subtly, as if watching. Any attempt to claim the throne without proper authority triggers defensive magic — flames, spectral guardians, or a surge of pure heat.
+            </div>
+
+            <div class="monsters">
+                <strong>Monster Placements</strong>
+                <ul class="monster-list">
+                    <li><strong>2 Pillar Guardians (Fire Elementals)</strong> — Bound within the magma veins of the two pillars closest to the throne. They emerge fully if the throne is touched.</li>
+                    <li><strong>1 Throne Bound (Horned Devil)</strong> — The current “occupant” of the Ember Throne. Appears as a towering red-skinned devil fused partially with the lava seat. Commands the room’s defenses.</li>
+                    <li><strong>8 Flame Wraiths</strong> — Spectral figures that rise from the glowing floor cracks when combat begins. They are resistant to non-magical weapons and drain heat from living bodies.</li>
+                    <li><strong>1 Balcony Sentinel (Chain Devil)</strong> — Patrols the open balcony. Uses spiked chains to try and pull enemies over the edge into the abyss.</li>
+                </ul>
+            </div>
+
+            <div class="loot">
+                <strong>Loot Table</strong>
+                <ul class="loot-list">
+                    <li><strong>Common</strong>: 5d10 × 10 gold pieces and 2d6 fire opals scattered across the throne dais.</li>
+                    <li><strong>Uncommon (55% chance)</strong>: The Horned Devil’s ceremonial black-iron greataxe (+1 weapon that deals extra 1d6 fire damage).</li>
+                    <li><strong>Rare (30% chance)</strong>: Ember Crown — a circlet of cooled magma that grants resistance to fire and the ability to cast Hellish Rebuke once per day.</li>
+                    <li><strong>Legendary (throne claimed or devil defeated)</strong>: Heart of the Ember Throne — a pulsing red gem that can be used to power a major magical item or sold for 5,000 gp. Touching it requires a DC 16 Wisdom save or the user is cursed with visions of the abyss.</li>
+                </ul>
+            </div>
+        </div>
+    </article>
+
+    <!-- ROOM 4 -->
+    <article class="room">
+        <div class="room-header">
+            <div class="room-number">IV</div>
+            <div>
+                <div class="room-title">The Abyssal Observatory</div>
+                <div class="room-subtitle">High Spire Chamber</div>
+            </div>
+        </div>
+        <div class="room-body">
+            <p>A circular chamber 50 feet in diameter located high in one of the outer spires. Large open archways on three sides give unobstructed views of the starless void, the cascading lava falls, the floating rock islands, and the full sprawl of the fortress below. A great circular platform o
