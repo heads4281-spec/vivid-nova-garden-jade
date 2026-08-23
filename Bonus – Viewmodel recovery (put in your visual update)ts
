@@ -1,0 +1,7 @@
+a// Inside visual(dt) or visualJuice(dt)
+if (this.vmKickZ < 0) {
+  this.vmKickZ = THREE.MathUtils.damp(this.vmKickZ, 0, 12, dt);
+}
+if (this.vmKickY < 0) {
+  this.vmKickY = THREE.MathUtils.damp(this.vmKickY, 0, 10, dt);
+}
