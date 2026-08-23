@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>336-lb Standing Backflip – Full Moments + Math</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a1628;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #eee;
+    overflow: hidden;
+  }
+  #wrapper {
+    position: relative;
+    box-shadow: 0 0 60px rgba(0, 180, 255, 0.35);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  canvas { display: block; background: #87CEEB; }
+  #ui {
+    position: absolute;
+    top: 12px;
+    left: 0;
+    width: 100%;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    text-shadow: 0 2px 6px #000;
+    z-index: 10;
+  }
+  .stat { font-size: 16px; font-weight: bold; }
+  #score { color: #ffd700; font-size: 22px; }
+  #power { color: #0ff; }
+  #message {
+    position: absolute;
+    top: 42%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 32px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 20px #000;
+    display: none;
+    text-align: center;
+    pointer-events: none;
+    z-index: 20;
+  }
+  #mathBox {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.88);
+    border: 3px solid #00e5ff;
+    border-radius: 12px;
+    padding: 14px 24px;
+    display: none;
+    text-align: center;
+    z-index: 15;
+    box-shadow: 0 0 25px rgba(0,229,255,0.5);
+  }
+  #mathQ { font-size: 24px; margin-bottom: 10px; color: #0ff; }
+  #mathAns {
+    width: 80px;
+    font-size: 22px;
+    text-align: center;
+    padding: 6px;
+    border-radius: 6px;
+    border: 2px solid #00e5ff;
+    background: #111;
+    color: #fff;
+  }
+  #mathBox button {
+    margin-left: 10px;
+    padding: 6px 16px;
+    font-size: 18px;
+    background: #00e5ff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  #controls {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    color: #ddd;
+    text-align: center;
+    pointer-events: none;
+    text-shadow: 0 1px 4px #000;
+  }
+</style>
+</head>
+<body>
+<div id="wrapper">
+  <canvas id="game" width="900" height="560"></canvas>
+  <div id="ui">
+    <div class="stat">Power: <span id="powerVal">0</span>%</div>
+    <div id="score">Score: 0</div>
+    <div class="stat">Level: <span id="level">1</span> | Flips: <span id="flips">0</span></div>
+  </div>
+  <div id="message"></div>
+  <div id="mathBox">
+    <div id="mathQ">9 + 7 = ?</div>
+    <input type="number" id="mathAns" placeholder="?">
+    <button onclick="checkMath()">FLIP!</button>
+  </div>
+  <div id="controls">
+    SPACE = Charge & Launch Standing Backflip &nbsp;|&nbsp; Correct Math = Power Boost + Bigger Flip
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// ========== STATE ==========
+let score = 0;
+let power = 0;          // 0-100
+let level = 1;
+let flips = 0;
+let mathActive = false;
+let mathTimer = 0;
+let particles = [];
+let sandParticles = [];
+let frame = 0;
+let screenShake = 0;
+
+// Flip animation state machine
+let state = 'idle';     // idle, crouch, launch, flip, land, recover
+let flipProgress = 0;   // 0→1 during flip
+let crouchAmount = 0;
+let yOffset = 0;        // vertical position during jump
+let rotation = 0;       // radians
+let scaleX = 1;         // for landing squash
+
+// ========== MATH ==========
+let currentMath = null;
+function rand(min, max) { return Math.floor(Math.random()*(max-min+1))+min; }
+function spawnMath() {
+  if (mathActive || state !== 'idle') return;
+  const ops = [
+    () => { const a=rand(5,15), b=rand(3,12); return {q:`${a} + ${b}`, ans:a+b}; },
+    () => { const a=rand(10,22), b=rand(2,9); return {q:`${a} - ${b}`, ans:a-b}; },
+    () => { const a=rand(3,9), b=rand(2,8); return {q:`${a} × ${b}`, ans:a*b}; }
+  ];
+  currentMath = ops[Math.floor(Math.random()*ops.length)]();
+  document.getElementById('mathQ').textContent = currentMath.q + " = ?";
+  document.getElementById('mathAns').value = '';
+  document.getElementById('mathBox').style.display = 'block';
+  document.getElementById('mathAns').focus();
+  mathActive = true;
+}
+function checkMath() {
+  const val = parseInt(document.getElementById('mathAns').value);
+  if (val === currentMath.ans) {
+    power = Math.min(100, power + 22);
+    score += 150 * level;
+    showMsg("POWER UP! Ready for bigger flip!", "#0f0");
+    if (power >= 100) {
+      level++;
+      power = 30;
+      showMsg("LEVEL UP! Stronger Flip Unlocked", "#ff0");
+    }
+  } else {
+    showMsg("Wrong!", "#f44");
+    power = Math.max(0, power - 8);
+  }
+  document.getElementById('mathBox').style.display = 'none';
+  mathActive = false;
+  currentMath = null;
+  updateUI();
+}
+document.getElementById('mathAns').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkMath();
+});
+
+// ========== INPUT ==========
+let charging = false;
+window.addEventListener('keydown', e => {
+  if ((e.key === ' ' || e.key === 'Spacebar') && state === 'idle' && !mathActive) {
+    e.preventDefault();
+    charging = true;
+    state = 'crouch';
+  }
+});
+window.addEventListener('keyup', e => {
+  if ((e.key === ' ' || e.key === 'Spacebar') && state === 'crouch') {
+    charging = false;
+    // Launch!
+    state = 'launch';
+    flipProgress = 0;
+    // power affects height & success feel
+    const boost = 0.7 + (power / 100) * 0.6;
+    yOffset = 0;
+  }
+});
+
+// ========== PARTICLES ==========
+function addSand(x, y, count=12) {
+  for (let i=0; i<count; i++) {
+    sandParticles.push({
+      x, y,
+      vx: (Math.random()-0.5)*8,
+      vy: -Math.random()*6 - 2,
+      life: 40 + Math.random()*30,
+      size: 2 + Math.random()*3,
+      color: `hsl(35, 60%, ${40+Math.random()*30}%)`
+    });
+  }
+}
+function addSpark(x, y, color='#fff') {
+  for (let i=0; i<10; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random()-0.5)*10,
+      vy: (Math.random()-0.5)*10 - 3,
+      life: 25 + Math.random()*20,
+      color,
+      size: 2 + Math.random()*3
+    });
+  }
+}
+
+// ========== DRAW BEACH ==========
+function drawBeach() {
+  // sky gradient already on canvas bg, add sun
+  ctx.fillStyle = '#FFF7A0';
+  ctx.beginPath();
+  ctx.arc(780, 90, 45, 0, Math.PI*2);
+  ctx.fill();
+
+  // ocean
+  ctx.fillStyle = '#1E90FF';
+  ctx.fillRect(0, H-160, W, 80);
+  // waves
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  for (let i=0; i<6; i++) {
+    const wx = (frame*1.5 + i*160) % (W+100) - 50;
+    ctx.beginPath();
+    ctx.ellipse(wx, H-145, 70, 8, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // sand
+  ctx.fillStyle = '#E8C47A';
+  ctx.fillRect(0, H-90, W, 90);
+  // sand texture lines
+  ctx.strokeStyle = 'rgba(160,120,60,0.3)';
+  ctx.lineWidth = 1;
+  for (let i=0; i<12; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, H-85 + i*7);
+    ctx.lineTo(W, H-80 + i*7);
+    ctx.stroke();
+  }
+}
+
+// ========== DRAW BIG ATHLETE (bulky for 336 lb look) ==========
+function drawAthlete() {
+  ctx.save();
+  ctx.translate(W/2, H - 95 + yOffset);
+  ctx.scale(scaleX, 1);
+  ctx.rotate(rotation);
+
+  const skin = '#c68642';
+  const shirt = '#C5050C'; // Wisconsin red
+  const shorts = '#fff';
+
+  // === LEGS ===
+  ctx.strokeStyle = skin;
+  ctx.lineWidth = 22;
+  ctx.lineCap = 'round';
+
+  // Left leg
+  ctx.beginPath();
+  ctx.moveTo(-18, 10);
+  ctx.lineTo(-28 - crouchAmount*15, 55 + crouchAmount*10);
+  ctx.stroke();
+  // Left foot
+  ctx.beginPath();
+  ctx.moveTo(-28 - crouchAmount*15, 55 + crouchAmount*10);
+  ctx.lineTo(-45 - crouchAmount*10, 60 + crouchAmount*8);
+  ctx.stroke();
+
+  // Right leg
+  ctx.beginPath();
+  ctx.moveTo(18, 10);
+  ctx.lineTo(28 + crouchAmount*15, 55 + crouchAmount*10);
+  ctx.stroke();
+  // Right foot
+  ctx.beginPath();
+  ctx.moveTo(28 + crouchAmount*15, 55 + crouchAmount*10);
+  ctx.lineTo(45 + crouchAmount*10, 60 + crouchAmount*8);
+  ctx.stroke();
+
+  // === TORSO (thick) ===
+  ctx.fillStyle = shirt;
+  ctx.beginPath();
+  ctx.roundRect(-32, -70, 64, 80, 12);
+  ctx.fill();
+
+  // Abs / core definition (visible power)
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.lineWidth = 2;
+  for (let i=0; i<3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-18, -40 + i*14);
+    ctx.lineTo(18, -40 + i*14);
+    ctx.stroke();
+  }
+
+  // === ARMS ===
+  ctx.strokeStyle = skin;
+  ctx.lineWidth = 16;
+  // Left arm
+  ctx.beginPath();
+  ctx.moveTo(-32, -50);
+  ctx.quadraticCurveTo(-60 - crouchAmount*20, -20, -55, 20 + crouchAmount*15);
+  ctx.stroke();
+  // Right arm
+  ctx.beginPath();
+  ctx.moveTo(32, -50);
+  ctx.quadraticCurveTo(60 + crouchAmount*20, -20, 55, 20 + crouchAmount*15);
+  ctx.stroke();
+
+  // === HEAD ===
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.arc(0, -95, 22, 0, Math.PI*2);
+  ctx.fill();
+  // Hair / short
+  ctx.fillStyle = '#2a1a0a';
+  ctx.beginPath();
+  ctx.arc(0, -100, 18, Math.PI, 0);
+  ctx.fill();
+
+  // Number or logo hint
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 18px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('99', 0, -30);
+
+  ctx.restore();
+}
+
+// ========== UPDATE FLIP STATE MACHINE ==========
+function updateFlip() {
+  if (state === 'crouch') {
+    crouchAmount = Math.min(1, crouchAmount + 0.06);
+    // sand dust while charging
+    if (frame % 4 === 0) addSand(W/2 + (Math.random()-0.5)*40, H-90, 3);
+  }
+  else if (state === 'launch') {
+    crouchAmount = Math.max(0, crouchAmount - 0.15);
+    flipProgress += 0.035 + (power/100)*0.015;
+    // jump height curve
+    yOffset = -Math.sin(flipProgress * Math.PI) * (140 + power*1.2);
+    rotation = flipProgress * Math.PI * 2; // full 360 backflip
+
+    // mid-air sparks
+    if (frame % 3 === 0) addSpark(W/2, H-95 + yOffset - 40, '#fff');
+
+    if (flipProgress >= 1) {
+      state = 'land';
+      flipProgress = 1;
+      yOffset = 0;
+      rotation = Math.PI * 2;
+      scaleX = 1.25; // squash
+      screenShake = 12;
+      addSand(W/2, H-85, 35);
+      addSpark(W/2, H-90, '#E8C47A');
+      flips++;
+      score += 200 + Math.floor(power * 2);
+      showMsg("PERFECT LANDING!", "#0f0");
+      power = Math.max(0, power - 15);
+    }
+  }
+  else if (state === 'land') {
+    scaleX += (1 - scaleX) * 0.15;
+    if (Math.abs(scaleX - 1) < 0.02) {
+      scaleX = 1;
+      state = 'recover';
+      setTimeout(() => {
+        state = 'idle';
+        rotation = 0;
+        crouchAmount = 0;
+      }, 400);
+    }
+  }
+
+  // screen shake decay
+  if (screenShake > 0) screenShake *= 0.85;
+}
+
+// ========== UI & MESSAGES ==========
+function updateUI() {
+  document.getElementById('powerVal').textContent = Math.round(power);
+  document.getElementById('score').textContent = 'Score: ' + score;
+  document.getElementById('level').textContent = level;
+  document.getElementById('flips').textContent = flips;
+}
+function showMsg(txt, color='#fff') {
+  const m = document.getElementById('message');
+  m.textContent = txt;
+  m.style.color = color;
+  m.style.display = 'block';
+  setTimeout(() => m.style.display = 'none', 1600);
+}
+
+// ========== MAIN LOOP ==========
+function loop() {
+  frame++;
+  ctx.save();
+  // screen shake
+  if (screenShake > 0.5) {
+    ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
+  }
+
+  ctx.clearRect(-20, -20, W+40, H+40);
+  drawBeach();
+
+  // update & draw particles
+  for (let i = sandParticles.length-1; i>=0; i--) {
+    const p = sandParticles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.life--;
+    ctx.globalAlpha = Math.min(1, p.life/30);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+    if (p.life <= 0) sandParticles.splice(i,1);
+  }
+  for (let i = particles.length-1; i>=0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.life--;
+    ctx.globalAlpha = p.life/40;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.fill();
+    if (p.life <= 0) particles.splice(i,1);
+  }
+  ctx.globalAlpha = 1;
+
+  updateFlip();
+  drawAthlete();
+
+  // math timer
+  mathTimer++;
+  if (mathTimer > 380 + Math.random()*100 && !mathActive && state === 'idle') {
+    mathTimer = 0;
+    spawnMath();
+  }
+
+  // passive power drain/regen
+  if (state === 'idle' && !mathActive) {
+    power = Math.min(100, power + 0.04);
+  }
+
+  updateUI();
+  ctx.restore();
+  requestAnimationFrame(loop);
+}
+
+// start
+showMsg("Hold SPACE to crouch & launch\nthe standing backflip!\nAnswer Math for POWER", "#0ff");
+setTimeout(() => showMsg(""), 3200);
+loop();
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>336-lb Standing Backflip – Full HTML5 Game</title>
+  <style>
+    /* ========== GLOBAL STYLES ========== */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a1628;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #eee;
+      overflow: hidden;
+    }
+    #wrapper {
+      position: relative;
+      box-shadow: 0 0 70px rgba(0, 180, 255, 0.4);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      background: linear-gradient(#87CEEB 0%, #87CEEB 55%, #1E90FF 55%, #1E90FF 70%, #E8C47A 70%);
+    }
+
+    /* ========== UI OVERLAY ========== */
+    #ui {
+      position: absolute;
+      top: 14px;
+      left: 0;
+      width: 100%;
+      padding: 0 22px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      text-shadow: 0 2px 8px #000;
+      z-index: 10;
+    }
+    .stat { font-size: 16px; font-weight: 600; }
+    #score { color: #ffd700; font-size: 22px; font-weight: 700; }
+    #powerBar {
+      width: 180px;
+      height: 14px;
+      background: #222;
+      border: 2px solid #555;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    #powerFill {
+      height: 100%;
+      background: linear-gradient(90deg, #00e5ff, #0099cc);
+      width: 0%;
+      transition: width 0.15s;
+    }
+
+    #message {
+      position: absolute;
+      top: 42%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 34px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 25px #000;
+      display: none;
+      text-align: center;
+      pointer-events: none;
+      z-index: 30;
+      line-height: 1.3;
+    }
+
+    #mathBox {
+      position: absolute;
+      top: 75px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 8, 25, 0.94);
+      border: 3px solid #00e5ff;
+      border-radius: 14px;
+      padding: 16px 28px;
+      display: none;
+      text-align: center;
+      z-index: 25;
+      box-shadow: 0 0 35px rgba(0, 229, 255, 0.55);
+    }
+    #mathQ { font-size: 26px; margin-bottom: 12px; color: #7df9ff; }
+    #mathAns {
+      width: 90px;
+      font-size: 24px;
+      text-align: center;
+      padding: 8px;
+      border-radius: 8px;
+      border: 2px solid #00e5ff;
+      background: #061018;
+      color: #fff;
+    }
+    #mathBox button {
+      margin-left: 12px;
+      padding: 8px 18px;
+      font-size: 18px;
+      background: linear-gradient(90deg, #00e5ff, #0088bb);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #001;
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 13px;
+      color: #cde;
+      text-align: center;
+      pointer-events: none;
+      text-shadow: 0 1px 5px #000;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrapper">
+    <canvas id="game" width="960" height="580"></canvas>
+
+    <!-- UI -->
+    <div id="ui">
+      <div>
+        <div class="stat">Power <span id="powerVal">0</span>%</div>
+        <div id="powerBar"><div id="powerFill"></div></div>
+      </div>
+      <div id="score">Score: 0</div>
+      <div class="stat">
+        Level <span id="level">1</span><br>
+        Flips <span id="flips">0</span>
+      </div>
+    </div>
+
+    <div id="message"></div>
+
+    <!-- Math Challenge Box -->
+    <div id="mathBox">
+      <div id="mathQ">8 + 6 = ?</div>
+      <input type="number" id="mathAns" placeholder="?">
+      <button onclick="checkMath()">POWER UP</button>
+    </div>
+
+    <div id="controls">
+      Hold SPACE to crouch &amp; launch the standing backflip &nbsp;•&nbsp; Solve Math for Power
+    </div>
+  </div>
+
+<script>
+/* ============================================================
+   336-lb STANDING BACKFLIP – FULL HTML5 GAME
+   Complete mechanics + smooth animation + math power system
+   ============================================================ */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+
+// -------------------- GAME STATE --------------------
+let score = 0;
+let power = 0;               // 0 – 100
+let level = 1;
+let flips = 0;
+let combo = 0;
+
+let mathActive = false;
+let mathTimer = 0;
+let frame = 0;
+let screenShake = 0;
+
+// Flip state machine
+let state = 'idle';          // idle | crouch | launch | land | recover
+let flipT = 0;              // 0 → 1 progress of the flip
+let crouch = 0;             // 0 → 1 crouch depth
+let y = 0;                  // vertical offset during jump
+let rot = 0;                // rotation in radians
+let squash = 1;             // landing squash factor
+
+// Particle arrays
+let sand = [];
+let sparks = [];
+
+// -------------------- UTILITY --------------------
+function rand(min, max) {
+  return Math.random() * (max - min) + min;
+}
+function randInt(min, max) {
+  return Math.floor(rand(min, max + 1));
+}
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+// -------------------- MATH SYSTEM --------------------
+let currentMath = null;
+
+function spawnMath() {
+  if (mathActive || state !== 'idle') return;
+
+  const types = [
+    () => {
+      const a = randInt(4, 16), b = randInt(3, 12);
+      return { q: `${a} + ${b}`, ans: a + b };
+    },
+    () => {
+      const a = randInt(12, 25), b = randInt(2, 10);
+      return { q: `${a} − ${b}`, ans: a - b };
+    },
+    () => {
+      const a = randInt(3, 9), b = randInt(2, 8);
+      return { q: `${a} × ${b}`, ans: a * b };
+    }
+  ];
+
+  currentMath = types[randInt(0, 2)]();
+  document.getElementById('mathQ').textContent = currentMath.q + ' = ?';
+  document.getElementById('mathAns').value = '';
+  document.getElementById('mathBox').style.display = 'block';
+  document.getElementById('mathAns').focus();
+  mathActive = true;
+}
+
+function checkMath() {
+  const val = parseInt(document.getElementById('mathAns').value);
+  if (val === currentMath.ans) {
+    power = Math.min(100, power + 24);
+    score += 180 * level;
+    combo++;
+    showMsg('POWER BOOST!\n+' + (24) + ' Power', '#0ff');
+    if (power >= 100) {
+      level++;
+      power = 35;
+      showMsg('LEVEL UP!\nStronger Flip Unlocked', '#ffd700');
+    }
+  } else {
+    showMsg('Wrong answer', '#f66');
+    power = Math.max(0, power - 10);
+    combo = 0;
+  }
+  document.getElementById('mathBox').style.display = 'none';
+  mathActive = false;
+  currentMath = null;
+  updateUI();
+}
+
+document.getElementById('mathAns').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkMath();
+});
+
+// -------------------- INPUT --------------------
+let holdingSpace = false;
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && state === 'idle' && !mathActive) {
+    e.preventDefault();
+    holdingSpace = true;
+    state = 'crouch';
+  }
+});
+
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space' && state === 'crouch') {
+    holdingSpace = false;
+    // Launch the flip
+    state = 'launch';
+    flipT = 0;
+    y = 0;
+    rot = 0;
+  }
+});
+
+// -------------------- PARTICLES --------------------
+function addSand(x, y, count = 14) {
+  for (let i = 0; i < count; i++) {
+    sand.push({
+      x, y,
+      vx: rand(-6, 6),
+      vy: rand(-8, -2),
+      life: rand(35, 65),
+      size: rand(2, 4.5),
+      color: `hsl(35, 55%, ${45 + rand(0, 25)}%)`
+    });
+  }
+}
+
+function addSpark(x, y, color = '#fff') {
+  for (let i = 0; i < 9; i++) {
+    sparks.push({
+      x, y,
+      vx: rand(-8, 8),
+      vy: rand(-9, 2),
+      life: rand(20, 40),
+      size: rand(1.8, 3.5),
+      color
+    });
+  }
+}
+
+// -------------------- DRAWING FUNCTIONS --------------------
+function drawBeach() {
+  // Ocean waves
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  for (let i = 0; i < 7; i++) {
+    const wx = ((frame * 1.4) + i * 150) % (W + 120) - 60;
+    ctx.beginPath();
+    ctx.ellipse(wx, H - 175, 75, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Sand base is already in the CSS gradient, add subtle texture
+  ctx.strokeStyle = 'rgba(140, 100, 50, 0.25)';
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 10; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, H - 95 + i * 8);
+    ctx.lineTo(W, H - 90 + i * 8);
+    ctx.stroke();
+  }
+
+  // Sun
+  ctx.fillStyle = '#FFF8B0';
+  ctx.beginPath();
+  ctx.arc(820, 85, 48, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawAthlete() {
+  ctx.save();
+  ctx.translate(W / 2, H - 105 + y);
+  ctx.scale(squash, 1 / squash);   // landing squash
+  ctx.rotate(rot);
+
+  const skin = '#c68642';
+  const jersey = '#C5050C';      // Wisconsin red
+  const white = '#f5f5f5';
+
+  // ---- LEGS (thick for big athlete) ----
+  ctx.strokeStyle = skin;
+  ctx.lineWidth = 24;
+  ctx.lineCap = 'round';
+
+  // Left leg
+  ctx.beginPath();
+  ctx.moveTo(-20, 15);
+  ctx.lineTo(-32 - crouch * 18, 60 + crouch * 12);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-32 - crouch * 18, 60 + crouch * 12);
+  ctx.lineTo(-52 - crouch * 10, 66 + crouch * 8);
+  ctx.stroke();
+
+  // Right leg
+  ctx.beginPath();
+  ctx.moveTo(20, 15);
+  ctx.lineTo(32 + crouch * 18, 60 + crouch * 12);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(32 + crouch * 18, 60 + crouch * 12);
+  ctx.lineTo(52 + crouch * 10, 66 + crouch * 8);
+  ctx.stroke();
+
+  // ---- TORSO ----
+  ctx.fillStyle = jersey;
+  ctx.beginPath();
+  ctx.roundRect(-36, -75, 72, 90, 14);
+  ctx.fill();
+
+  // Core / abs lines (power visual)
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 2.5;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-20, -45 + i * 16);
+    ctx.lineTo(20, -45 + i * 16);
+    ctx.stroke();
+  }
+
+  // ---- ARMS ----
+  ctx.strokeStyle = skin;
+  ctx.lineWidth = 18;
+  // Left
+  ctx.beginPath();
+  ctx.moveTo(-36, -55);
+  ctx.quadraticCurveTo(-70 - crouch * 25, -15, -60, 30 + crouch * 20);
+  ctx.stroke();
+  // Right
+  ctx.beginPath();
+  ctx.moveTo(36, -55);
+  ctx.quadraticCurveTo(70 + crouch * 25, -15, 60, 30 + crouch * 20);
+  ctx.stroke();
+
+  // ---- HEAD ----
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.arc(0, -102, 24, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hair
+  ctx.fillStyle = '#1a120a';
+  ctx.beginPath();
+  ctx.arc(0, -108, 20, Math.PI, 0);
+  ctx.fill();
+
+  // Jersey number
+  ctx.fillStyle = white;
+  ctx.font = 'bold 22px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('99', 0, -35);
+
+  ctx.restore();
+}
+
+// -------------------- FLIP STATE MACHINE (MECHANICS) --------------------
+function updateFlip() {
+  if (state === 'crouch') {
+    crouch = Math.min(1, crouch + 0.055);
+    if (frame % 5 === 0) addSand(W / 2 + rand(-30, 30), H - 95, 4);
+  }
+  else if (state === 'launch') {
+    crouch = Math.max(0, crouch - 0.18);
+    flipT += 0.028 + (power / 100) * 0.018;   // power makes flip faster & higher
+
+    // Jump height curve (sine for smooth arc)
+    const height = 155 + power * 1.35;
+    y = -Math.sin(flipT * Math.PI) * height;
+
+    // Full 360° backflip
+    rot = flipT * Math.PI * 2;
+
+    // Mid-air particles
+    if (frame % 3 === 0) {
+      addSpark(W / 2 + rand(-20, 20), H - 105 + y - 50, '#fff');
+    }
+
+    // Landing
+    if (flipT >= 1) {
+      state = 'land';
+      flipT = 1;
+      y = 0;
+      rot = Math.PI * 2;
+      squash = 1.35;
+      screenShake = 14;
+      addSand(W / 2, H - 90, 42);
+      addSpark(W / 2, H - 95, '#E8C47A');
+      flips++;
+      const points = 250 + Math.floor(power * 2.5) + combo * 40;
+      score += points;
+      showMsg('CLEAN LANDING!\n+' + points, '#0f0');
+      power = Math.max(0, power - 18);
+      combo++;
+    }
+  }
+  else if (state === 'land') {
+    squash = lerp(squash, 1, 0.18);
+    if (Math.abs(squash - 1) < 0.03) {
+      squash = 1;
+      state = 'recover';
+      setTimeout(() => {
+        state = 'idle';
+        rot = 0;
+        crouch = 0;
+      }, 380);
+    }
+  }
+
+  // Screen shake decay
+  if (screenShake > 0) screenShake *= 0.82;
+}
+
+// -------------------- UI HELPERS --------------------
+function updateUI() {
+  document.getElementById('powerVal').textContent = Math.round(power);
+  document.getElementById('powerFill').style.width = power + '%';
+  document.getElementById('score').textContent = 'Score: ' + score;
+  document.getElementById('level').textContent = level;
+  document.getElementById('flips').textContent = flips;
+}
+
+function showMsg(txt, color = '#fff') {
+  const m = document.getElementById('message');
+  m.innerHTML = txt.replace(/\n/g, '<br>');
+  m.style.color = color;
+  m.style.display = 'block';
+  setTimeout(() => m.style.display = 'none', 1700);
+}
+
+// -------------------- MAIN LOOP --------------------
+function loop() {
+  frame++;
+
+  // Apply screen shake
+  ctx.save();
+  if (screenShake > 0.4) {
+    ctx.translate(rand(-screenShake, screenShake), rand(-screenShake, screenShake));
+  }
+
+  // Clear
+  ctx.clearRect(-30, -30, W + 60, H + 60);
+
+  // Background elements
+  drawBeach();
+
+  // Update & draw sand particles
+  for (let i = sand.length - 1; i >= 0; i--) {
+    const p = sand[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.28;
+    p.life--;
+    ctx.globalAlpha = Math.min(1, p.life / 35);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+    if (p.life <= 0) sand.splice(i, 1);
+  }
+
+  // Sparks
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const p = sparks[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    ctx.globalAlpha = p.life / 35;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+    if (p.life <= 0) sparks.splice(i, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  // Core game logic
+  updateFlip();
+  drawAthlete();
+
+  // Math spawn timer
+  mathTimer++;
+  if (mathTimer > 420 + rand(0, 120) && !mathActive && state === 'idle') {
+    mathTimer = 0;
+    spawnMath();
+  }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>336-lb Standing Backflip – Full Game + Buttons + A.I. Engine</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a1628;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #eee;
+    overflow: hidden;
+    touch-action: none;
+  }
+  #wrapper {
+    position: relative;
+    box-shadow: 0 0 70px rgba(0, 180, 255, 0.4);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    background: linear-gradient(#87CEEB 0%, #87CEEB 52%, #1E90FF 52%, #1E90FF 68%, #E8C47A 68%);
+  }
+
+  /* UI */
+  #ui {
+    position: absolute;
+    top: 12px;
+    left: 0;
+    width: 100%;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    text-shadow: 0 2px 8px #000;
+    z-index: 10;
+  }
+  .stat { font-size: 15px; font-weight: 600; }
+  #score { color: #ffd700; font-size: 22px; font-weight: 700; }
+  #powerBar {
+    width: 170px;
+    height: 14px;
+    background: #222;
+    border: 2px solid #555;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  #powerFill {
+    height: 100%;
+    background: linear-gradient(90deg, #00e5ff, #0099cc);
+    width: 0%;
+    transition: width 0.12s;
+  }
+
+  #message {
+    position: absolute;
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 30px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 25px #000;
+    display: none;
+    text-align: center;
+    pointer-events: none;
+    z-index: 30;
+    line-height: 1.3;
+  }
+
+  #mathBox {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 8, 25, 0.95);
+    border: 3px solid #00e5ff;
+    border-radius: 14px;
+    padding: 14px 24px;
+    display: none;
+    text-align: center;
+    z-index: 25;
+    box-shadow: 0 0 30px rgba(0, 229, 255, 0.5);
+  }
+  #mathQ { font-size: 24px; margin-bottom: 10px; color: #7df9ff; }
+  #mathAns {
+    width: 85px;
+    font-size: 22px;
+    text-align: center;
+    padding: 6px;
+    border-radius: 8px;
+    border: 2px solid #00e5ff;
+    background: #061018;
+    color: #fff;
+  }
+  #mathBox button {
+    margin-left: 10px;
+    padding: 7px 16px;
+    font-size: 17px;
+    background: linear-gradient(90deg, #00e5ff, #0088bb);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    color: #001;
+  }
+
+  /* ===== ADDED BUTTON OPTIONS ===== */
+  #btnContainer {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 18px;
+    z-index: 20;
+  }
+  .game-btn {
+    padding: 14px 28px;
+    font-size: 18px;
+    font-weight: 700;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    color: #001;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    transition: transform 0.1s, box-shadow 0.1s;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .game-btn:active { transform: scale(0.94); }
+  #flipBtn {
+    background: linear-gradient(90deg, #ff4d4d, #cc0000);
+    min-width: 140px;
+  }
+  #mathBtn {
+    background: linear-gradient(90deg, #00e5ff, #0099cc);
+    min-width: 140px;
+  }
+
+  #controls {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #bcd;
+    text-align: center;
+    pointer-events: none;
+    text-shadow: 0 1px 4px #000;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+<div id="wrapper">
+  <canvas id="game" width="960" height="580"></canvas>
+
+  <div id="ui">
+    <div>
+      <div class="stat">Power <span id="powerVal">0</span>%</div>
+      <div id="powerBar"><div id="powerFill"></div></div>
+    </div>
+    <div id="score">Score: 0</div>
+    <div class="stat">
+      Level <span id="level">1</span><br>
+      Flips <span id="flips">0</span>
+    </div>
+  </div>
+
+  <div id="message"></div>
+
+  <div id="mathBox">
+    <div id="mathQ">7 + 5 = ?</div>
+    <input type="number" id="mathAns" placeholder="?">
+    <button onclick="checkMath()">POWER</button>
+  </div>
+
+  <!-- ADDED BUTTON OPTIONS -->
+  <div id="btnContainer">
+    <button class="game-btn" id="flipBtn">FLIP</button>
+    <button class="game-btn" id="mathBtn">MATH POWER</button>
+  </div>
+
+  <div id="controls">
+    Hold SPACE or tap FLIP button • Solve Math for more power • A.I. Engine active
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   336-lb STANDING BACKFLIP – FULL GAME
+   + Full backflip mechanics
+   + On-screen buttons
+   + A.I. Super Engine improvements (delta-time, smoothing, adaptive coach)
+   ============================================================ */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+
+// -------------------- GAME STATE --------------------
+let score = 0;
+let power = 0;
+let level = 1;
+let flips = 0;
+let combo = 0;
+
+let mathActive = false;
+let mathTimer = 0;
+let frame = 0;
+let screenShake = 0;
+
+// Flip state machine
+let state = 'idle';          // idle | crouch | launch | land | recover
+let flipT = 0;
+let crouch = 0;
+let y = 0;
+let rot = 0;
+let squash = 1;
+
+// Particles
+let sand = [];
+let sparks = [];
+
+// A.I. Super Engine variables
+let lastTime = performance.now();
+let aiCoachTimer = 0;
+
+// -------------------- UTILITY --------------------
+function rand(min, max) { return Math.random() * (max - min) + min; }
+function randInt(min, max) { return Math.floor(rand(min, max + 1)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+// -------------------- MATH SYSTEM --------------------
+let currentMath = null;
+
+function spawnMath() {
+  if (mathActive || state !== 'idle') return;
+  const types = [
+    () => { const a = randInt(4, 15), b = randInt(3, 12); return { q: `${a} + ${b}`, ans: a + b }; },
+    () => { const a = randInt(12, 24), b = randInt(2, 10); return { q: `${a} − ${b}`, ans: a - b }; },
+    () => { const a = randInt(3, 9), b = randInt(2, 8); return { q: `${a} × ${b}`, ans: a * b }; }
+  ];
+  currentMath = types[randInt(0, 2)]();
+  document.getElementById('mathQ').textContent = currentMath.q + ' = ?';
+  document.getElementById('mathAns').value = '';
+  document.getElementById('mathBox').style.display = 'block';
+  document.getElementById('mathAns').focus();
+  mathActive = true;
+}
+
+function checkMath() {
+  const val = parseInt(document.getElementById('mathAns').value);
+  if (val === currentMath.ans) {
+    power = Math.min(100, power + 25);
+    score += 200 * level;
+    combo++;
+    showMsg('A.I. POWER BOOST!\n+' + 25 + ' Power', '#0ff');
+    if (power >= 100) {
+      level++;
+      power = 40;
+      showMsg('LEVEL UP!\nDouble Flip Unlocked', '#ffd700');
+    }
+  } else {
+    showMsg('Wrong', '#f66');
+    power = Math.max(0, power - 8);
+    combo = 0;
+  }
+  document.getElementById('mathBox').style.display = 'none';
+  mathActive = false;
+  currentMath = null;
+  updateUI();
+}
+
+document.getElementById('mathAns').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkMath();
+});
+
+// -------------------- BUTTONS + INPUT --------------------
+function startCrouch() {
+  if (state === 'idle' && !mathActive) {
+    state = 'crouch';
+  }
+}
+function launchFlip() {
+  if (state === 'crouch') {
+    state = 'launch';
+    flipT = 0;
+    y = 0;
+    rot = 0;
+  }
+}
+
+// Keyboard
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && state === 'idle' && !mathActive) {
+    e.preventDefault();
+    startCrouch();
+  }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space' && state === 'crouch') {
+    launchFlip();
+  }
+});
+
+// On-screen buttons
+document.getElementById('flipBtn').addEventListener('mousedown', startCrouch);
+document.getElementById('flipBtn').addEventListener('mouseup', launchFlip);
+document.getElementById('flipBtn').addEventListener('touchstart', e => { e.preventDefault(); startCrouch(); });
+document.getElementById('flipBtn').addEventListener('touchend', e => { e.preventDefault(); launchFlip(); });
+
+document.getElementById('mathBtn').addEventListener('click', () => {
+  if (!mathActive && state === 'idle') spawnMath();
+});
+
+// -------------------- PARTICLES --------------------
+function addSand(x, y, count = 14) {
+  for (let i = 0; i < count; i++) {
+    sand.push({
+      x, y,
+      vx: rand(-7, 7),
+      vy: rand(-9, -2),
+      life: rand(30, 60),
+      size: rand(2, 4.5),
+      color: `hsl(35, 55%, ${45 + rand(0, 25)}%)`
+    });
+  }
+}
+function addSpark(x, y, color = '#fff') {
+  for (let i = 0; i < 10; i++) {
+    sparks.push({
+      x, y,
+      vx: rand(-9, 9),
+      vy: rand(-10, 3),
+      life: rand(18, 38),
+      size: rand(1.8, 3.8),
+      color
+    });
+  }
+}
+
+// -------------------- DRAWING --------------------
+function drawBeach() {
+  // Waves
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  for (let i = 0; i < 7; i++) {
+    const wx = ((frame * 1.5) + i * 150) % (W + 120) - 60;
+    ctx.beginPath();
+    ctx.ellipse(wx, H - 185, 80, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Sand texture
+  ctx.strokeStyle = 'rgba(140, 100, 50, 0.25)';
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 10; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, H - 100 + i * 8);
+    ctx.lineTo(W, H - 95 + i * 8);
+    ctx.stroke();
+  }
+  // Sun
+  ctx.fillStyle = '#FFF8B0';
+  ctx.beginPath();
+  ctx.arc(830, 80, 50, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawAthlete() {
+  ctx.save();
+  ctx.translate(W / 2, H - 110 + y);
+  ctx.scale(squash, 1 / squash);
+  ctx.rotate(rot);
+
+  const skin = '#c68642';
+  const jersey = '#C5050C';
+  const white = '#f5f5f5';
+
+  // Legs
+  ctx.strokeStyle = skin;
+  ctx.lineWidth = 25;
+  ctx.lineCap = 'round';
+
+  ctx.beginPath();
+  ctx.moveTo(-22, 18);
+  ctx.lineTo(-35 - crouch * 20, 65 + crouch * 14);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-35 - crouch * 20, 65 + crouch * 14);
+  ctx.lineTo(-55 - crouch * 12, 72 + crouch * 8);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(22, 18);
+  ctx.lineTo(35 + crouch * 20, 65 + crouch * 14);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(35 + crouch * 20, 65 + crouch * 14);
+  ctx.lineTo(55 + crouch * 12, 72 + crouch * 8);
+  ctx.stroke();
+
+  // Torso
+  ctx.fillStyle = jersey;
+  ctx.beginPath();
+  ctx.roundRect(-38, -80, 76, 95, 15);
+  ctx.fill();
+
+  // Core lines
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 2.5;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-22, -48 + i * 17);
+    ctx.lineTo(22, -48 + i * 17);
+    ctx.stroke();
+  }
+
+  // Arms
+  ctx.strokeStyle = skin;
+  ctx.lineWidth = 19;
+  ctx.beginPath();
+  ctx.moveTo(-38, -58);
+  ctx.quadraticCurveTo(-75 - crouch * 28, -18, -65, 35 + crouch * 22);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(38, -58);
+  ctx.quadraticCurveTo(75 + crouch * 28, -18, 65, 35 + crouch * 22);
+  ctx.stroke();
+
+  // Head
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.arc(0, -108, 25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1a120a';
+  ctx.beginPath();
+  ctx.arc(0, -114, 21, Math.PI, 0);
+  ctx.fill();
+
+  // Number
+  ctx.fillStyle = white;
+  ctx.font = 'bold 24px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('99', 0, -38);
+
+  ctx.restore();
+}
+
+// -------------------- A.I. SUPER ENGINE + FLIP MECHANICS --------------------
+function updateFlip(dt) {
+  // dt is capped delta time for smooth physics
+  const speedMul = dt * 60; // normalize to ~60fps
+
+  if (state === 'crouch') {
+    crouch = Math.min(1, crouch + 0.055 * speedMul);
+    if (frame % 5 === 0) addSand(W / 2 + rand(-35, 35), H - 100, 4);
+  }
+  else if (state === 'launch') {
+    crouch = Math.max(0, crouch - 0.2 * speedMul);
+    // Power affects flip speed and height
+    const powerBoost = 0.026 + (power / 100) * 0.022;
+    flipT += powerBoost * speedMul;
+
+    // Smooth jump arc
+    const height = 160 + power * 1.5;
+    y = -Math.sin(flipT * Math.PI) * height;
+
+    // Full 360° (and double flip when power is high)
+    const flipsCount = power > 75 ? 2 : 1;
+    rot = flipT * Math.PI * 2 * flipsCount;
+
+    if (frame % 3 === 0) {
+      addSpark(W / 2 + rand(-25, 25), H - 110 + y - 55, '#fff');
+    }
+
+    if (flipT >= 1) {
+      state = 'land';
+      flipT = 1;
+      y = 0;
+      rot = Math.PI * 2 * flipsCount;
+      squash = 1.4;
+      screenShake = 16;
+      addSand(W / 2, H - 95, 45);
+      addSpark(W / 2, H - 100, '#E8C47A');
+      flips++;
+      const points = 280 + Math.floor(power * 3) + combo * 50;
+      score += points;
+      showMsg((flipsCount > 1 ? 'DOUBLE FLIP!\n' : 'CLEAN LANDING!\n') + '+' + points, '#0f0');
+      power = Math.max(0, power - 20);
+      combo++;
+    }
+  }
+  else if (state === 'land') {
+    squash = lerp(squash, 1, 0.2 * speedMul);
+    if (Math.abs(squash - 1) < 0.03) {
+      squash = 1;
+      state = 'recover';
+      setTimeout(() => {
+        state = 'idle';
+        rot = 0;
+        crouch = 0;
+      }, 350);
+    }
+  }
+
+  if (screenShake > 0) screenShake *= 0.8;
+}
+
+// A.I. Coach – suggests math when power is low
+function aiCoach(dt) {
+  aiCoachTimer += dt;
+  if (aiCoachTimer > 6 && state === 'idle' && power < 40 && !mathActive) {
+    aiCoachTimer = 0;
+    showMsg('A.I. Coach: Power low!\nTap MATH POWER', '#7df9ff');
+    setTimeout(() => spawnMath(), 800);
+  }
+}
+
+// -------------------- UI --------------------
+function updateUI() {
+  document.getElementById('powerVal').textContent = Math.round(power);
+  document.getElementById('powerFill').style.width = power + '%';
+  document.getElementById('score').textContent = 'Score: ' + score;
+  document.getElementById('level').textContent = level;
+  document.getElementById('flips').textContent = flips;
+}
+function showMsg(txt, color = '#fff') {
+  const m = document.getElementById('message');
+  m.innerHTML = txt.replace(/\n/g, '<br>');
+  m.style.color = color;
+  m.style.display = 'block';
+  setTimeout(() => m.style.display = 'none', 1600);
+}
+
+// -------------------- MAIN LOOP (A.I. Super Engine style) --------------------
+function loop(now) {
+  // Delta time capping (prevents huge jumps on lag)
+  let dt = (now - lastTime) / 1000;
+  dt = Math.min(dt, 0.05);          // hard cap like advanced engines
+  lastTime = now;
+
+  frame++;
+
+  ctx.save();
+  if (screenShake > 0.5) {
+    ctx.translate(rand(-screenShake, screenShake), rand(-screenShake, screenShake));
+  }
+
+  ctx.clearRect(-40, -40, W + 80, H + 80);
+  drawBeach();
+
+  // Particles
+  for (let i = sand.length - 1; i >= 0; i--) {
+    const p = sand[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.3;
+    p.life--;
+    ctx.globalAlpha = Math.min(1, p.life / 35);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+    if (p.life <= 0) sand.splice(i, 1);
+  }
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const p = sparks[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    ctx.globalAlpha = p.life / 35;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+    if (p.life <= 0) sparks.splice(i, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  // Core systems
+  updateFlip(dt);
+  aiCoach(dt);
+  drawAthlete();
+
+  // Math timer
+  mathTimer += dt;
+  if (mathTimer > 7.5 && !mathActive && state === 'idle') {
+    mathTimer = 0;
+    spawnMath();
+  }
+
+  // Slow power regen
+  if (state === 'idle' && !mathActive) {
+    power = Math.min(100, power + 0.04 * dt * 60);
+  }
+
+  updateUI();
+  ctx.restore();
+  requestAnimationFrame(loop);
+}
+
+// -------------------- START --------------------
+showMsg('Hold SPACE or tap FLIP\nSolve Math for Power\nA.I. Super Engine Active', '#7df9ff');
+setTimeout(() => showMsg(''), 3200);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
+  // Slow power regen while idle
+  if (state === 'idle' && !mathActive) {
+    power = Math.min(100, power + 0.035);
+  }
+
+  updateUI();
+  ctx.restore();
+  requestAnimationFrame(loop);
+}
+
+// -------------------- START --------------------
+showMsg('Hold SPACE to crouch & launch\nthe 336-lb Standing Backflip\nSolve Math for Power!', '#7df9ff');
+setTimeout(() => showMsg(''), 3400);
+loop();
+</script>
+</body>
+</html>
