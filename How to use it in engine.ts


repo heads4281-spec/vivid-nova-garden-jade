@@ -1,0 +1,14 @@
+import { LivingGround } from "./living-ground";
+Create it (inside start() after world is loaded)
+this.livingGround = new LivingGround(
+  this.scene,
+  "/levels/crimson_ground_alive.mp4"   // path to the video we generated
+);
+
+// Optional: position & scale to match your palace
+this.livingGround.setPosition(0, 0);
+this.livingGround.setScale(1.0);
+
+// Start playing
+this.livingGround.play();
+private livingGround!: LivingGround;
