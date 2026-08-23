@@ -1,0 +1,145 @@
+**Number 4 – NPC Billboard System**  
+(For the Cyber-Ninja and future NPCs)
+
+This system makes the animated ninja (and any other character videos) appear as living characters that always face the player.
+
+---
+
+### File: `src/game/npc-billboard.ts`
+
+```ts
+// src/game/npc-billboard.ts
+import * as THREE from "three";
+import { VideoManager } from "./video-manager";
+
+export class NPCBillboard {
+  private mesh: THREE.Mesh;
+  private videoManager: VideoManager;
+  private id: string;
+  private camera: THREE.Camera;
+
+  public position: THREE.Vector3;
+
+  constructor(
+    videoManager: VideoManager,
+    camera: THREE.Camera,
+    id: string,
+    videoPath: string,
+    position: THREE.Vector3,
+    width = 2.4,
+    height = 3.6
+  ) {
+    this.videoManager = videoManager;
+    this.camera = camera;
+    this.id = id;
+    this.position = position.clone();
+
+    // Load the video through the manager
+    this.videoManager.load(id, videoPath, {
+      width,
+      height,
+      position,
+      autoplay: true,
+      loop: true,
+    });
+
+    const mesh = this.videoManager.getMesh(id);
+    if (!mesh) {
+      throw new Error(`Failed to create NPC mesh for ${id}`);
+    }
+
+    this.mesh = mesh;
+    this.mesh.position.copy(position);
+  }
+
+  /**
+   * Call every frame so the NPC always faces the player
+   */
+  update() {
+    // Billboard – make the plane face the camera
+    this.mesh.lookAt(
+      this.camera.position.x,
+      this.mesh.position.y, // keep upright
+      this.camera.position.z
+    );
+  }
+
+  play() {
+    this.videoManager.play(this.id);
+  }
+
+  pause() {
+    this.videoManager.pause(this.id);
+  }
+
+  setPosition(x: number, y: number, z: number) {
+    this.position.set(x, y, z);
+    this.mesh.position.copy(this.position);
+  }
+
+  dispose() {
+    // VideoManager will handle texture & mesh disposal
+  }
+}
+```
+
+---
+
+### How to use it in `engine.ts`
+
+**1. Import**
+```ts
+import { NPCBillboard } from "./npc-billboard";
+```
+
+**2. Create the Cyber-Ninja**
+
+```ts
+this.ninja = new NPCBillboard(
+  this.videoManager,
+  this.camera,
+  "cyberNinja",
+  "/npcs/cyber_ninja_idle.mp4",
+  new THREE.Vector3(14, 1.8, 9),   // position in your palace
+  2.5,                             // width
+  3.8                              // height
+);
+```
+
+**3. Update every frame**
+
+Inside your `visual(dt)` or main loop:
+
+```ts
+this.ninja.update();   // makes him always face the player
+```
+
+**4. Optional controls**
+```ts
+// Pause when far away (performance)
+if (distanceToPlayer > 35) {
+  this.ninja.pause();
+} else {
+  this.ninja.play();
+}
+```
+
+---
+
+### Result
+
+- The cyber-ninja now stands in your world as a living character
+- He always faces the player (classic billboard style)
+- Uses the high-quality animation we generated
+- Very cheap on performance
+
+---
+
+You now have the core living systems:
+
+1. Weapon System (upgraded)
+2. Living Ground
+3. VideoManager
+4. NPC Billboard
+
+**Would you like me to continue with Number 5** (Full polish pass / putting everything together cleanly)?
