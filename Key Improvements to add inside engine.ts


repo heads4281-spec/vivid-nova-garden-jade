@@ -1,0 +1,12 @@
+private spatialHash = new SpatialHash(8);
+private maxParticles = 64;
+// Inside loadWorld() or after world.build()
+this.spatialHash.rebuild(this.world.colliders);
+// Example usage in move() or collision
+const nearby = this.spatialHash.query(playerX, playerZ, 2.0);
+for (const box of nearby) {
+  if (circleHitsAABB(playerX, playerZ, RADIUS, box)) {
+    // handle collision
+  }
+}// Instead of looping every enemy + every hitMesh
+const nearbyColliders = this.spatialHash.query(origin.x, origin.z, weaponRange);
