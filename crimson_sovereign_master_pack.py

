@@ -1,0 +1,489 @@
+"""
+CRIMSON SOVEREIGN — MASTER ANIMATION PACK
+=========================================
+Generates ALL cinematic video assets for the game:
+- Living Ground & Stairs
+- Full Palace Exterior
+- Dragon Boss Arena
+- Cyber-Ninja NPC
+- Lava / Energy Texture
+- Crimson Vortex Spell
+
+Uses the fully hardened & optimized WanI2V engine we built together.
+"""
+
+from __future__ import annotations
+
+import gc
+import logging
+import math
+import os
+import random
+import sys
+import time
+import types
+from contextlib import nullcontext
+from functools import partial
+from typing import Optional, Tuple, Union
+
+import numpy as np
+import torch
+import torch.distributed as dist
+import torchvision.transforms.functional as TF
+from PIL import Image
+from tqdm import tqdm
+
+from .distributed.fsdp import shard_model
+from .distributed.sequence_parallel import sp_attn_forward, sp_dit_forward
+from .distributed.util import get_world_size
+from .modules.model import WanModel
+from .modules.t5 import T5EncoderModel
+from .modules.vae2_1 import Wan2_1_VAE
+from .utils.fm_solvers import (
+    FlowDPMSolverMultistepScheduler,
+    get_sampling_sigmas,
+    retrieve_timesteps,
+)
+from .utils.fm_solvers_unipc import FlowUniPCMultistepScheduler
+from .utils.utils import save_video
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================
+# FULLY HARDENED WanI2V ENGINE (all improvements applied)
+# ============================================================
+class WanI2V:
+    def __init__(
+        self,
+        config,
+        checkpoint_dir: str,
+        device_id: int = 0,
+        rank: int = 0,
+        t5_fsdp: bool = False,
+        dit_fsdp: bool = False,
+        use_sp: bool = False,
+        t5_cpu: bool = True,
+        init_on_cpu: bool = True,
+        convert_model_dtype: bool = True,
+    ):
+        self.device = torch.device(f"cuda:{device_id}")
+        self.config = config
+        self.rank = rank
+        self.t5_cpu = t5_cpu
+        self.init_on_cpu = init_on_cpu
+
+        self.num_train_timesteps = config.num_train_timesteps
+        self.boundary = config.boundary
+        self.param_dtype = config.param_dtype
+        self.vae_stride = config.vae_stride
+        self.patch_size = config.patch_size
+        self.sample_neg_prompt = config.sample_neg_prompt
+
+        if t5_fsdp or dit_fsdp or use_sp:
+            self.init_on_cpu = False
+
+        shard_fn = partial(shard_model, device_id=device_id)
+
+        self.text_encoder = T5EncoderModel(
+            text_len=config.text_len,
+            dtype=config.t5_dtype,
+            device=torch.device("cpu"),
+            checkpoint_path=os.path.join(checkpoint_dir, config.t5_checkpoint),
+            tokenizer_path=os.path.join(checkpoint_dir, config.t5_tokenizer),
+            shard_fn=shard_fn if t5_fsdp else None,
+        )
+
+        self.vae = Wan2_1_VAE(
+            vae_pth=os.path.join(checkpoint_dir, config.vae_checkpoint),
+            device=self.device,
+        )
+
+        logger.info("Loading dual WanModels (Crimson Sovereign Master Pack)...")
+        self.low_noise_model = self._load_and_configure(
+            checkpoint_dir, config.low_noise_checkpoint, use_sp, dit_fsdp, shard_fn, convert_model_dtype
+        )
+        self.high_noise_model = self._load_and_configure(
+            checkpoint_dir, config.high_noise_checkpoint, use_sp, dit_fsdp, shard_fn, convert_model_dtype
+        )
+        self.sp_size = get_world_size() if use_sp else 1
+
+    def _load_and_configure(self, checkpoint_dir, subfolder, use_sp, dit_fsdp, shard_fn, convert_model_dtype):
+        model = WanModel.from_pretrained(checkpoint_dir, subfolder=subfolder)
+        return self._configure_model(model, use_sp, dit_fsdp, shard_fn, convert_model_dtype)
+
+    def _configure_model(self, model, use_sp, dit_fsdp, shard_fn, convert_model_dtype):
+        model.eval().requires_grad_(False)
+        if use_sp:
+            for block in model.blocks:
+                block.self_attn.forward = types.MethodType(sp_attn_forward, block.self_attn)
+            model.forward = types.MethodType(sp_dit_forward, model)
+        if dist.is_initialized():
+            dist.barrier()
+        if dit_fsdp:
+            model = shard_fn(model)
+        else:
+            if convert_model_dtype:
+                model.to(self.param_dtype)
+            if not self.init_on_cpu:
+                model.to(self.device)
+        return model
+
+    def _prepare_model_for_timestep(self, t, boundary, offload_model):
+        use_high = t.item() >= boundary
+        active = self.high_noise_model if use_high else self.low_noise_model
+        inactive = self.low_noise_model if use_high else self.high_noise_model
+        if offload_model or self.init_on_cpu:
+            if next(inactive.parameters()).device.type == "cuda":
+                inactive.to("cpu")
+            if next(active.parameters()).device.type == "cpu":
+                active.to(self.device)
+        return active
+
+    @torch.inference_mode()
+    def generate(
+        self,
+        input_prompt: str,
+        img: Image.Image,
+        max_area: int = 1280 * 720,
+        frame_num: int = 81,
+        shift: float = 5.0,
+        sample_solver: str = "unipc",
+        sampling_steps: int = 50,
+        guide_scale: Union[float, Tuple[float, float]] = 7.5,
+        n_prompt: str = "",
+        seed: int = 42,
+        offload_model: bool = True,
+        progress_desc: str = "Generating",
+    ) -> Optional[torch.Tensor]:
+
+        if isinstance(guide_scale, (int, float)):
+            guide_scale = (float(guide_scale), float(guide_scale))
+
+        img = TF.to_tensor(img).sub_(0.5).div_(0.5).to(self.device)
+        h, w = img.shape[1:]
+        aspect_ratio = h / w
+
+        lat_h = round(np.sqrt(max_area * aspect_ratio) // self.vae_stride[1] // self.patch_size[1] * self.patch_size[1])
+        lat_w = round(np.sqrt(max_area / aspect_ratio) // self.vae_stride[2] // self.patch_size[2] * self.patch_size[2])
+        h = lat_h * self.vae_stride[1]
+        w = lat_w * self.vae_stride[2]
+
+        max_seq_len = ((frame_num - 1) // self.vae_stride[0] + 1) * lat_h * lat_w // (self.patch_size[1] * self.patch_size[2])
+        max_seq_len = math.ceil(max_seq_len / self.sp_size) * self.sp_size
+
+        seed = seed if seed >= 0 else random.randint(0, sys.maxsize)
+        generator = torch.Generator(device=self.device).manual_seed(seed)
+
+        noise = torch.randn(
+            16, (frame_num - 1) // self.vae_stride[0] + 1, lat_h, lat_w,
+            dtype=torch.float32, generator=generator, device=self.device
+        )
+
+        msk = torch.ones(1, frame_num, lat_h, lat_w, device=self.device)
+        msk[:, 1:] = 0
+        msk = torch.cat([torch.repeat_interleave(msk[:, :1], 4, dim=1), msk[:, 1:]], dim=1)
+        msk = msk.view(1, -1, 4, lat_h, lat_w).transpose(1, 2)[0]
+
+        if not n_prompt:
+            n_prompt = self.sample_neg_prompt
+
+        if not self.t5_cpu:
+            self.text_encoder.model.to(self.device)
+            context = self.text_encoder([input_prompt], self.device)
+            context_null = self.text_encoder([n_prompt], self.device)
+            if offload_model:
+                self.text_encoder.model.cpu()
+        else:
+            context = self.text_encoder([input_prompt], torch.device("cpu"))
+            context_null = self.text_encoder([n_prompt], torch.device("cpu"))
+            context = [t.to(self.device) for t in context]
+            context_null = [t.to(self.device) for t in context_null]
+
+        y = self.vae.encode([
+            torch.cat([
+                torch.nn.functional.interpolate(img[None].cpu(), size=(h, w), mode="bicubic").transpose(0, 1),
+                torch.zeros(3, frame_num - 1, h, w)
+            ], dim=1).to(self.device)
+        ])[0]
+        y = torch.cat([msk, y])
+
+        boundary = self.boundary * self.num_train_timesteps
+
+        if sample_solver == "unipc":
+            scheduler = FlowUniPCMultistepScheduler(
+                num_train_timesteps=self.num_train_timesteps, shift=1, use_dynamic_shifting=False
+            )
+            scheduler.set_timesteps(sampling_steps, device=self.device, shift=shift)
+            timesteps = scheduler.timesteps
+        elif sample_solver == "dpm++":
+            scheduler = FlowDPMSolverMultistepScheduler(
+                num_train_timesteps=self.num_train_timesteps, shift=1, use_dynamic_shifting=False
+            )
+            sigmas = get_sampling_sigmas(sampling_steps, shift)
+            timesteps, _ = retrieve_timesteps(scheduler, device=self.device, sigmas=sigmas)
+        else:
+            raise ValueError(f"Unsupported solver: {sample_solver}")
+
+        latent = noise
+        arg_c = {"context": [context[0]], "seq_len": max_seq_len, "y": [y]}
+        arg_null = {"context": context_null, "seq_len": max_seq_len, "y": [y]}
+
+        no_sync_low = getattr(self.low_noise_model, "no_sync", nullcontext)
+        no_sync_high = getattr(self.high_noise_model, "no_sync", nullcontext)
+
+        with torch.amp.autocast("cuda", dtype=self.param_dtype), no_sync_low(), no_sync_high():
+            if offload_model:
+                torch.cuda.empty_cache()
+
+            for t in tqdm(timesteps, desc=progress_desc, disable=self.rank != 0):
+                latent_input = [latent.to(self.device)]
+                timestep = torch.stack([t]).to(self.device)
+
+                model = self._prepare_model_for_timestep(t, boundary, offload_model)
+                cur_guide = guide_scale[1] if t.item() >= boundary else guide_scale[0]
+
+                noise_pred_cond = model(latent_input, t=timestep, **arg_c)[0]
+                if offload_model:
+                    torch.cuda.empty_cache()
+                noise_pred_uncond = model(latent_input, t=timestep, **arg_null)[0]
+                if offload_model:
+                    torch.cuda.empty_cache()
+
+                noise_pred = noise_pred_uncond + cur_guide * (noise_pred_cond - noise_pred_uncond)
+
+                latent = scheduler.step(
+                    noise_pred.unsqueeze(0), t, latent.unsqueeze(0),
+                    return_dict=False, generator=generator
+                )[0].squeeze(0)
+
+            if offload_model:
+                self.low_noise_model.cpu()
+                self.high_noise_model.cpu()
+                torch.cuda.empty_cache()
+
+            videos = self.vae.decode([latent]) if self.rank == 0 else None
+
+        del noise, latent, scheduler
+        if offload_model:
+            gc.collect()
+            torch.cuda.synchronize()
+        if dist.is_initialized():
+            dist.barrier()
+
+        return videos[0] if self.rank == 0 else None
+
+
+# ============================================================
+# MASTER GENERATION FUNCTIONS
+# ============================================================
+
+def _run_generation(
+    name: str,
+    image_path: str,
+    prompt: str,
+    negative: str,
+    output_path: str,
+    ckpt_dir: str,
+    quality: str = "ultra",
+    seed: int = 42,
+):
+    from wan.configs import WAN_CONFIGS, MAX_AREA_CONFIGS
+
+    if not os.path.isfile(image_path):
+        print(f"❌ Image not found: {image_path}")
+        return None
+
+    img = Image.open(image_path).convert("RGB")
+    print(f"\n▶ {name}")
+    print(f"  Image: {image_path} → {img.size}")
+
+    cfg = WAN_CONFIGS["i2v-A14B"]
+    area = MAX_AREA_CONFIGS.get("1280*720", 1280 * 720)
+
+    presets = {
+        "game":      dict(steps=40, guide=6.5, frames=81),
+        "ultra":     dict(steps=50, guide=7.5, frames=97),
+        "cinematic": dict(steps=60, guide=8.0, frames=121),
+    }
+    p = presets.get(quality, presets["ultra"])
+
+    pipeline = WanI2V(
+        config=cfg,
+        checkpoint_dir=ckpt_dir,
+        t5_cpu=True,
+        init_on_cpu=True,
+        convert_model_dtype=True,
+    )
+
+    start = time.time()
+    video = pipeline.generate(
+        input_prompt=prompt,
+        img=img,
+        max_area=area,
+        frame_num=p["frames"],
+        sampling_steps=p["steps"],
+        guide_scale=p["guide"],
+        n_prompt=negative,
+        seed=seed,
+        offload_model=True,
+        progress_desc=name,
+    )
+
+    if video is not None:
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        save_video(
+            tensor=video[None],
+            save_file=output_path,
+            fps=cfg.sample_fps,
+            nrow=1,
+            normalize=True,
+            value_range=(-1, 1),
+        )
+        print(f"✓ Saved → {output_path} ({time.time()-start:.1f}s)")
+        return output_path
+
+    print("❌ Generation failed")
+    return None
+
+
+# ---------- Individual Generators ----------
+
+def generate_living_ground(ckpt_dir: str, quality="ultra", seed=42):
+    return _run_generation(
+        name="Living Ground & Stairs",
+        image_path="palace_exterior.jpg",
+        prompt=(
+            "Cinematic full environment animation of a dark gothic palace ground and grand staircase, "
+            "black stone floor with glowing crimson red energy cracks that slowly flow and pulse like living lava, "
+            "the energy veins move and breathe, solid stone steps feel heavy and real, subtle camera drift forward "
+            "as if walking up the stairs, red lightning in the stormy sky, giant blood moon, volumetric red fog, "
+            "highly detailed, mythic Crimson Sovereign style, seamless looping atmosphere, 8k masterpiece"
+        ),
+        negative="blurry, static, flat, deformed architecture, cartoon, low detail, bright daylight, text, watermark",
+        output_path="public/levels/crimson_ground_alive.mp4",
+        ckpt_dir=ckpt_dir,
+        quality=quality,
+        seed=seed,
+    )
+
+
+def generate_palace_exterior(ckpt_dir: str, quality="ultra", seed=42):
+    return _run_generation(
+        name="Full Animated Palace Exterior",
+        image_path="palace_exterior.jpg",
+        prompt=(
+            "Epic cinematic animation of a massive dark gothic palace under a giant blood-red moon, "
+            "black spiked towers with glowing crimson energy veins that slowly pulse and flow, "
+            "grand staircase leading up to the glowing red entrance, the energy cracks on the ground move like living fire, "
+            "red lightning flashes in the stormy sky, volumetric fog, the whole palace feels alive and breathing, "
+            "subtle slow camera push up the stairs, highly detailed architecture, mythic Crimson Sovereign style, 8k"
+        ),
+        negative="blurry, static, deformed buildings, cartoon, low detail, text, watermark",
+        output_path="public/levels/crimson_palace_exterior.mp4",
+        ckpt_dir=ckpt_dir,
+        quality=quality,
+        seed=seed,
+    )
+
+
+def generate_dragon_arena(ckpt_dir: str, quality="ultra", seed=42):
+    return _run_generation(
+        name="Dragon Boss Arena",
+        image_path="dragon_arena.jpg",
+        prompt=(
+            "Cinematic boss arena animation inside the dark gothic cathedral, the massive black dragon with glowing red cracks "
+            "comes fully alive, slowly roaring, wings slightly moving, red energy veins under its scales pulse, "
+            "chains gently swing, embers float in the air, the red carpet and cracked floor glow with living energy, "
+            "volumetric red light rays, the whole palace interior feels alive, dramatic atmosphere, "
+            "Crimson Sovereign style, highly detailed, 8k"
+        ),
+        negative="blurry, static, deformed, cartoon, low detail, text, watermark",
+        output_path="public/levels/crimson_dragon_arena.mp4",
+        ckpt_dir=ckpt_dir,
+        quality=quality,
+        seed=seed,
+    )
+
+
+def generate_cyber_ninja(ckpt_dir: str, quality="ultra", seed=42):
+    return _run_generation(
+        name="Cyber-Ninja NPC",
+        image_path="npc_cyber_ninja.png",
+        prompt=(
+            "Cinematic game character animation, the black cyber-ninja in advanced futuristic armor "
+            "with glowing crimson red neon lines and Japanese characters comes alive. "
+            "He stands in a powerful combat-ready stance, slowly breathing, the energy katana pulses "
+            "with bright red light, red neon circuits on the armor flicker and flow, black cape moves "
+            "gently, subtle weight shift, highly detailed mechanical armor, glowing red visor, "
+            "mythic cyber-samurai, Crimson Sovereign style, smooth looping idle, 8k"
+        ),
+        negative="blurry, static, deformed hands, extra limbs, cartoon, low detail, text, watermark",
+        output_path="public/npcs/cyber_ninja_idle.mp4",
+        ckpt_dir=ckpt_dir,
+        quality=quality,
+        seed=seed,
+    )
+
+
+def generate_lava_energy(ckpt_dir: str, quality="ultra", seed=42):
+    return _run_generation(
+        name="Living Lava Energy Texture",
+        image_path="lava_energy.jpg",
+        prompt=(
+            "Seamless looping animated texture, molten crimson lava energy with glowing red cracks and ancient runes, "
+            "the surface slowly flows and pulses with living fire, runes light up and fade, swirling energy patterns move, "
+            "highly detailed, perfect seamless tile, dark background, mythic Crimson Sovereign style, 8k"
+        ),
+        negative="blurry, static, seams, text, watermark, low detail, bright, blue",
+        output_path="public/effects/lava_energy_loop.mp4",
+        ckpt_dir=ckpt_dir,
+        quality=quality,
+        seed=seed,
+    )
+
+
+def generate_vortex_spell(ckpt_dir: str, quality="ultra", seed=42):
+    return _run_generation(
+        name="Crimson Vortex Spell",
+        image_path="vortex_spell.jpg",
+        prompt=(
+            "Epic cinematic spell animation, the dark armored figure raises his hand and unleashes a massive swirling "
+            "crimson red energy vortex made of molten lava and glowing ancient runes. The vortex grows, rotates powerfully, "
+            "runes pulse and flow, liquid fire and energy particles fly, gothic cathedral background, "
+            "dramatic lighting, highly detailed, mythic Crimson Sovereign style, 8k"
+        ),
+        negative="blurry, static, deformed, extra limbs, cartoon, low detail, text, watermark",
+        output_path="public/effects/crimson_vortex_spell.mp4",
+        ckpt_dir=ckpt_dir,
+        quality=quality,
+        seed=seed,
+    )
+
+
+# ============================================================
+# MASTER RUNNER
+# ============================================================
+if __name__ == "__main__":
+    # ================== EDIT THESE PATHS ==================
+    CKPT_DIR = "/path/to/Wan2.1-I2V-A14B"          # ← your model path
+    QUALITY  = "ultra"                             # "game" | "ultra" | "cinematic"
+    SEED     = 42
+    # ======================================================
+
+    print("=" * 60)
+    print("CRIMSON SOVEREIGN — MASTER ANIMATION PACK")
+    print("=" * 60)
+
+    # Generate everything
+    generate_living_ground(CKPT_DIR, QUALITY, SEED)
+    generate_palace_exterior(CKPT_DIR, QUALITY, SEED)
+    generate_dragon_arena(CKPT_DIR, QUALITY, SEED)
+    generate_cyber_ninja(CKPT_DIR, QUALITY, SEED)
+    generate_lava_energy(CKPT_DIR, QUALITY, SEED)
+    generate_vortex_spell(CKPT_DIR, QUALITY, SEED)
+
+    print("\n" + "=" * 60)
+    print("ALL ASSETS GENERATED SUCCESSFULLY")
+    print("Check the public/ folder for your new video levels & effects")
+    print("=" * 60)
