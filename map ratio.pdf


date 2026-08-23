@@ -1,0 +1,17 @@
+map ratio.pdf
+
+// Example – replace with the real pixel sizes from your pictures
+const shapeEngine = new ShapeGraphicsEngine(this.scene, 1/25000); // your map ratio
+
+// Picture is 2048 × 2048 → shape automatically becomes the correct world size
+shapeEngine.createShapeMappedToPicture(
+  "rune-from-photo",
+  6,                // hexagon (from your polygon table)
+  2048, 2048,       // exact size of your picture
+  0xff2244,
+  100,              // 100 % of the picture size
+  0                 // no extra offset
+);
+
+// Later you can live-change the size
+shapeEngine.updateShapeToPictureSize("rune-from-photo", 1024, 1024, 85, +1.5);
