@@ -1,0 +1,4 @@
+# Locks all CPU cores to maximum clock speed
+for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+    echo "performance" > "$cpu"
+done
