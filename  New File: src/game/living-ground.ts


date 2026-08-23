@@ -1,0 +1,72 @@
+// src/game/living-ground.ts
+import * as THREE from "three";
+
+export class LivingGround {
+  private video: HTMLVideoElement;
+  private texture: THREE.VideoTexture;
+  private mesh: THREE.Mesh;
+  private scene: THREE.Scene;
+
+  constructor(scene: THREE.Scene, videoPath: string) {
+    this.scene = scene;
+
+    // Create video element
+    this.video = document.createElement("video");
+    this.video.src = videoPath;
+    this.video.loop = true;
+    this.video.muted = true;
+    this.video.playsInline = true;
+    this.video.crossOrigin = "anonymous";
+
+    // Video texture
+    this.texture = new THREE.VideoTexture(this.video);
+    this.texture.colorSpace = THREE.SRGBColorSpace;
+    this.texture.minFilter = THREE.LinearFilter;
+    this.texture.magFilter = THREE.LinearFilter;
+
+    // Large ground plane (adjust size to match your palace)
+    const geometry = new THREE.PlaneGeometry(120, 120);
+    const material = new THREE.MeshBasicMaterial({
+      map: this.texture,
+      transparent: false,
+      side: THREE.DoubleSide,
+    });
+
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.rotation.x = -Math.PI / 2; // lay flat
+    this.mesh.position.y = -0.02;        // slightly below collision
+    this.mesh.receiveShadow = true;
+
+    this.scene.add(this.mesh);
+  }
+
+  async play() {
+    try {
+      await this.video.play();
+    } catch (err) {
+      console.warn("LivingGround video play failed:", err);
+    }
+  }
+
+  pause() {
+    this.video.pause();
+  }
+
+  setPosition(x: number, z: number) {
+    this.mesh.position.x = x;
+    this.mesh.position.z = z;
+  }
+
+  setScale(scale: number) {
+    this.mesh.scale.set(scale, scale, 1);
+  }
+
+  dispose() {
+    this.video.pause();
+    this.video.src = "";
+    this.texture.dispose();
+    this.mesh.geometry.dispose();
+    (this.mesh.material as THREE.Material).dispose();
+    this.scene.remove(this.mesh);
+  }
+}
