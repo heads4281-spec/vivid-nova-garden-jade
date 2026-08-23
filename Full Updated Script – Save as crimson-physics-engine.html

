@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRIMSON SOVEREIGN – Physics Engine</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #05050a; overflow: hidden; font-family: system-ui, sans-serif; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    #ui {
+      position: absolute; top: 14px; left: 14px;
+      color: #ff4466; background: rgba(0,0,0,0.75);
+      padding: 12px 18px; border-radius: 10px; font-size: 14px;
+      line-height: 1.45; z-index: 10; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    CRIMSON SOVEREIGN – Physics Engine<br>
+    WASD move • Space jump • Shapes from your scan<br>
+    Gravity + Collision + Noclip Fix
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // ================================================================
+    // CRIMSON SOVEREIGN – FULL PHYSICS ENGINE
+    // Implements gravity, velocity, friction, jump, rigid bodies,
+    // collision response, and noclip fix for all shapes
+    // ================================================================
+
+    // ---------- PHYSICS CORE ----------
+    class PhysicsBody {
+      constructor(mesh, options = {}) {
+        this.mesh = mesh;
+        this.position = mesh.position;
+        this.velocity = new THREE.Vector3();
+        this.acceleration = new THREE.Vector3();
+        this.mass = options.mass ?? 1;
+        this.restitution = options.restitution ?? 0.3;   // bounce
+        this.friction = options.friction ?? 0.85;
+        this.isStatic = options.isStatic ?? false;
+        this.radius = options.radius ?? 1;               // for sphere collision
+        this.onGround = false;
+      }
+
+      applyForce(force) {
+        if (this.isStatic) return;
+        this.acceleration.add(force.clone().divideScalar(this.mass));
+      }
+
+      integrate(dt) {
+        if (this.isStatic) return;
+
+        // Velocity Verlet style
+        this.velocity.add(this.acceleration.clone().multiplyScalar(dt));
+        this.position.add(this.velocity.clone().multiplyScalar(dt));
+
+        // Reset acceleration
+        this.acceleration.set(0, 0, 0);
+
+        // Simple air drag
+        this.velocity.multiplyScalar(0.995);
+      }
+    }
+
+    class PhysicsWorld {
+      constructor() {
+        this.bodies = [];
+        this.gravity = new THREE.Vector3(0, -28, 0);   // strong game gravity
+        this.fixedDt = 1 / 60;
+        this.accumulator = 0;
+      }
+
+      addBody(body) {
+        this.bodies.push(body);
+      }
+
+      step(dt) {
+        this.accumulator += dt;
+        while (this.accumulator >= this.fixedDt) {
+          this.fixedUpdate(this.fixedDt);
+          this.accumulator -= this.fixedDt;
+        }
+      }
+
+      fixedUpdate(dt) {
+        // Apply gravity
+        for (const body of this.bodies) {
+          if (!body.isStatic) {
+            body.applyForce(this.gravity.clone().multiplyScalar(body.mass));
+          }
+        }
+
+        // Integrate
+        for (const body of this.bodies) {
+          body.integrate(dt);
+        }
+
+        // Collisions (player vs static shapes + ground)
+        this.resolveCollisions();
+      }
+
+      resolveCollisions() {
+        const groundY = 0;
+
+        for (const body of this.bodies) {
+          if (body.isStatic) continue;
+
+          // Ground collision
+          if (body.position.y - body.radius < groundY) {
+            body.position.y = groundY + body.radius;
+            if (body.velocity.y < 0) {
+              body.velocity.y = -body.velocity.y * body.restitution;
+              body.velocity.x *= body.friction;
+              body.velocity.z *= body.friction;
+            }
+            body.onGround = true;
+          } else {
+            body.onGround = false;
+          }
+
+          // Shape collisions (AABB + sphere response)
+          for (const other of this.bodies) {
+            if (other === body || !other.isStatic) continue;
+
+            const box = new THREE.Box3().setFromObject(other.mesh);
+            const closest = new THREE.Vector3(
+              Math.max(box.min.x, Math.min(body.position.x, box.max.x)),
+              Math.max(box.min.y, Math.min(body.position.y, box.max.y)),
+              Math.max(box.min.z, Math.min(body.position.z, box.max.z))
+            );
+
+            const distVec = new THREE.Vector3().subVectors(body.position, closest);
+            const dist = distVec.length();
+
+            if (dist < body.radius && dist > 0.0001) {
+              const normal = distVec.normalize();
+              const overlap = body.radius - dist;
+
+              // Push out
+              body.position.add(normal.clone().multiplyScalar(overlap));
+
+              // Reflect velocity (bounce + friction)
+              const velAlongNormal = body.velocity.dot(normal);
+              if (velAlongNormal < 0) {
+                const impulse = normal.clone().multiplyScalar(-(1 + body.restitution) * velAlongNormal);
+                body.velocity.add(impulse);
+
+                // Friction on surface
+                const tangent = body.velocity.clone().sub(normal.clone().multiplyScalar(body.velocity.dot(normal)));
+                body.velocity.sub(tangent.multiplyScalar(1 - body.friction));
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // ---------- SHAPE FACTORY (from your scanned PDF) ----------
+    function createSphere(r, color) {
+      return new THREE.Mesh(
+        new THREE.SphereGeometry(r, 32, 24),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.2 })
+      );
+    }
+    function createCube(s, color) {
+      return new THREE.Mesh(
+        new THREE.BoxGeometry(s, s, s),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.35 })
+      );
+    }
+    function createRectPrism(w, h, d, color) {
+      return new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, d),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.3 })
+      );
+    }
+    function createCylinder(r, h, color) {
+      return new THREE.Mesh(
+        new THREE.CylinderGeometry(r, r, h, 32),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.25 })
+      );
+    }
+    function createCone(r, h, color) {
+      return new THREE.Mesh(
+        new THREE.ConeGeometry(r, h, 32),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.3 })
+      );
+    }
+    function createTriPyramid(s, color) {
+      return new THREE.Mesh(
+        new THREE.TetrahedronGeometry(s),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.4, flatShading: true })
+      );
+    }
+
+    // ---------- SUPER ENGINE WITH PHYSICS ----------
+    class SuperEngine {
+      constructor() {
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x05050a);
+        this.scene.fog = new THREE.Fog(0x05050a, 40, 120);
+
+        this.camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 500);
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(innerWidth, innerHeight);
+        this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+        this.renderer.shadowMap.enabled = true;
+        document.body.appendChild(this.renderer.domElement);
+
+        // Lights
+        this.scene.add(new THREE.AmbientLight(0x404060, 0.5));
+        const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+        dir.position.set(20, 40, 15);
+        dir.castShadow = true;
+        this.scene.add(dir);
+
+        // Physics world
+        this.physics = new PhysicsWorld();
+
+        // Player
+        this.playerMesh = createSphere(1.1, 0xff4466);
+        this.playerMesh.castShadow = true;
+        this.scene.add(this.playerMesh);
+
+        this.playerBody = new PhysicsBody(this.playerMesh, {
+          mass: 1,
+          radius: 1.1,
+          restitution: 0.25,
+          friction: 0.82
+        });
+        this.physics.addBody(this.playerBody);
+
+        // Build world shapes
+        this.buildWorld();
+
+        // Controls
+        this.keys = {};
+        window.addEventListener("keydown", e => this.keys[e.code] = true);
+        window.addEventListener("keyup", e => this.keys[e.code] = false);
+        window.addEventListener("resize", () => {
+          this.camera.aspect = innerWidth / innerHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(innerWidth, innerHeight);
+        });
+
+        this.clock = new THREE.Clock();
+        this.animate();
+      }
+
+      buildWorld() {
+        // Ground
+        const ground = new THREE.Mesh(
+          new THREE.PlaneGeometry(300, 300),
+          new THREE.MeshStandardMaterial({ color: 0x12121c, roughness: 0.95 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        this.scene.add(ground);
+
+        // Static shapes from your Google Drive scan (scaled)
+        const shapes = [
+          { fn: createSphere, args: [3.2, 0xff2244], pos: [-18, 3.2, 0] },
+          { fn: createCube, args: [5, 0x44ff88], pos: [-8, 2.5, 0] },
+          { fn: createRectPrism, args: [7, 3.5, 4, 0x4488ff], pos: [2, 1.75, 0] },
+          { fn: createCylinder, args: [2.8, 6, 0xffaa22], pos: [12, 3, 0] },
+          { fn: createCone, args: [3.5, 7, 0xcc44ff], pos: [22, 3.5, 0] },
+          { fn: createTriPyramid, args: [4.5, 0xff6688], pos: [0, 3, -14] }
+        ];
+
+        shapes.forEach(s => {
+          const mesh = s.fn(...s.args);
+          mesh.position.set(...s.pos);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          this.scene.add(mesh);
+
+          const body = new PhysicsBody(mesh, { isStatic: true, radius: 0 });
+          this.physics.addBody(body);
+        });
+
+        // Grid
+        this.scene.add(new THREE.GridHelper(120, 60, 0x333355, 0x1a1a2a));
+      }
+
+      update(dt) {
+        // Player input
+        const speed = 18;
+        const move = new THREE.Vector3();
+        if (this.keys["KeyW"]) move.z -= 1;
+        if (this.keys["KeyS"]) move.z += 1;
+        if (this.keys["KeyA"]) move.x -= 1;
+        if (this.keys["KeyD"]) move.x += 1;
+
+        if (move.length() > 0) {
+          move.normalize().multiplyScalar(speed);
+          this.playerBody.velocity.x = move.x;
+          this.playerBody.velocity.z = move.z;
+        } else {
+          // Friction when no input
+          this.playerBody.velocity.x *= 0.9;
+          this.playerBody.velocity.z *= 0.9;
+        }
+
+        // Jump
+        if (this.keys["Space"] && this.playerBody.onGround) {
+          this.playerBody.velocity.y = 14;
+          this.playerBody.onGround = false;
+        }
+
+        // Step physics
+        this.physics.step(dt);
+
+        // Sync mesh
+        this.playerMesh.position.copy(this.playerBody.position);
+
+        // Camera follow
+        const target = this.playerBody.position.clone().add(new THREE.Vector3(0, 7, 16));
+        this.camera.position.lerp(target, 0.08);
+        this.camera.lookAt(this.playerBody.position);
+      }
+
+      animate() {
+        requestAnimationFrame(() => this.animate());
+        const dt = Math.min(this.clock.getDelta(), 0.05);
+        this.update(dt);
+        this.renderer.render(this.scene, this.camera);
+      }
+    }
+
+    // Launch
+    new SuperEngine();
+  </script>
+</body>
+</html>
