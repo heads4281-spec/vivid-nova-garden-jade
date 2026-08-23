@@ -1,0 +1,181 @@
+/**
+ * CRIMSON SOVEREIGN — Shape Graphics Engine v2
+ * Maps solid shapes to the exact size of your pictures
+ * Uses map-ratio.pdf style scaling + polygon math + % / + / -
+ */
+
+import * as THREE from "three";
+
+/* ---------- Polygon Math (your table) ---------- */
+export function getPolygonMath(sides: number) {
+  const triangles = sides - 2;
+  const angleSumDeg = triangles * 180;
+  return {
+    sides,
+    triangles,
+    angleSumDeg,
+    interiorAngleDeg: angleSumDeg / sides,
+  };
+}
+
+export function generatePolygonVertices(sides: number, radius = 1, rotation = 0): THREE.Vector2[] {
+  const verts: THREE.Vector2[] = [];
+  const step = (Math.PI * 2) / sides;
+  for (let i = 0; i < sides; i++) {
+    const a = i * step + rotation - Math.PI / 2;
+    verts.push(new THREE.Vector2(Math.cos(a) * radius, Math.sin(a) * radius));
+  }
+  return verts;
+}
+
+/* ---------- Map-to-Picture Size Engine ---------- */
+export class PictureSizeMapper {
+  /** Map ratio (e.g. 1:25000 → 25000) */
+  scaleFactor: number;
+
+  constructor(mapRatio = 1 / 25000) {
+    this.scaleFactor = mapRatio < 1 ? 1 / mapRatio : mapRatio;
+  }
+
+  /** Convert picture pixel size → world radius for a shape */
+  pictureToWorldRadius(
+    pictureWidth: number,
+    pictureHeight: number,
+    percent = 100,          // use %
+    offset = 0              // use + or -
+  ): number {
+    // Use the longer side of the picture as reference
+    const pixels = Math.max(pictureWidth, pictureHeight);
+    const worldUnits = pixels / this.scaleFactor;
+    return (worldUnits * (percent / 100)) + offset;
+  }
+
+  /** Convert world size back to picture pixels (useful for UV / texture) */
+  worldToPicturePixels(worldSize: number, percent = 100, offset = 0): number {
+    const adjusted = (worldSize - offset) / (percent / 100);
+    return adjusted * this.scaleFactor;
+  }
+
+  /** Full transform helper */
+  transform(value: number, percent = 100, offset = 0) {
+    return value * (percent / 100) + offset;
+  }
+}
+
+/* ---------- Superior Shape Graphics Engine ---------- */
+export class ShapeGraphicsEngine {
+  private scene: THREE.Scene;
+  private mapper: PictureSizeMapper;
+  private shapes = new Map<string, THREE.Mesh>();
+  private pictureSizes = new Map<string, { w: number; h: number }>();
+
+  constructor(scene: THREE.Scene, mapRatio = 1 / 25000) {
+    this.scene = scene;
+    this.mapper = new PictureSizeMapper(mapRatio);
+  }
+
+  /**
+   * Create a solid shape that is automatically sized to your picture
+   * @param pictureWidth  real pixel width of your image
+   * @param pictureHeight real pixel height of your image
+   */
+  createShapeMappedToPicture(
+    id: string,
+    sides: number,
+    pictureWidth: number,
+    pictureHeight: number,
+    color = 0xff2244,
+    percent = 100,          // scale the picture size by %
+    offset = 0,             // extra + / - world units
+    texture?: THREE.Texture,
+    y = 0
+  ): THREE.Mesh {
+    // Calculate correct world radius from the picture size
+    const radius = this.mapper.pictureToWorldRadius(
+      pictureWidth,
+      pictureHeight,
+      percent,
+      offset
+    );
+
+    const verts = generatePolygonVertices(sides, radius);
+    const shape = new THREE.Shape(verts);
+    const geometry = new THREE.ShapeGeometry(shape);
+
+    const material = texture
+      ? new THREE.MeshStandardMaterial({
+          map: texture,
+          side: THREE.DoubleSide,
+          roughness: 0.35,
+          metalness: 0.2,
+        })
+      : new THREE.MeshStandardMaterial({
+          color,
+          side: THREE.DoubleSide,
+          roughness: 0.3,
+          metalness: 0.15,
+          emissive: new THREE.Color(color).multiplyScalar(0.12),
+        });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = y;
+    mesh.userData = {
+      id,
+      sides,
+      pictureWidth,
+      pictureHeight,
+      radius,
+      percent,
+      offset,
+    };
+
+    this.shapes.set(id, mesh);
+    this.pictureSizes.set(id, { w: pictureWidth, h: pictureHeight });
+    this.scene.add(mesh);
+    return mesh;
+  }
+
+  /** Live update a shape when you change the picture size or % / offset */
+  updateShapeToPictureSize(
+    id: string,
+    newPictureWidth?: number,
+    newPictureHeight?: number,
+    percent?: number,
+    offset?: number
+  ) {
+    const mesh = this.shapes.get(id);
+    if (!mesh) return;
+
+    const data = mesh.userData;
+    const w = newPictureWidth ?? data.pictureWidth;
+    const h = newPictureHeight ?? data.pictureHeight;
+    const p = percent ?? data.percent;
+    const o = offset ?? data.offset;
+
+    const newRadius = this.mapper.pictureToWorldRadius(w, h, p, o);
+
+    // Rebuild geometry at the new size
+    const verts = generatePolygonVertices(data.sides, newRadius);
+    const shape = new THREE.Shape(verts);
+    mesh.geometry.dispose();
+    mesh.geometry = new THREE.ShapeGeometry(shape);
+
+    data.radius = newRadius;
+    data.pictureWidth = w;
+    data.pictureHeight = h;
+    data.percent = p;
+    data.offset = o;
+  }
+
+  /** Place the shape on the map using picture-derived size */
+  placeMappedShape(id: string, mapX: number, mapZ: number, percent = 100, offsetX = 0, offsetZ = 0) {
+    const mesh = this.shapes.get(id);
+    if (!mesh) return;
+    mesh.position.x = this.mapper.transform(mapX, percent, offsetX);
+    mesh.position.z = this.mapper.transform(mapZ, percent, offsetZ);
+  }
+
+  /** Auto-update all shapes every frame (optional breathing / pulse) */
+  updateAll(dt: number) {
+    for (const mesh of this.shapes.values()) {
