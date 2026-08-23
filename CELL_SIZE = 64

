@@ -1,0 +1,10 @@
+// Every frame:
+grid.clear();
+for (const obj of allObjects) grid.insert(obj);
+
+for (const obj of allObjects) {
+  for (const other of grid.getCandidates(obj)) {
+    if (obj === other) continue;
+    // narrow-phase circle/AABB/SAT test here
+  }
+}
