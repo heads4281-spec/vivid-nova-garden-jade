@@ -1,0 +1,38 @@
+// ============================================
+// UPGRADED WEAPON SWITCH SYSTEM
+// ============================================
+equip(index: number) {
+  if (!this.canEquip(index)) return;
+  if (index === this.weapon) return;
+
+  const oldWeapon = this.weapon;
+  const newWeapon = index;
+  const w = WEAPONS[newWeapon];
+
+  // 1. Immediate feedback
+  this.audio.ui("equip");
+  this.trauma = Math.min(1.0, this.trauma + 0.28);          // screen shake
+  this.vmKickZ = -0.22;                                     // viewmodel dips down
+  this.vmKickY = -0.06;
+
+  // 2. Crimson energy flash
+  if (this.effects) {
+    this.effects.muzzleFlash(0xff0033, 14, 0.14);           // strong red flash
+  }
+
+  // 3. Short freeze (makes the switch feel weighty)
+  this.switchLock = 0.18;                                   // seconds
+
+  // 4. Actual weapon change
+  this.weapon = newWeapon;
+  this.recoilSim.reset();
+  this.charge = 0;
+  this.reloadT = 0;
+  this.lastShot[newWeapon] = 0;
+
+  // 5. Show new viewmodel
+  this.showView(w.view);
+
+  // 6. Optional: play a short energy burst sound
+  // this.audio.play("energy_switch");
+}
