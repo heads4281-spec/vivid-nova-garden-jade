@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRIMSON SOVEREIGN · TYPE VII · FULL COLOUR CYCLE</title>
+<style>
+  :root {
+    --bg: #0a0508;
+    --crimson: #c41e3a;
+    --blood: #8b0000;
+    --fog: #2a1a2e;
+    --gold: #d4af37;
+    --text: #f0e6e6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(ellipse at center, #1a0a12 0%, var(--bg) 70%);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+  header {
+    text-align: center;
+    padding: 2rem 0 1rem;
+    border-bottom: 1px solid var(--crimson);
+    margin-bottom: 1.5rem;
+  }
+  h1 {
+    font-size: 2.4rem;
+    letter-spacing: 0.15em;
+    color: var(--crimson);
+    text-shadow: 0 0 20px rgba(196,30,58,0.6);
+  }
+  .subtitle { color: var(--gold); font-size: 0.95rem; margin-top: 0.3rem; letter-spacing: 0.2em; }
+  .lore {
+    background: rgba(42,26,46,0.7);
+    border-left: 4px solid var(--crimson);
+    padding: 1.2rem 1.5rem;
+    margin: 1.5rem 0;
+    font-style: italic;
+  }
+  .panel {
+    background: rgba(20,10,15,0.85);
+    border: 1px solid #3a1a25;
+    border-radius: 8px;
+    padding: 1.2rem;
+    margin-bottom: 1.2rem;
+  }
+  .panel h2 { color: var(--gold); font-size: 1.1rem; margin-bottom: 0.8rem; }
+  button, .btn {
+    background: linear-gradient(135deg, var(--crimson), var(--blood));
+    color: white;
+    border: none;
+    padding: 0.55rem 1.1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin: 0.25rem;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  button:hover, .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(196,30,58,0.4);
+  }
+  input, select {
+    background: #1a0f14;
+    border: 1px solid #4a2a35;
+    color: var(--text);
+    padding: 0.45rem 0.7rem;
+    border-radius: 4px;
+    margin: 0.25rem;
+  }
+  .classes { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
+  .class-card {
+    background: #1a0a10;
+    border: 1px solid #3a1a25;
+    padding: 0.7rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    min-width: 120px;
+    text-align: center;
+  }
+  .class-card.active { border-color: var(--crimson); box-shadow: 0 0 10px rgba(196,30,58,0.3); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.6rem; }
+  .stat { background: #12080c; padding: 0.6rem; border-radius: 4px; text-align: center; }
+  .stat span { display: block; font-size: 1.3rem; color: var(--gold); }
+  #masterPanel { display: none; border: 2px solid var(--gold); }
+  #log {
+    background: #0d0609;
+    height: 180px;
+    overflow-y: auto;
+    padding: 0.8rem;
+    font-family: monospace;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    margin-top: 0.8rem;
+  }
+  .footer { text-align: center; margin-top: 2rem; font-size: 0.8rem; color: #666; }
+  @media (max-width: 600px) {
+    h1 { font-size: 1.7rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>CRIMSON SOVEREIGN</h1>
+    <div class="subtitle">TYPE VII · FULL COLOUR CYCLE</div>
+  </header>
+
+  <div class="lore" id="loreText">
+    You were never meant to cross the rift.<br>
+    The wound sang in the language of dying stars and living blood.<br>
+    <em>Come home.</em>
+  </div>
+
+  <div class="panel">
+    <h2>Threshold Access</h2>
+    <p>Code · <span id="mythCycles">100 000</span> galactic myth cycles</p>
+    <p id="identifier">TKNYRT · SOVEREIGN LV 4793 · 10 000 OPEN-WORLD MOMENTS</p>
+    <p id="codeFlavour">This code stills the fog. The galaxy turns slow and polite.</p>
+    <div>
+      <input type="text" id="codeInput" placeholder="Enter access code" value="63821">
+      <button onclick="validateCode()">ENTER THE PALACE</button>
+      <button onclick="showLore()">FULL LORE CODEX</button>
+      <button onclick="thresholdBriefing()">THRESHOLD BRIEFING</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Classes</h2>
+    <div class="classes" id="classList">
+      <div class="class-card" data-class="Ankh Warden">Ankh Warden</div>
+      <div class="class-card" data-class="Night Reaver">Night Reaver</div>
+      <div class="class-card" data-class="Void Gunner">Void Gunner</div>
+      <div class="class-card" data-class="Blood Weaver">Blood Weaver</div>
+      <div class="class-card" data-class="Hooded Hunter">Hooded Hunter</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Resources</h2>
+    <div class="stats">
+      <div class="stat">strength<br><span id="stat-strength">12</span></div>
+      <div class="stat">magic<br><span id="stat-magic">8</span></div>
+      <div class="stat">attack<br><span id="stat-attack">15</span></div>
+      <div class="stat">minerals<br><span id="stat-minerals">40</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Commands</h2>
+    <button onclick="runCmd('newcode')">New code</button>
+    <button onclick="runCmd('sharecycle')">Share cycle</button>
+    <button onclick="runCmd('settings')">Settings</button>
+    <button onclick="runCmd('master')">Master Panel</button>
+    <button onclick="runCmd('server')">Server Status</button>
+    <button onclick="exportUpdate()">Export / Update Single File</button>
+  </div>
+
+  <!-- MASTER / GAME SERVER PANEL -->
+  <div class="panel" id="masterPanel">
+    <h2>⚡ MASTER SERVER CONTROLS</h2>
+    <p>Online players: <span id="playerCount">1</span> · Fog intensity: <span id="fogLevel">42%</span> · Blood canals: <span id="bloodLevel">67%</span></p>
+    <div>
+      <input type="text" id="broadcastMsg" placeholder="Broadcast message">
+      <button onclick="broadcast()">Broadcast</button>
+    </div>
+    <div>
+      <select id="grantStat">
+        <option value="strength">strength</option>
+        <option value="magic">magic</option>
+        <option value="attack">attack</option>
+        <option value="minerals">minerals</option>
+      </select>
+      <input type="number" id="grantAmount" value="5" style="width:70px">
+      <button onclick="grantResource()">Grant Resource</button>
+    </div>
+    <button onclick="toggleLoreMode()">Toggle Lore Mode (Blood / Fog)</button>
+    <button onclick="setLevel(6294)">Set LV 6294 (Blood)</button>
+    <button onclick="setLevel(4793)">Set LV 4793 (Fog)</button>
+    <div id="log"></div>
+  </div>
+
+  <div class="footer">
+    CRIMSON SOVEREIGN · Merged Full Update · Codes: 63821 / 62821 / 99812 / 15785<br>
+    Single-file GitHub-ready · Export to overwrite or re-publish
+  </div>
+</div>
+
+<script>
+// ===== CONFIG =====
+const VALID_CODES = ['63821', '62821', '99812', '15785'];
+let currentCode = '63821';
+let currentClass = null;
+let loreMode = 'fog'; // or 'blood'
+let stats = { strength: 12, magic: 8, attack: 15, minerals: 40 };
+let players = 1;
+let fog = 42;
+let blood = 67;
+
+// ===== INIT =====
+document.querySelectorAll('.class-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.class-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    currentClass = card.dataset.class;
+    log(`Class selected: ${currentClass}`);
+  });
+});
+
+// Check URL code on load
+const urlParams = new URLSearchParams(window.location.search);
+const urlCode = urlParams.get('code');
+if (urlCode) {
+  document.getElementById('codeInput').value = urlCode;
+  validateCode();
+}
+
+// ===== CORE FUNCTIONS =====
+function validateCode() {
+  const code = document.getElementById('codeInput').value.trim();
+  if (VALID_CODES.includes(code)) {
+    currentCode = code;
+    log(`Access granted with code ${code}`);
+    if (code === '99812') {
+      setLevel(6294);
+      loreMode = 'blood';
+      updateLoreText();
+    }
+    alert('Threshold crossed. Welcome, Sovereign.');
+  } else {
+    alert('Invalid code. The rift rejects you.');
+    log(`Failed access attempt: ${code}`);
+  }
+}
+
+function showLore() {
+  alert(`FULL LORE CODEX\n\nThe Crimson Sovereign waits beyond the wound.\nDying stars remember your name.\nLiving blood calls you home.\n\nCurrent cycle: 100 000 galactic myth cycles.`);
+  log('Full Lore Codex opened');
+}
+
+function thresholdBriefing() {
+  alert(`THRESHOLD BRIEFING\n\nCode active: ${currentCode}\nMode: ${loreMode.toUpperCase()}\nClass: ${currentClass || 'None'}\n\nAll scripts enabled. Server online.`);
+  log('Threshold Briefing delivered');
+}
+
+function runCmd(cmd) {
+  switch(cmd) {
+    case 'newcode':
+      const newC = prompt('Enter new code to set as primary:', currentCode);
+      if (newC && VALID_CODES.includes(newC)) {
+        currentCode = newC;
+        document.getElementById('codeInput').value = newC;
+        log(`Primary code updated to ${newC}`);
+      }
+      break;
+    case 'sharecycle':
+      const shareUrl = window.location.origin + window.location.pathname + '?code=' + currentCode;
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        alert('Share link copied:\n' + shareUrl);
+        log('Share cycle link copied');
+      });
+      break;
+    case 'settings':
+      alert('Settings\n\n- Colour Cycle: FULL\n- Scripts: ALL ON\n- Server: ONLINE\n- Master access: codes 63821 / 62821 / 99812 / 15785');
+      log('Settings viewed');
+      break;
+    case 'master':
+      document.getElementById('masterPanel').style.display = 'block';
+      log('Master panel opened');
+      break;
+    case 'server':
+      alert(`SERVER STATUS\nPlayers online: ${players}\nFog: ${fog}%\nBlood canals: ${blood}%\nMyth cycles remaining: 100000`);
+      log('Server status checked');
+      break;
+  }
+}
+
+function log(msg) {
+  const el = document.getElementById('log');
+  const time = new Date().toLocaleTimeString();
+  el.innerHTML += `[${time}] ${msg}<br>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function broadcast() {
+  const msg = document.getElementById('broadcastMsg').value;
+  if (msg) {
+    log(`BROADCAST: ${msg}`);
+    alert('Broadcast sent to all connected Sovereigns.');
+  }
+}
+
+function grantResource() {
+  const stat = document.getElementById('grantStat').value;
+  const amount = parseInt(document.getElementById('grantAmount').value) || 0;
+  stats[stat] += amount;
+  document.getElementById('stat-' + stat).textContent = stats[stat];
+  log(`Granted +${amount} ${stat}`);
+}
+
+function toggleLoreMode() {
+  loreMode = loreMode === 'fog' ? 'blood' : 'fog';
+  updateLoreText();
+  log(`Lore mode switched to ${loreMode}`);
+}
+
+function updateLoreText() {
+  const flavour = document.getElementById('codeFlavour');
+  if (loreMode === 'blood') {
+    flavour.textContent = 'This code thickens blood in the canals. The Milky Way hungers with the palace.';
+  } else {
+    flavour.textContent = 'This code stills the fog. The galaxy turns slow and polite.';
+  }
+}
+
+function setLevel(lv) {
+  const idEl = document.getElementById('identifier');
+  if (lv === 6294) {
+    idEl.textContent = 'CNLMMR · SOVEREIGN LV 6294 · 10 000 OPEN-WORLD MOMENTS';
+    loreMode = 'blood';
+  } else {
+    idEl.textContent = 'TKNYRT · SOVEREIGN LV 4793 · 10 000 OPEN-WORLD MOMENTS';
+    loreMode = 'fog';
+  }
+  updateLoreText();
+  log(`Sovereign level set to ${lv}`);
+}
+
+function exportUpdate() {
+  // Download the current page as a single HTML file for easy GitHub update / re-publish
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'crimson-sovereign-full-update.html';
+  a.click();
+  URL.revokeObjectURL(url);
+  log('Single-file export downloaded – ready for GitHub push or re-publish');
+  alert('File downloaded!\n\nUpload this file to your GitHub repo (replace index.html) or use it to overwrite your .grok.me build.');
+}
+
+// Simulate light server activity
+setInterval(() => {
+  fog = Math.max(10, Math.min(90, fog + (Math.random() * 6 - 3)));
+  blood = Math.max(10, Math.min(95, blood + (Math.random() * 6 - 3)));
+  document.getElementById('fogLevel').textContent = Math.round(fog) + '%';
+  document.getElementById('bloodLevel').textContent = Math.round(blood) + '%';
+}, 8000);
+</script>
+</body>
+</html>
