@@ -1,0 +1,30 @@
+Improved Quality System (add/replace in engine.ts)
+// Better quality system – put this inside your Engine class
+
+setQuality(level: "low" | "medium" | "high" | "ultra" = "high") {
+  const settings = {
+    low:    { pixelRatio: 0.7, anisotropy: 1,  toneMapping: false, particles: 24, detail: false },
+    medium: { pixelRatio: 1.0, anisotropy: 2,  toneMapping: true,  particles: 40, detail: false },
+    high:   { pixelRatio: 1.5, anisotropy: 4,  toneMapping: true,  particles: 64, detail: true  },
+    ultra:  { pixelRatio: 2.0, anisotropy: 8,  toneMapping: true,  particles: 96, detail: true  },
+  }[level];
+
+  this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.pixelRatio));
+  
+  // Apply anisotropy to all textures
+  this.textures?.forEach(tex => {
+    if (tex) {
+      tex.anisotropy = settings.anisotropy;
+      tex.needsUpdate = true;
+    }
+  });
+
+  this.renderer.toneMapping = settings.toneMapping 
+    ? THREE.ACESFilmicToneMapping 
+    : THREE.NoToneMapping;
+
+  this.maxParticles = settings.particles;
+  this.world?.setDetail(settings.detail);
+
+  console.log(`[Engine] Quality set to: ${level.toUpperCase()}`);
+}
