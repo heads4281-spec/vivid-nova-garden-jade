@@ -1,0 +1,30 @@
+startReload() {
+  const w = WEAPONS[this.weapon];
+  if (this.mag[this.weapon] === w.mag) return;
+  if (this.reserve[this.weapon] <= 0) return;
+  if (this.reloadT > 0) return;
+
+  this.reloadT = w.reload;
+  this.audio.ui("reload_start");
+  this.vmKickZ = -0.15; // dip during reload
+}
+
+// Call this every frame in fixed() or weaponsTick()
+updateReload(dt: number) {
+  if (this.reloadT <= 0) return;
+
+  this.reloadT -= dt;
+
+  if (this.reloadT <= 0) {
+    const w = WEAPONS[this.weapon];
+    const need = w.mag - this.mag[this.weapon];
+    const take = Math.min(need, this.reserve[this.weapon]);
+
+    this.mag[this.weapon] += take;
+    this.reserve[this.weapon] -= take;
+
+    this.audio.ui("reload_end");
+    this.trauma = Math.min(1, this.trauma + 0.12);
+    this.vmKickZ = 0.08; // slight kick when mag seats
+  }
+}
