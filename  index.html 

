@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CRIMSON SOVEREIGN</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050000;color:#e8c4c4;font-family:'Cormorant Garamond',serif;overflow:hidden;height:100vh}
+#title-screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#1a0000 0%,#050000 70%);z-index:100;transition:opacity .8s}
+#title-screen.hidden{opacity:0;pointer-events:none}
+.top-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:6px;color:#ff2a2a;margin-bottom:18px}
+h1{font-family:'Cinzel',serif;font-size:clamp(42px,9vw,92px);font-weight:700;color:#ff1a1a;text-shadow:0 0 40px rgba(255,0,0,.5);letter-spacing:4px;margin-bottom:28px;text-align:center}
+.lore{text-align:center;max-width:620px;font-size:17px;line-height:1.6;color:#d4a0a0;margin-bottom:42px;font-style:italic}
+.lore em{color:#ff6666}
+.buttons{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-bottom:48px}
+.btn{font-family:'Cinzel',serif;font-size:13px;letter-spacing:2px;padding:14px 28px;background:transparent;border:1px solid #ff3333;color:#ffcccc;cursor:pointer;transition:all .25s;text-decoration:none}
+.btn:hover{background:#ff1a1a;color:#fff;box-shadow:0 0 25px rgba(255,30,30,.4)}
+.code-section{text-align:center;margin-bottom:18px}
+.code-box{display:inline-block;border:1px solid #aa2222;padding:6px 18px;font-family:monospace;font-size:18px;letter-spacing:4px;color:#ff4444;margin:0 10px}
+.meta{font-size:12px;letter-spacing:1px;color:#aa5555;margin-top:8px}
+.meta span{color:#ff6666}
+.flavor{font-size:14px;color:#bb7777;text-align:center;max-width:540px;margin:20px auto 40px;line-height:1.5}
+.bottom-links{display:flex;gap:30px;margin-bottom:50px;font-size:12px;letter-spacing:2px}
+.bottom-links a{color:#aa6666;text-decoration:none}
+.cards{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;max-width:700px}
+.card{width:90px;height:130px;background:#0a0000;border:1px solid #661111;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:8px}
+.card .placeholder{width:100%;height:90px;background:linear-gradient(180deg,#2a0000,#110000)}
+.card span{font-size:9px;letter-spacing:1px;color:#cc8888;margin-top:4px}
+#game-ui{position:absolute;inset:0;pointer-events:none;display:none}
+#top-left{position:absolute;top:16px;left:16px;font-size:14px;line-height:1.4;text-shadow:0 0 8px #f00;font-family:system-ui}
+#crosshair{position:absolute;top:50%;left:50%;width:12px;height:12px;border:2px solid #ff4444;border-radius:50%;transform:translate(-50%,-50%);opacity:.7}
+#controls{position:absolute;bottom:24px;right:24px;display:grid;grid-template-columns:repeat(3,56px);gap:10px;pointer-events:auto}
+.ctrl-btn{width:56px;height:56px;border-radius:50%;background:rgba(40,0,0,.75);border:2px solid #ff3333;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
+.ctrl-btn:active{background:#ff2222}
+#fire{background:#c00}
+#mod-menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;background:rgba(10,0,0,.92);border:1px solid #ff3333;border-radius:8px;padding:20px;display:none;pointer-events:auto;z-index:50;font-family:system-ui;color:#ffcccc}
+#mod-menu h2{font-family:'Cinzel',serif;color:#ff1a1a;margin-bottom:15px;text-align:center;letter-spacing:2px}
+.mod-row{display:flex;justify-content:space-between;align-items:center;margin:10px 0;font-size:14px}
+.mod-row button{background:#330000;border:1px solid #ff4444;color:#fff;padding:6px 12px;cursor:pointer;border-radius:4px}
+.mod-row button:hover{background:#ff1a1a}
+#mod-status{position:absolute;top:16px;right:16px;font-size:13px;color:#ff6666;text-shadow:0 0 6px #f00;display:none}
+</style>
+</head>
+<body>
+
+<!-- TITLE SCREEN -->
+<div id="title-screen">
+  <div class="top-label">TYPE VII · FULL COLOUR CYCLE</div>
+  <h1>CRIMSON SOVEREIGN</h1>
+  <div class="lore">
+    You were never meant to cross the rift.<br>
+    The wound sang in the language of dying stars and living blood.<br>
+    <em>Come home.</em>
+  </div>
+  <div class="buttons">
+    <button class="btn" id="enter-btn">ENTER THE PALACE</button>
+    <button class="btn">FULL LORE CODEX</button>
+    <button class="btn">THRESHOLD BRIEFING</button>
+  </div>
+  <div class="code-section">
+    CODE <span class="code-box">00000</span> · 100 000 GALACTIC MYTH CYCLES
+  </div>
+  <div class="meta"><span>CNLMMR · SOVEREIGN LV 6294</span> · 10 000 OPEN-WORLD MOMENTS</div>
+  <div class="flavor">This code thickens blood in the canals. The Milky Way hungers with the palace.</div>
+  <div class="bottom-links">
+    <a href="#">NEW CODE</a>
+    <a href="#">SHARE CYCLE</a>
+    <a href="#">SETTINGS</a>
+  </div>
+  <div class="cards">
+    <div class="card"><div class="placeholder"></div><span>ANKH WARDEN</span></div>
+    <div class="card"><div class="placeholder"></div><span>NIGHT REAVER</span></div>
+    <div class="card"><div class="placeholder"></div><span>VOID GUNNER</span></div>
+    <div class="card"><div class="placeholder"></div><span>BLOOD WEAVER</span></div>
+    <div class="card" style="opacity:.35;border-style:dashed"><div class="placeholder"></div><span>HOODED HUNTER</span></div>
+  </div>
+</div>
+
+<!-- GAME UI -->
+<div id="game-ui">
+  <div id="top-left">
+    ZONE · THE THRESHOLD<br>
+    Claim the outer Names — <span id="names">0</span>/4<br>
+    CODE 08582<br>
+    VIEW · SPECTATE
+  </div>
+  <div id="crosshair"></div>
+  <div id="mod-status">MOD MENU ACTIVE (F1)</div>
+  <div id="controls">
+    <div class="ctrl-btn" data-action="tree">TREE</div>
+    <div class="ctrl-btn" data-action="map">MAP</div>
+    <div class="ctrl-btn" data-action="bag">BAG</div>
+    <div class="ctrl-btn" data-action="view">VIEW</div>
+    <div class="ctrl-btn" data-action="jump">JUMP</div>
+    <div class="ctrl-btn" data-action="sprint">SPRINT</div>
+    <div class="ctrl-btn" data-action="reload">RELOAD</div>
+    <div class="ctrl-btn" data-action="ember">EMBER</div>
+    <div class="ctrl-btn" data-action="use">USE</div>
+    <div class="ctrl-btn" id="fire" data-action="fire">FIRE</div>
+  </div>
+</div>
+
+<!-- MOD MENU -->
+<div id="mod-menu">
+  <h2>CRIMSON DEBUG</h2>
+  <div class="mod-row"><span>Godmode</span><button id="god-btn">OFF</button></div>
+  <div class="mod-row"><span>Noclip</span><button id="noclip-btn">OFF</button></div>
+  <div class="mod-row"><span>Speed x3</span><button id="speed-btn">OFF</button></div>
+  <div class="mod-row"><span>Infinite Jump</span><button id="infjump-btn">OFF</button></div>
+  <div class="mod-row"><span>Spawn Name</span><button id="spawn-name">SPAWN</button></div>
+  <div class="mod-row"><span>Spawn Orb</span><button id="spawn-orb">SPAWN</button></div>
+  <div class="mod-row"><span>Teleport Home</span><button id="tp-home">GO</button></div>
+  <div class="mod-row"><span>Toggle Fog</span><button id="fog-btn">ON</button></div>
+  <div class="mod-row"><span>Unlock All Names</span><button id="unlock-all">UNLOCK</button></div>
+  <div class="mod-row"><span>Close Menu</span><button id="close-mod">F1 / ESC</button></div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ========== STATE ==========
+let godmode = false, noclip = false, speedBoost = false, infJump = false;
+let claimed = 0;
+const keys = {};
+let velocity = new THREE.Vector3();
+let canJump = true;
+let yaw = 0, pitch = 0.3;
+let pointerLocked = false;
+
+// ========== SCENE SETUP ==========
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a0505);
+scene.fog = new THREE.FogExp2(0x2a0a0a, 0.018);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 300);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+renderer.domElement.style.display = 'none';
+
+// Lights
+const amb = new THREE.AmbientLight(0x331111, 0.55);
+scene.add(amb);
+const dir = new THREE.DirectionalLight(0xff4444, 1.4);
+dir.position.set(8, 15, 6);
+scene.add(dir);
+const point1 = new THREE.PointLight(0xff2200, 1.2, 25);
+point1.position.set(-6, 4, 3);
+scene.add(point1);
+
+// Floor + path
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(120,120), new THREE.MeshStandardMaterial({color:0x2a1212, roughness:0.92}));
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+const path = new THREE.Mesh(new THREE.PlaneGeometry(5,50), new THREE.MeshStandardMaterial({color:0xf0e0d0}));
+path.rotation.x = -Math.PI/2; path.position.y = 0.02;
+scene.add(path);
+
+// Player
+const player = new THREE.Group();
+const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.42,1.25,6,12), new THREE.MeshStandardMaterial({color:0xcc1133, roughness:0.4, metalness:0.3}));
+body.position.y = 1.15; player.add(body);
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.33,16,16), new THREE.MeshStandardMaterial({color:0xf5e6d3}));
+head.position.y = 2.15; player.add(head);
+const hair = new THREE.Mesh(new THREE.SphereGeometry(0.35,16,16), new THREE.MeshStandardMaterial({color:0xffffff}));
+hair.position.y = 2.3; player.add(hair);
+player.position.set(0,0,6);
+scene.add(player);
+
+// Orbs
+const orbs = [];
+function spawnOrb(x,z){
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.55,24,24), new THREE.MeshStandardMaterial({color:0xff2222, emissive:0x880000, emissiveIntensity:0.9}));
+  orb.position.set(x,1.4,z);
+  scene.add(orb); orbs.push(orb);
+}
+spawnOrb(-2.5,6); spawnOrb(2.5,6);
+
+// Collectible Names
+const names = [];
+const namePos = [new THREE.Vector3(-10,1.2,-8), new THREE.Vector3(11,1.2,-12), new THREE.Vector3(-14,1.2,9), new THREE.Vector3(8,1.2,14)];
+namePos.forEach((p,i)=>{
+  const n = new THREE.Mesh(new THREE.IcosahedronGeometry(0.65,0), new THREE.MeshStandardMaterial({color:0xffaa00, emissive:0xaa4400, emissiveIntensity:0.7}));
+  n.position.copy(p); n.userData = {collected:false, id:i};
+  scene.add(n); names.push(n);
+});
+
+// Atmosphere cubes + particles
+for(let i=0;i<25;i++){
+  const c = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5), new THREE.MeshStandardMaterial({color:0x990000}));
+  c.position.set((Math.random()-0.5)*70, Math.random()*8+1, (Math.random()-0.5)*70);
+  scene.add(c);
+}
+const pGeo = new THREE.BufferGeometry();
+const pPos = new Float32Array(600*3);
+for(let i=0;i<pPos.length;i++) pPos[i]=(Math.random()-0.5)*80;
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos,3));
+scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({color:0xff3333, size:0.11, transparent:true, opacity:0.55})));
+
+// ========== INPUT ==========
+window.addEventListener('keydown', e=>{
+  keys[e.code]=true;
+  if(e.code==='F1') toggleModMenu();
+  if(e.code==='Escape') document.getElementById('mod-menu').style.display='none';
+});
+window.addEventListener('keyup', e=> keys[e.code]=false);
+
+renderer.domElement.addEventListener('click', ()=>{
+  renderer.domElement.requestPointerLock();
+});
+document.addEventListener('pointerlockchange', ()=>{
+  pointerLocked = document.pointerLockElement === renderer.domElement;
+});
+document.addEventListener('mousemove', e=>{
+  if(pointerLocked){
+    yaw -= e.movementX * 0.0022;
+    pitch -= e.movementY * 0.0022;
+    pitch = Math.max(-1.15, Math.min(1.15, pitch));
+  }
+});
+
+// ========== MOD MENU ==========
+function toggleModMenu(){
+  const m = document.getElementById('mod-menu');
+  m.style.display = m.style.display==='block' ? 'none' : 'block';
+  document.getElementById('mod-status').style.display = 'block';
+}
+document.getElementById('god-btn').onclick = ()=>{
+  godmode = !godmode;
+  document.getElementById('god-btn').textContent = godmode?'ON':'OFF';
+};
+document.getElementById('noclip-btn').onclick = ()=>{
+  noclip = !noclip;
+  document.getElementById('noclip-btn').textContent = noclip?'ON':'OFF';
+};
+document.getElementById('speed-btn').onclick = ()=>{
+  speedBoost = !speedBoost;
+  document.getElementById('speed-btn').textContent = speedBoost?'ON':'OFF';
+};
+document.getElementById('infjump-btn').onclick = ()=>{
+  infJump = !infJump;
+  document.getElementById('infjump-btn').textContent = infJump?'ON':'OFF';
+};
+document.getElementById('spawn-name').onclick = ()=>{
+  const n = new THREE.Mesh(new THREE.IcosahedronGeometry(0.65,0), new THREE.MeshStandardMaterial({color:0xffaa00, emissive:0xaa4400, emissiveIntensity:0.7}));
+  n.position.copy(player.position); n.position.y=1.5; n.position.z-=3;
+  n.userData={collected:false,id:names.length};
+  scene.add(n); names.push(n);
+};
+document.getElementById('spawn-orb').onclick = ()=> spawnOrb(player.position.x+ (Math.random()-0.5)*4, player.position.z-3);
+document.getElementById('tp-home').onclick = ()=>{ player.position.set(0,0,6); velocity.set(0,0,0); };
+document.getElementById('fog-btn').onclick = ()=>{
+  if(scene.fog){ scene.fog=null; document.getElementById('fog-btn').textContent='OFF'; }
+  else { scene.fog=new THREE.FogExp2(0x2a0a0a,0.018); document.getElementById('fog-btn').textContent='ON'; }
+};
+document.getElementById('unlock-all').onclick = ()=>{
+  names.forEach(n=>{ if(!n.userData.collected){ n.userData.collected=true; n.visible=false; claimed++; }});
+  document.getElementById('names').textContent = claimed;
+};
+document.getElementById('close-mod').onclick = ()=> document.getElementById('mod-menu').style.display='none';
+
+// Mobile buttons
+document.querySelectorAll('.ctrl-btn').forEach(b=>{
+  b.onclick = ()=>{
+    const a = b.dataset.action;
+    if(a==='jump'){ if(canJump||infJump){ velocity.y=0.32; canJump=false; }}
+    if(a==='sprint') speedBoost = !speedBoost;
+  };
+});
+
+// ========== START GAME ==========
+document.getElementById('enter-btn').onclick = ()=>{
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('game-ui').style.display='block';
+  renderer.domElement.style.display='block';
+  setTimeout(()=>renderer.domElement.requestPointerLock(), 300);
+};
+
+// ========== GAME LOOP ==========
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = 0.016;
+  const speed = (speedBoost ? 0.32 : 0.13);
+
+  // Movement
+  const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+  const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+  if(keys['KeyW']) velocity.add(forward.clone().multiplyScalar(speed));
+  if(keys['KeyS']) velocity.add(forward.clone().multiplyScalar(-speed));
+  if(keys['KeyA']) velocity.add(right.clone().multiplyScalar(-speed));
+  if(keys['KeyD']) velocity.add(right.clone().multiplyScalar(speed));
+  if((keys['Space']||infJump) && (canJump||infJump)){ velocity.y = 0.32; canJump=false; }
+
+  if(!noclip){
+    velocity.y -= 0.018;
+    player.position.add(velocity);
+    if(player.position.y < 0){ player.position.y=0; velocity.y=0; canJump=true; }
+  } else {
+    if(keys['KeyW']) player.position.add(forward.clone().multiplyScalar(speed*1.5));
+    if(keys['KeyS']) player.position.add(forward.clone().multiplyScalar(-speed*1.5));
+    if(keys['KeyA']) player.position.add(right.clone().multiplyScalar(-speed*1.5));
+    if(keys['KeyD']) player.position.add(right.clone().multiplyScalar(speed*1.5));
+    if(keys['Space']) player.position.y += speed*1.2;
+    if(keys['ShiftLeft']) player.position.y -= speed*1.2;
+  }
+  velocity.x *= 0.82; velocity.z *= 0.82;
+
+  // Camera (third-person spring)
+  const camOffset = new THREE.Vector3(
+    Math.sin(yaw)*8.5,
+    3.8 + pitch*3.5,
+    Math.cos(yaw)*8.5
+  );
+  camera.position.lerp(player.position.clone().add(camOffset), 0.12);
+  camera.lookAt(player.position.clone().add(new THREE.Vector3(0,1.6,0)));
+
+  // Animate orbs & names
+  orbs.forEach((o,i)=>{ o.position.y = 1.4 + Math.sin(Date.now()*0.003+i)*0.28; o.rotation.y+=0.025; });
+  names.forEach(n=>{
+    if(!n.userData.collected){
+      n.rotation.y += 0.04;
+      if(n.position.distanceTo(player.position)<1.9){
+        n.userData.collected=true; n.visible=false; claimed++;
+        document.getElementById('names').textContent=claimed;
+      }
+    }
+  });
+
+  // Godmode visual
+  if(godmode) body.material.emissive.setHex(0x330000);
+  else body.material.emissive.setHex(0x000000);
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
