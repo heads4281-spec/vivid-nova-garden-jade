@@ -1,0 +1,216 @@
+/**
+ * UV Mapping for Textures – CRIMSON SOVEREIGN
+ * Perfect texture mapping onto solid polygons
+ * Works with picture sizes + map ratios + % / + / -
+ */
+
+import * as THREE from "three";
+
+/* ---------- Existing helpers (keep them) ---------- */
+// getPolygonMath, generatePolygonVertices, PictureSizeMapper, etc.
+// (from previous versions)
+
+/* ---------- New: UV Mapping utilities ---------- */
+
+/**
+ * Generate UV coordinates for a regular polygon
+ * so the texture covers the shape evenly (0–1 range)
+ */
+export function generatePolygonUVs(
+  sides: number,
+  radius = 1,
+  rotation = 0
+): THREE.Vector2[] {
+  const uvs: THREE.Vector2[] = [];
+  const step = (Math.PI * 2) / sides;
+
+  for (let i = 0; i < sides; i++) {
+    const a = i * step + rotation - Math.PI / 2;
+    // Map from [-radius, radius] → [0, 1]
+    const u = (Math.cos(a) * radius + radius) / (2 * radius);
+    const v = (Math.sin(a) * radius + radius) / (2 * radius);
+    uvs.push(new THREE.Vector2(u, v));
+  }
+  return uvs;
+}
+
+/**
+ * Apply proper UVs to a ShapeGeometry so textures look correct
+ */
+export function applyUVsToShapeGeometry(
+  geometry: THREE.ShapeGeometry,
+  sides: number,
+  radius: number,
+  rotation = 0
+) {
+  const uvs = generatePolygonUVs(sides, radius, rotation);
+  const uvAttr = geometry.getAttribute("uv") as THREE.BufferAttribute;
+
+  // ShapeGeometry triangulates from the center, so we need to map correctly
+  // Simple and reliable method for regular polygons:
+  const pos = geometry.getAttribute("position") as THREE.BufferAttribute;
+  const newUVs: number[] = [];
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i); // after rotation.x = -π/2 this is the original Z
+
+    // Normalize to 0–1
+    const u = (x + radius) / (2 * radius);
+    const v = (y + radius) / (2 * radius);
+    newUVs.push(u, v);
+  }
+
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(newUVs, 2));
+  geometry.attributes.uv.needsUpdate = true;
+}
+
+/* ---------- Enhanced ShapeGraphicsEngine with UV Mapping ---------- */
+
+export class ShapeGraphicsEngine {
+  private scene: THREE.Scene;
+  private mapper: PictureSizeMapper;
+  private shapes = new Map<string, THREE.Mesh>();
+
+  constructor(scene: THREE.Scene, mapRatio = 1 / 25000) {
+    this.scene = scene;
+    this.mapper = new PictureSizeMapper(mapRatio);
+  }
+
+  /**
+   * Create a solid polygon with perfect UV-mapped texture
+   * Sized exactly to your picture
+   */
+  createTexturedShape(
+    id: string,
+    sides: number,
+    pictureWidth: number,
+    pictureHeight: number,
+    texture: THREE.Texture,          // your game picture / texture
+    percent = 100,
+    offset = 0,
+    y = 0,
+    colorFallback = 0xffffff
+  ): THREE.Mesh {
+    // 1. Calculate world radius from picture size
+    const radius = this.mapper.pictureToWorldRadius(
+      pictureWidth,
+      pictureHeight,
+      percent,
+      offset
+    );
+
+    // 2. Build geometry
+    const verts = generatePolygonVertices(sides, radius);
+    const shape = new THREE.Shape(verts);
+    const geometry = new THREE.ShapeGeometry(shape);
+
+    // 3. Apply correct UVs so the texture maps perfectly
+    applyUVsToShapeGeometry(geometry, sides, radius);
+
+    // 4. Configure texture for best quality
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = true;
+    texture.colorSpace = THREE.SRGBColorSpace; // important for correct colors
+    texture.needsUpdate = true;
+
+    // 5. Material with UV-mapped texture
+    const material = new THREE.MeshStandardMaterial({
+      map: texture,
+      color: colorFallback,
+      side: THREE.DoubleSide,
+      roughness: 0.35,
+      metalness: 0.15,
+      transparent: texture.format === THREE.RGBAFormat,
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = -Math.PI / 2; // flat on ground
+    mesh.position.y = y;
+
+    mesh.userData = {
+      id,
+      sides,
+      pictureWidth,
+      pictureHeight,
+      radius,
+      percent,
+      offset,
+      hasUV: true,
+    };
+
+    this.shapes.set(id, mesh);
+    this.scene.add(mesh);
+    return mesh;
+  }
+
+  /**
+   * Live update: change picture size / % / offset → rebuild UVs automatically
+   */
+  updateTexturedShape(
+    id: string,
+    newPictureWidth?: number,
+    newPictureHeight?: number,
+    percent?: number,
+    offset?: number,
+    newTexture?: THREE.Texture
+  ) {
+    const mesh = this.shapes.get(id);
+    if (!mesh) return;
+
+    const data = mesh.userData;
+    const w = newPictureWidth ?? data.pictureWidth;
+    const h = newPictureHeight ?? data.pictureHeight;
+    const p = percent ?? data.percent;
+    const o = offset ?? data.offset;
+
+    const newRadius = this.mapper.pictureToWorldRadius(w, h, p, o);
+
+    // Rebuild geometry + UVs
+    const verts = generatePolygonVertices(data.sides, newRadius);
+    const shape = new THREE.Shape(verts);
+    const geometry = new THREE.ShapeGeometry(shape);
+    applyUVsToShapeGeometry(geometry, data.sides, newRadius);
+
+    mesh.geometry.dispose();
+    mesh.geometry = geometry;
+
+    if (newTexture) {
+      (mesh.material as THREE.MeshStandardMaterial).map = newTexture;
+      (mesh.material as THREE.MeshStandardMaterial).needsUpdate = true;
+    }
+
+    // Update stored data
+    Object.assign(data, {
+      pictureWidth: w,
+      pictureHeight: h,
+      radius: newRadius,
+      percent: p,
+      offset: o,
+    });
+  }
+
+  // Keep the rest of the methods (placeMappedShape, updateAll, etc.)
+}
+
+/* ---------- Quick usage example ---------- */
+/*
+const loader = new THREE.TextureLoader();
+
+loader.load("/textures/your-picture.jpg", (texture) => {
+  const mesh = shapeEngine.createTexturedShape(
+    "rune-textured",
+    6,                // hexagon
+    2048, 2048,       // exact size of your picture
+    texture,
+    100,              // 100%
+    0                 // no offset
+  );
+
+  // Later live update
+  // shapeEngine.updateTexturedShape("rune-textured", 1024, 1024, 90, +0.5);
+});
+*/
