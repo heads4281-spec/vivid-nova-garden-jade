@@ -1,0 +1,12 @@
+private switchLock = 0;
+private reloadT = 0;
+public trauma = 0;
+ In your main update loop (fixed or visual):this.updateReload(dt);
+
+if (this.switchLock > 0) this.switchLock -= dt;
+
+// Trauma decay
+this.trauma = Math.max(0, this.trauma - dt * 1.8);
+// Inside shoot() when mag is empty
+this.audio.ui("empty");
+this.trauma += 0.08;
