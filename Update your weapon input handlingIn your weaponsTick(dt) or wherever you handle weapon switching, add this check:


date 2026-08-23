@@ -1,0 +1,17 @@
+weaponsTick(dt: number) {
+  // Prevent switching spam
+  if (this.switchLock > 0) {
+    this.switchLock -= dt;
+    return;
+  }
+
+  // Your existing weapon slot / scroll logic...
+  if (this.input.weaponSlot !== -1) {
+    this.equip(this.input.weaponSlot);
+  }
+  if (this.input.weaponDelta !== 0) {
+    let next = this.weapon + this.input.weaponDelta;
+    // wrap around logic...
+    this.equip(next);
+  }
+}
