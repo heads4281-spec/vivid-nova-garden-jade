@@ -1,0 +1,57 @@
+Upgraded shoot() + Muzzle + Hit EffectsReplace your current shoot() method with this improved version:
+shoot() {
+  if (this.switchLock > 0) return;
+  if (this.reloadT > 0) return;
+
+  const w = WEAPONS[this.weapon];
+  const now = performance.now() / 1000;
+
+  // Cooldown check
+  if (now - this.lastShot[this.weapon] < w.cooldown) return;
+
+  // Ammo check
+  if (this.mag[this.weapon] <= 0 && !this.infAmmo) {
+    this.audio.ui("empty");
+    this.startReload();
+    return;
+  }
+
+  // Consume ammo
+  if (!this.infAmmo) this.mag[this.weapon]--;
+
+  this.lastShot[this.weapon] = now;
+
+  // ===== VISUAL & FEEL =====
+  // Strong muzzle flash (color depends on weapon type)
+  const flashColor = (w.fire === "beam" || w.fire === "rail") ? 0xff0033 : 0xff4400;
+  if (this.effects) {
+    this.effects.muzzleFlash(flashColor, w.fire === "melee" ? 9 : 22, 0.07);
+  }
+
+  // Recoil
+  this.recoilSim.fire(w, {
+    ads: this.ads,
+    firstShot: true,
+    heat: this.recoilSim.heat
+  });
+
+  // Trauma (screen shake)
+  this.trauma = Math.min(1, this.trauma + (w.fire === "melee" ? 0.18 : 0.32));
+
+  // ===== ACTUAL FIRE =====
+  if (w.fire === "hitscan" || w.fire === "rail") {
+    this.hitscan(w.damage, w.spread * this.recoilSim.spreadMul(), w.range);
+  } 
+  else if (w.fire === "projectile") {
+    this.spawnProj(false, 48, w.damage, 0.18, this.camera.getWorldPosition(new THREE.Vector3()), this.getForward(), 0);
+  } 
+  else if (w.fire === "beam") {
+    // your existing beam logic
+  } 
+  else if (w.fire === "melee") {
+    this.melee(w.damage, w.range);
+  }
+
+  // Sound
+  this.audio.weapon(w.nameKey || "shot");
+}
