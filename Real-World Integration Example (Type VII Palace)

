@@ -1,0 +1,21 @@
+const workerCode = `
+  // Full PerlinNoise2D + fbm + chunk generator here
+  self.onmessage = (e) => {
+    const { type, cx, cz, id } = e.data;
+    if (type === 'gen') {
+      const tiles = new Uint8Array(32 * 32);
+      // ... fill tiles with Perlin ...
+      self.postMessage({ type: 'chunk', id, cx, cz, tiles }, [tiles.buffer]);
+    }
+  };
+`;
+
+const worker = createWorkerFromCode(workerCode);
+
+// Priority queue + streaming stays exactly the same
+worker.onmessage = (e) => {
+  if (e.data.type === 'chunk') {
+    buildChunkMeshes(e.data.cx, e.data.cz, e.data.tiles);
+    // ... continue priority queue ...
+  }
+};
