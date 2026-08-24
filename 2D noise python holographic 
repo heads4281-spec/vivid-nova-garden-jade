@@ -1,0 +1,119 @@
+import math
+import random
+
+class PerlinNoise2D:
+    """
+    Classic 2D Perlin noise (gradient noise).
+    Deterministic when given a seed.
+    """
+    def __init__(self, seed=63821):
+        self.seed = seed
+        random.seed(seed)
+
+        # Permutation table (256 + 256 for overflow)
+        self.perm = list(range(256))
+        random.shuffle(self.perm)
+        self.perm += self.perm  # duplicate
+
+        # 2D gradients (unit vectors)
+        self.gradients = [
+            (1, 1), (1, -1), (-1, 1), (-1, -1),
+            (1, 0), (-1, 0), (0, 1), (0, -1)
+        ]
+
+    def _fade(self, t):
+        """Perlin's improved fade curve: 6t⁵ - 15t⁴ + 10t³"""
+        return t * t * t * (t * (t * 6 - 15) + 10)
+
+    def _lerp(self, a, b, t):
+        return a + t * (b - a)
+
+    def _grad(self, hash_val, x, y):
+        g = self.gradients[hash_val % 8]
+        return g[0] * x + g[1] * y
+
+    def noise(self, x, y):
+        """
+        Returns Perlin noise value in roughly [-1, 1]
+        """
+        # Grid cell coordinates
+        X = math.floor(x) & 255
+        Y = math.floor(y) & 255
+
+        # Relative position inside cell
+        x -= math.floor(x)
+        y -= math.floor(y)
+
+        # Fade curves
+        u = self._fade(x)
+        v = self._fade(y)
+
+        # Hash coordinates of the 4 corners
+        A  = self.perm[X] + Y
+        AA = self.perm[A]
+        AB = self.perm[A + 1]
+        B  = self.perm[X + 1] + Y
+        BA = self.perm[B]
+        BB = self.perm[B + 1]
+
+        # Gradient contributions
+        gAA = self._grad(self.perm[AA], x,     y)
+        gBA = self._grad(self.perm[BA], x - 1, y)
+        gAB = self._grad(self.perm[AB], x,     y - 1)
+        gBB = self._grad(self.perm[BB], x - 1, y - 1)
+
+        # Bilinear interpolation
+        x1 = self._lerp(gAA, gBA, u)
+        x2 = self._lerp(gAB, gBB, u)
+        return self._lerp(x1, x2, v)
+
+
+# ----------------------------------------------------------------------
+# Multi-octave (fBm) wrapper – exact formula you showed
+# ----------------------------------------------------------------------
+def fbm(perlin, x, y, octaves=None):
+    """
+    f(x,y) = Σ amplitude_i × noise(frequency_i × x, frequency_i × y)
+    """
+    if octaves is None:
+        octaves = [
+            {"amplitude": 1.00,  "frequency": 0.004},
+            {"amplitude": 0.50,  "frequency": 0.008},
+            {"amplitude": 0.25,  "frequency": 0.016},
+            {"amplitude": 0.125, "frequency": 0.032},
+            {"amplitude": 0.0625,"frequency": 0.064},
+        ]
+
+    value = 0.0
+    for oct in octaves:
+        value += oct["amplitude"] * perlin.noise(
+            oct["frequency"] * x,
+            oct["frequency"] * y
+        )
+    return value
+
+
+# ----------------------------------------------------------------------
+# Quick usage example
+# ----------------------------------------------------------------------
+if __name__ == "__main__":
+    perlin = PerlinNoise2D(seed=63821)
+
+    # Single sample
+    print("Single noise:", perlin.noise(12.3, 45.6))
+
+    # fBm sample
+    print("fBm:", fbm(perlin, 100, 200))
+
+    # Generate a small height map (for testing)
+    width, height = 64, 64
+    heightmap = []
+    for y in range(height):
+        row = []
+        for x in range(width):
+            n = fbm(perlin, x, y)
+            # remap roughly [-1,1] → [0,1]
+            row.append((n + 1) * 0.5)
+        heightmap.append(row)
+
+    print("Heightmap generated (64×64)")
