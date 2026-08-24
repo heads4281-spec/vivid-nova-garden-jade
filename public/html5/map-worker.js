@@ -1,0 +1,79 @@
+/**
+ * CRIMSON SOVEREIGN — Web Worker chunk streamer (holographic / procedural map)
+ * Merged from Type VII palace notes across heads4281-spec repos.
+ * Transferable Uint8Array tiles · 32×32 chunks · Perlin + fBm
+ */
+const TILE = { VOID: 0, WALL: 1, FLOOR: 2, RUNESTONE: 3, GATE: 4 };
+const CHUNK_SIZE = 32;
+const SEED = 63821;
+
+class PerlinNoise2D {
+  constructor(seed = SEED) {
+    this.perm = new Uint8Array(512);
+    const p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    let s = seed >>> 0;
+    for (let i = 255; i > 0; i--) {
+      s = Math.imul(s, 16807) >>> 0;
+      const j = s % (i + 1);
+      [p[i], p[j]] = [p[j], p[i]];
+    }
+    for (let i = 0; i < 512; i++) this.perm[i] = p[i & 255];
+  }
+  fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  lerp(a, b, t) { return a + t * (b - a); }
+  grad(hash, x, y) {
+    const h = hash & 7;
+    const u = h < 4 ? x : y;
+    const v = h < 4 ? y : x;
+    return ((h & 1) ? -u : u) + ((h & 2) ? -v * 2 : v * 2);
+  }
+  noise(x, y) {
+    const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+    x -= Math.floor(x); y -= Math.floor(y);
+    const u = this.fade(x), v = this.fade(y);
+    const A = this.perm[X] + Y, B = this.perm[X + 1] + Y;
+    return this.lerp(
+      this.lerp(this.grad(this.perm[A], x, y), this.grad(this.perm[B], x - 1, y), u),
+      this.lerp(this.grad(this.perm[A + 1], x, y - 1), this.grad(this.perm[B + 1], x - 1, y - 1), u),
+      v
+    );
+  }
+}
+
+function fbm(perlin, x, z, octaves = 5) {
+  let v = 0, amp = 1, freq = 0.012;
+  for (let i = 0; i < octaves; i++) {
+    v += amp * perlin.noise(freq * x, freq * z);
+    amp *= 0.5;
+    freq *= 2.0;
+  }
+  return v;
+}
+
+const perlin = new PerlinNoise2D(SEED);
+
+self.onmessage = function (e) {
+  const { type, cx, cz, requestId } = e.data || {};
+  if (type !== 'generate') return;
+
+  const tiles = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+  const originX = cx * CHUNK_SIZE;
+  const originZ = cz * CHUNK_SIZE;
+
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const wx = originX + lx;
+      const wz = originZ + lz;
+      const n = fbm(perlin, wx, wz);
+      let tile = TILE.WALL;
+      if (n > 0.12) tile = TILE.FLOOR;
+      else if (n < -0.38) tile = TILE.VOID;
+      if (tile === TILE.FLOOR && ((wx * 13 + wz * 17) % 47) === 0) tile = TILE.RUNESTONE;
+      if (tile === TILE.FLOOR && wx === 0 && wz === 0) tile = TILE.GATE;
+      tiles[lz * CHUNK_SIZE + lx] = tile;
+    }
+  }
+
+  self.postMessage({ type: 'chunk', requestId, cx, cz, tiles }, [tiles.buffer]);
+};

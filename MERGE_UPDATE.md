@@ -1,29 +1,21 @@
-# Merge & Fix Status — 2026-08-24
+# Merge & Fix Status — 2026-08-24 (full)
 
-## Repositories under heads4281-spec
-Primary target: **vivid-nova-garden-jade** (Crimson Sovereign)
+## Canonical
+https://github.com/heads4281-spec/vivid-nova-garden-jade
 
-Related: marble-delta-zinc-coral, quartz-forest-able-pine, nova-sand-pine-timber, and other template dumps.
+## This pass
+1. Confirmed textures match across vivid + marble-delta (identical SHAs).
+2. HTML5 hub: `public/html5/index.html`
+3. Holographic map worker: `public/html5/map-worker.js`
+4. Full multi-repo survey → `REPOS_MERGE_MANIFEST.md`
+5. Prior: auto-graphics-fix-game.html, extra maps, holo atlas, Kaelith/Vespera/Ankh Spire
 
-## What was merged / fixed this session
-1. **Auto Graphics Fix HTML5 game** → `public/html5/auto-graphics-fix-game.html`
-   - High-DPI / Retina aware canvas
-   - Logical 800×450 resolution with auto scale
-   - Keyboard + touch controls, platforms, coins
-   - Standalone — open in any browser, no editor required
+## Best files policy
+- Keep `src/game/*` best engine paths.
+- Textures/arms/lore already complete; no binary re-upload needed.
+- Sibling repos remain export snapshots; do not force-push into them.
 
-2. Preserved best engine paths: `src/game/` (engine.ts, GameApp.tsx, etc.), `public/textures/`, `scripts/`
-
-3. Recent commits kept (extra maps Kaelith Forge / Vespera Hollow / Ankh Spire, holographic atlas, HTML5 pages)
-
-4. Garbage note-filenames left untouched (as in prior commit policy)
-
-## How to run the new HTML5 piece
-```
-npx serve public
-# open http://localhost:3000/html5/auto-graphics-fix-game.html
-```
-Or double-click the file after download.
-
-## Zip (local session)
-artifacts/auto-graphics-fix-game.zip
+## Links
+- Profile: https://github.com/heads4281-spec
+- Play / Share cycle from title screen
+- HTML5 hub: `/html5/`

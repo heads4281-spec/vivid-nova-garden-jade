@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050010" />
+  <meta name="color-scheme" content="dark" />
+  <title>CRIMSON SOVEREIGN · HTML5 Hub</title>
+  <style>
+    :root { color-scheme: dark; --crimson: #c41e3a; --ember: #ff4400; --fg: #e8d5c4; --holo: #7df9ff; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #050010; color: var(--fg); font-family: ui-sans-serif, system-ui, sans-serif; }
+    body { padding: 28px 18px 56px; }
+    a { color: var(--holo); }
+    header { max-width: 960px; margin: 0 auto 32px; }
+    h1 { font-family: ui-serif, Georgia, serif; letter-spacing: 0.18em; color: var(--crimson); font-size: clamp(1.5rem, 4vw, 2.6rem); margin: 0 0 8px; }
+    .sub { letter-spacing: 0.35em; color: var(--crimson); font-size: 0.75rem; }
+    main { max-width: 960px; margin: 0 auto; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+    article {
+      border: 1px solid #c41e3a55; background: #0a0015; padding: 16px 18px;
+      box-shadow: 0 0 24px #c41e3a22; display: flex; flex-direction: column; gap: 8px;
+    }
+    article h2 { margin: 0; font-family: ui-serif, Georgia, serif; letter-spacing: 0.12em; color: var(--ember); font-size: 1rem; }
+    article p { margin: 0; line-height: 1.45; color: #c8b8aa; font-size: 0.9rem; flex: 1; }
+    article a.btn {
+      display: inline-block; background: #1a0508; color: var(--fg); border: 1px solid #c41e3a88;
+      padding: 10px 14px; text-decoration: none; letter-spacing: 0.12em; font-size: 0.75rem; text-align: center;
+    }
+    article a.btn:hover { background: #3a0a14; }
+    footer { max-width: 960px; margin: 28px auto 0; font-size: 0.8rem; color: #a09080; }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="sub">TYPE VII · HTML5 HUB</p>
+    <h1>CRIMSON SOVEREIGN</h1>
+    <p>Merged HTML5 demos, atlas, maps, and auto-graphics fix. Canonical source: <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade">vivid-nova-garden-jade</a>.</p>
+  </header>
+  <main>
+    <article>
+      <h2>Play the palace</h2>
+      <p>Full TanStack + Three.js Crimson Sovereign (client engine).</p>
+      <a class="btn" href="/">Open game</a>
+    </article>
+    <article>
+      <h2>Holographic atlas</h2>
+      <p>Canvas atlas — Six Names + Kaelith / Vespera / Ankh Spire. Scroll zoom, drag pan.</p>
+      <a class="btn" href="/html5/holographic-atlas.html">Open atlas</a>
+    </article>
+    <article>
+      <h2>Extra maps</h2>
+      <p>Lore cards for Kaelith Forge, Vespera Hollow, Ankh Spire + coordinates.</p>
+      <a class="btn" href="/html5/extra-maps.html">Open maps</a>
+    </article>
+    <article>
+      <h2>Auto graphics fix</h2>
+      <p>Standalone high-DPI canvas platformer. Logical 800×450, Retina-safe, touch + keyboard.</p>
+      <a class="btn" href="/html5/auto-graphics-fix-game.html">Open demo</a>
+    </article>
+  </main>
+  <footer>
+    Owner: <a href="https://github.com/heads4281-spec">github.com/heads4281-spec</a> ·
+    Textures: public/textures · Arms: public/arms · Lore: public/lore ·
+    Manifest: <a href="/REPOS_MERGE_MANIFEST.md">REPOS_MERGE_MANIFEST.md</a>
+  </footer>
+</body>
+</html>
