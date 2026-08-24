@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shape-Based Collision – Super Art Palace</title>
+<style>
+  body{margin:0;background:#030303;color:#ddd;font-family:monospace;overflow:hidden}
+  canvas{display:block;margin:0 auto;background:#000;cursor:none}
+  #ui{
+    position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.92);
+    padding:12px;border:1px solid #555;max-width:420px;font-size:13px;line-height:1.45
+  }
+  button{margin:3px 2px;padding:7px 11px;background:#1a1a1a;color:#eee;border:1px solid #666;cursor:pointer;border-radius:3px}
+  button:hover{background:#333}
+  #msg{color:#8f8;margin-top:6px}
+  #floor,#area,#pack,#col{font-weight:bold}
+  #floor{color:#6af} #area{color:#f8a} #pack{color:#ff8} #col{color:#6ff}
+</style>
+</head>
+<body>
+<div id="ui">
+  <div>WASD / Arrows = move • Mouse = look • Space = jump</div>
+  <div><b>Shape-based circular collision active</b></div>
+  <div id="floor">Current Floor: Ground</div>
+  <div id="area">Area Code: —</div>
+  <div id="pack">Graphics Pack: Base</div>
+  <div id="col">Collision: Circular</div>
+  <div id="msg">Climb stairs to unlock Super Art packs</div>
+  <br>
+  <button onclick="forceUpgrade()">Force Super Art Upgrade</button>
+  <button onclick="upgradeLighting()">Upgrade Lighting</button>
+  <button onclick="addRectangleRoom()">Add Rectangle Block Room</button>
+  <button onclick="addStairs()">Add Extra Super Stairs</button>
+</div>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = canvas.width = innerWidth;
+let H = canvas.height = innerHeight;
+
+// ===================== MAPS + SHAPE AREA CODES =====================
+const floors = [
+  [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,0,1,1,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],[1,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+  [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,0,1,1,1,0,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],[1,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,0,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+  [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1],[1,0,1,0,1,1,1,1,0,1,1,1,1,0,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]
+];
+
+const areaCodes = [
+  [[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0],[0,1,0,3,3,3,3,3,3,3,3,3,3,3,3,0,1,0],[0,1,0,3,0,0,0,0,3,0,0,0,0,0,3,0,1,0],[0,1,1,3,3,3,3,2,3,3,3,3,3,3,3,1,1,0],[0,1,0,0,0,0,3,0,0,0,3,0,0,0,0,0,1,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0],[0,1,1,0,1,4,4,4,4,4,4,4,1,0,1,1,1,0],[0,1,0,0,0,0,4,0,0,0,0,4,0,0,0,0,1,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
+  [[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,2,2,2,2,2,2,3,2,2,2,2,2,2,2,2,2,0],[0,2,0,0,0,0,2,0,0,0,0,2,0,0,0,0,2,0],[0,2,0,5,5,5,5,5,5,5,5,5,5,5,5,0,2,0],[0,2,0,5,0,0,0,5,0,0,0,5,0,0,5,0,2,0],[0,2,2,5,5,5,5,5,5,5,5,5,5,5,5,2,2,0],[0,2,0,0,5,0,0,0,0,0,0,0,5,0,0,0,2,0],[0,2,2,0,5,3,3,3,3,3,3,3,5,0,2,2,2,0],[0,2,0,0,0,0,3,0,0,0,3,0,0,0,0,0,2,0],[0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0],[0,2,0,0,0,2,0,0,0,0,0,2,0,0,0,0,2,0],[0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
+  [[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,4,4,4,4,4,4,3,4,4,4,4,4,4,4,4,4,0],[0,4,0,0,0,0,4,0,0,0,0,4,0,0,0,0,4,0],[0,4,0,1,1,1,1,1,1,1,1,1,1,1,1,0,4,0],[0,4,0,1,0,0,0,0,0,0,0,0,0,0,1,0,4,0],[0,4,4,1,1,1,1,1,1,1,1,1,1,1,1,4,4,0],[0,4,0,0,0,1,0,0,0,0,0,1,0,0,0,0,4,0],[0,4,4,4,0,1,3,3,3,3,3,1,0,4,4,4,4,0],[0,4,0,4,0,0,0,0,3,0,0,0,0,4,0,0,4,0],[0,4,0,4,1,1,1,1,1,1,1,1,1,4,0,0,4,0],[0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0],[0,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+];
+
+const shapeNames = ['None','Circle','Triangle','Rectangle/Cube','Pyramid','Polyhedron'];
+let currentFloor = 0;
+const mapW = 18, mapH = 13, TILE = 64;
+
+// Player
+let px = 2.5 * TILE, py = 2.5 * TILE, pa = 0, pHeight = 0;
+let moveSpeed = 3.6, floorTransition = 0;
+
+// ===================== SHAPE-BASED COLLISION SYSTEM =====================
+const BASE_RADIUS = 13.5;
+
+const shapeCollision = {
+  0: { radiusMul: 1.00, push: 0.00 },  // None
+  1: { radiusMul: 1.18, push: 0.00 },  // Circle – forgiving
+  2: { radiusMul: 0.88, push: 0.45 },  // Triangle – tight + push
+  3: { radiusMul: 1.00, push: 0.00 },  // Rectangle/Cube
+  4: { radiusMul: 0.90, push: 0.35 },  // Pyramid – tight + push
+  5: { radiusMul: 1.15, push: 0.00 }   // Polyhedron – forgiving
+};
+
+function getCurrentShapeCode() {
+  const mx = Math.floor(px / TILE);
+  const my = Math.floor(py / TILE);
+  return areaCodes[currentFloor]?.[my]?.[mx] || 0;
+}
+
+function getCollisionRadius() {
+  const code = getCurrentShapeCode();
+  return BASE_RADIUS * (shapeCollision[code]?.radiusMul || 1.0);
+}
+
+function isSolid(x, y) {
+  const mx = Math.floor(x / TILE);
+  const my = Math.floor(y / TILE);
+  if (mx < 0 || my < 0 || mx >= mapW || my >= mapH) return true;
+  return floors[currentFloor][my][mx] === 1;
+}
+
+// Circular collision using 12 sample points
+function canMove(nx, ny) {
+  const radius = getCollisionRadius();
+  const samples = 12;
+  for (let i = 0; i < samples; i++) {
+    const angle = (i / samples) * Math.PI * 2;
+    const sx = nx + Math.cos(angle) * radius;
+    const sy = ny + Math.sin(angle) * radius;
+    if (isSolid(sx, sy)) return false;
+  }
+  return !isSolid(nx, ny);
+}
+
+// Shape-specific push force
+function applyShapePush() {
+  const code = getCurrentShapeCode();
+  const strength = shapeCollision[code]?.push || 0;
+  if (strength === 0) return;
+
+  let dx = 0, dy = 0;
+  if (isSolid(px - TILE, py)) dx += 1;
+  if (isSolid(px + TILE, py)) dx -= 1;
+  if (isSolid(px, py - TILE)) dy += 1;
+  if (isSolid(px, py + TILE)) dy -= 1;
+
+  if (dx || dy) {
+    const len = Math.hypot(dx, dy) || 1;
+    const tx = px + (dx / len) * strength * 2.8;
+    const ty = py + (dy / len) * strength * 2.8;
+    if (canMove(tx, ty)) {
+      px = tx;
+      py = ty;
+    }
+  }
+}
+
+// ===================== TEXTURES (Super Art) =====================
+const texSize = 128;
+let graphicsPack = 0;
+let lightMul = 1.35;
+const textures = { wall: [], stairs: [] };
+
+function noise(x, y, s = 0) {
+  const n = Math.sin(x * 12.9898 + y * 78.233 + s) * 43758.5453;
+  return n - Math.floor(n);
+}
+function hslToRgb(h, s, l) {
+  let r, g, b;
+  if (s === 0) { r = g = b = l; }
+  else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const f = t => {
+      if (t < 0) t += 1; if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    r = f(h + 1/3); g = f(h); b = f(h - 1/3);
+  }
+  return [r * 255, g * 255, b * 255];
+}
+
+function makeWallTexture(level) {
+  const t = document.createElement('canvas');
+  t.width = t.height = texSize;
+  const g = t.getContext('2d');
+  const img = g.createImageData(texSize, texSize);
+  const d = img.data;
+  for (let y = 0; y < texSize; y++) {
+    for (let x = 0; x < texSize; x++) {
+      let r, g_, b;
+      const n1 = noise(x * 0.06, y * 0.06, level);
+      const n2 = noise(x * 0.15, y * 0.15, level + 3);
+      if (level < 2) {
+        let base = 75 + n1 * 55 + n2 * 25;
+        if (level === 1) base += 20;
+        r = base * 0.78; g_ = base * 0.65; b = base * 0.5;
+        if ((x % 20 < 2 || y % 16 < 2) && level === 1) { r *= 0.5; g_ *= 0.5; b *= 0.5; }
+      } else {
+        const hue = (x / texSize * 300 + y / texSize * 90 + n1 * 50) % 360;
+        const rgb = hslToRgb(hue / 360, 0.8, 0.42 + n1 * 0.2);
+        r = rgb[0]; g_ = rgb[1]; b = rgb[2];
+        if (n2 > 0.78) { r -= 25; g_ += 12; b -= 15; }
+        const cx = 64, cy = 64, dx = x - cx, dy = y - cy, dist = Math.sqrt(dx * dx + dy * dy);
+        if (Math.abs(dist - 30) < 2.2 || Math.abs(dist - 50) < 1.8) {
+          r = Math.min(255, r + 95); g_ = Math.min(255, g_ + 60); b = Math.min(255, b + 130);
+        }
+        if (y > 35 && y < 95 && Math.abs(dx) < (y - 35) * 0.65 && Math.abs(dx) > (y - 35) * 0.65 - 2.5) {
+          r = Math.min(255, r + 110); g_ = Math.min(255, g_ + 45); b = Math.min(255, b + 70);
+        }
+        if (x > 32 && x < 96 && y > 32 && y < 96 && (x < 35 || x > 93 || y < 35 || y > 93)) {
+          r = Math.min(255, r + 75); g_ = Math.min(255, g_ + 85); b = Math.min(255, b + 55);
+        }
+      }
+      const i = (y * texSize + x) * 4;
+      d[i] = r | 0; d[i + 1] = g_ | 0; d[i + 2] = b | 0; d[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return t;
+}
+
+function makeStairsTexture(level) {
+  const t = document.createElement('canvas');
+  t.width = t.height = texSize;
+  const g = t.getContext('2d');
+  const img = g.createImageData(texSize, texSize);
+  const d = img.data;
+  for (let y = 0; y < texSize; y++) {
+    for (let x = 0; x < texSize; x++) {
+      let r, g_, b;
+      const step = Math.floor(y / 16);
+      const n1 = noise(x * 0.08, y * 0.08, level + 10);
+      const n2 = noise(x * 0.2, y * 0.2, level + 15);
+      let base = 65 + n1 * 40 + (step % 2) * 12;
+      r = base * 0.82; g_ = base * 0.68; b = base * 0.52;
+      if (y % 16 < 2.5) { r += 45; g_ += 30; b += 15; }
+      if (n2 > 0.7) { r -= 18; g_ -= 12; b -= 8; }
+      if (level >= 2) {
+        const glow = Math.sin(x * 0.3 + y * 0.2 + level) * 0.5 + 0.5;
+        r = Math.min(255, r + glow * 70);
+        g_ = Math.min(255, g_ + glow * 40);
+        b = Math.min(255, b + glow * 110);
+      }
+      if (level >= 3 && (x % 32 < 1.5 || y % 16 < 1)) {
+        r = Math.min(255, r + 90); g_ = Math.min(255, g_ + 50); b = Math.min(255, b + 140);
+      }
+      const i = (y * texSize + x) * 4;
+      d[i] = r | 0; d[i + 1] = g_ | 0; d[i + 2] = b | 0; d[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return t;
+}
+
+for (let i = 0; i < 4; i++) {
+  textures.wall[i] = makeWallTexture(i);
+  textures.stairs[i] = makeStairsTexture(i);
+}
+
+// ===================== INPUT =====================
+const keys = {};
+onkeydown = e => keys[e.key.toLowerCase()] = true;
+onkeyup   = e => keys[e.key.toLowerCase()] = false;
+let pointerLocked = false;
+canvas.onclick = () => canvas.requestPointerLock();
+document.onpointerlockchange = () => pointerLocked = !!document.pointerLockElement;
+onmousemove = e => { if (pointerLocked) pa += e.movementX * 0.0022; };
+
+// ===================== STAIRS + UPGRADES =====================
+function handleStairsAndUpgrade() {
+  const mx = Math.floor(px / TILE);
+  const my = Math.floor(py / TILE);
+  const cell = floors[currentFloor][my]?.[mx];
+  const code = getCurrentShapeCode();
+
+  document.getElementById('area').textContent = `Area Code: ${shapeNames[code]}`;
+  document.getElementById('col').textContent = `Collision: Circular r=${getCollisionRadius().toFixed(1)} (${shapeNames[code]})`;
+
+  if (cell === 2 && currentFloor < floors.length - 1) {
+    currentFloor++;
+    floorTransition = 75;
+    if (graphicsPack < 3) {
+      graphicsPack++;
+      document.getElementById('pack').textContent = `Graphics Pack: ${['Base','Enhanced','Super Art','Ultra Super Art'][graphicsPack]}`;
+      document.getElementById('msg').textContent = `Stairs unlocked Super Art Pack ${graphicsPack}!`;
+    }
+    document.getElementById('floor').textContent = `Current Floor: ${['Ground','Gallery','Throne'][currentFloor]}`;
+  } else if (cell === 3 && currentFloor > 0) {
+    currentFloor--;
+    floorTransition = -75;
+    document.getElementById('floor').textContent = `Current Floor: ${['Ground','Gallery','Throne'][currentFloor]}`;
+    document.getElementById('msg').textContent = 'Descended';
+  }
+}
+
+function forceUpgrade() {
+  if (graphicsPack < 3) {
+    graphicsPack++;
+    document.getElementById('pack').textContent = `Graphics Pack: ${['Base','Enhanced','Super Art','Ultra Super Art'][graphicsPack]}`;
+    document.getElementById('msg').textContent = `Forced Super Art Pack ${graphicsPack}`;
+  }
+}
+function upgradeLighting() {
+  lightMul = Math.min(2.3, lightMul + 0.2);
+  document.getElementById('msg').textContent = `Lighting ${lightMul.toFixed(2)}x`;
+}
+function addRectangleRoom() {
+  const f = floors[currentFloor], a = areaCodes[currentFloor];
+  for (let y = 3; y < mapH - 4; y++) {
+    for (let x = 3; x < mapW - 4; x++) {
+      if (f[y][x] === 1 && f[y][x+1] === 1 && f[y+1][x] === 1) {
+        f[y][x] = 0; f[y][x+1] = 0; f[y+1][x] = 0; f[y+1][x+1] = 0;
+        a[y][x] = 3; a[y][x+1] = 3; a[y+1][x] = 3; a[y+1][x+1] = 3;
+        document.getElementById('msg').textContent = 'Rectangle/Cube room added';
+        return;
+      }
+    }
+  }
+}
+function addStairs() {
+  const f = floors[currentFloor];
+  for (let y = 2; y < mapH - 2; y++) {
+    for (let x = 2; x < mapW - 2; x++) {
+      if (f[y][x] === 0) {
+        f[y][x] = currentFloor < 2 ? 2 : 3;
+        document.getElementById('msg').textContent = 'Super Stairs added';
+        return;
+      }
+    }
+  }
+}
+
+// ===================== MAIN LOOP =====================
+function frame() {
+  let dx = 0, dy = 0;
+  if (keys['w'] || keys['arrowup'])    { dx += Math.cos(pa); dy += Math.sin(pa); }
+  if (keys['s'] || keys['arrowdown'])  { dx -= Math.cos(pa); dy -= Math.sin(pa); }
+  if (keys['a'] || keys['arrowleft'])  { dx += Math.cos(pa - Math.PI/2); dy += Math.sin(pa - Math.PI/2); }
+  if (keys['d'] || keys['arrowright']) { dx += Math.cos(pa + Math.PI/2); dy += Math.sin(pa + Math.PI/2); }
+  if (keys[' ']) pHeight = Math.min(52, pHeight + 5);
+
+  const len = Math.hypot(dx, dy) || 1;
+  dx = (dx / len) * moveSpeed;
+  dy = (dy / len) * moveSpeed;
+
+  // Shape-based movement with sliding
+  if (canMove(px + dx, py)) px += dx;
+  if (canMove(px, py + dy)) py += dy;
+
+  applyShapePush();
+  handleStairsAndUpgrade();
+  pHeight *= 0.87;
+  floorTransition *= 0.88;
+
+  // Background
+  ctx.fillStyle = currentFloor === 2 ? '#0e0a14' : currentFloor === 1 ? '#0a0c14' : '#08080e';
+  ctx.fillRect(0, 0, W, H/2 + pHeight*0.3 + floorTransition*0.35);
+  ctx.fillStyle = currentFloor === 2 ? '#1a1422' : '#14141c';
+  ctx.fillRect(0, H/2 + pHeight*0.3 + floorTransition*0.35, W, H);
+
+  const FOV = Math.PI / 2.85;
+  const numRays = W;
+  const maxDist = 20 * TILE;
+  const onStairs = floors[currentFloor][Math.floor(py/TILE)]?.[Math.floor(px/TILE)] === 2 ||
+                   floors[currentFloor][Math.floor(py/TILE)]?.[Math.floor(px/TILE)] === 3;
+
+  for (let r = 0; r < numRays; r++) {
+    const rayAngle = pa - FOV/2 + (r / numRays) * FOV;
+    let dist = 0, hit = false, hitSide = 0, texX = 0;
+    const cosA = Math.cos(rayAngle), sinA = Math.sin(rayAngle);
+
+    while (!hit && dist < maxDist) {
+      dist += 1.6;
+      const rx = px + cosA * dist;
+      const ry = py + sinA * dist;
+      const mx = Math.floor(rx / TILE);
+      const my = Math.floor(ry / TILE);
+      if (mx < 0 || my < 0 || mx >= mapW || my >= mapH || floors[currentFloor][my][mx] === 1) {
+        hit = true;
+        const prevX = Math.floor((px + cosA * (dist - 1.6)) / TILE);
+        hitSide = prevX !== mx ? 0 : 1;
+        texX = hitSide === 0 ? (ry % TILE) : (rx % TILE);
+        if ((hitSide === 0 && cosA < 0) || (hitSide === 1 && sinA > 0)) texX = TILE - texX;
+      }
+    }
+
+    dist *= Math.cos(rayAngle - pa);
+    const wallH = Math.min(H * 1.55, (TILE * 1.1 * H) / dist);
+    const wallTop = (H - wallH) / 2 - pHeight * 0.5 - floorTransition * 0.45;
+    const shade = Math.max(0.08, Math.min(1, (1 - dist / maxDist) * lightMul * (1 - currentFloor * 0.05)));
+
+    const tex = onStairs ? textures.stairs[graphicsPack] : textures.wall[graphicsPack];
+    const sx = Math.floor((texX / TILE) * texSize) % texSize;
+    ctx.drawImage(tex, sx, 0, 1, texSize, r, wallTop, 1, wallH);
+
+    ctx.fillStyle = `rgba(0,0,0,${1 - shade})`;
+    ctx.fillRect(r, wallTop, 1, wallH);
+  }
+
+  // Crosshair
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.beginPath();
+  ctx.moveTo(W/2 - 8, H/2); ctx.lineTo(W/2 + 8, H/2);
+  ctx.moveTo(W/2, H/2 - 8); ctx.lineTo(W/2, H/2 + 8);
+  ctx.stroke();
+
+  requestAnimationFrame(frame);
+}
+frame();
+
+onresize = () => {
+  W = canvas.width = innerWidth;
+  H = canvas.height = innerHeight;
+};
+</script>
+</body>
+</html>
