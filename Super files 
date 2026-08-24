@@ -1,0 +1,78 @@
+#pragma once
+#include <cmath>
+#include <array>
+#include <iostream>
+
+// Drop-in compatible with real HPML (https://github.com/ravi688/HPML)
+// Replace these stubs with #include "hpml.h" + real functions when ready.
+
+struct vec3_t {
+    float x = 0, y = 0, z = 0;
+    vec3_t() = default;
+    vec3_t(float x, float y, float z) : x(x), y(y), z(z) {}
+    vec3_t operator+(const vec3_t& o) const { return {x + o.x, y + o.y, z + o.z}; }
+    vec3_t operator-(const vec3_t& o) const { return {x - o.x, y - o.y, z - o.z}; }
+    vec3_t operator*(float s) const { return {x * s, y * s, z * s}; }
+    float length() const { return std::sqrt(x*x + y*y + z*z); }
+    vec3_t normalized() const {
+        float l = length();
+        return l > 0.0001f ? *this * (1.f / l) : vec3_t{};
+    }
+    static float dot(const vec3_t& a, const vec3_t& b) {
+        return a.x*b.x + a.y*b.y + a.z*b.z;
+    }
+    static vec3_t cross(const vec3_t& a, const vec3_t& b) {
+        return {a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x};
+    }
+};
+
+struct mat4_t {
+    std::array<float, 16> m{};
+    static mat4_t identity() {
+        mat4_t r;
+        r.m[0] = r.m[5] = r.m[10] = r.m[15] = 1.f;
+        return r;
+    }
+    static mat4_t translate(const vec3_t& t) {
+        mat4_t r = identity();
+        r.m[12] = t.x; r.m[13] = t.y; r.m[14] = t.z;
+        return r;
+    }
+    static mat4_t scale(const vec3_t& s) {
+        mat4_t r = identity();
+        r.m[0] = s.x; r.m[5] = s.y; r.m[10] = s.z;
+        return r;
+    }
+    static mat4_t perspective(float fovY, float aspect, float nearZ, float farZ) {
+        mat4_t r;
+        float f = 1.f / std::tan(fovY * 0.5f);
+        r.m[0] = f / aspect;
+        r.m[5] = f;
+        r.m[10] = (farZ + nearZ) / (nearZ - farZ);
+        r.m[11] = -1.f;
+        r.m[14] = (2.f * farZ * nearZ) / (nearZ - farZ);
+        return r;
+    }
+    static mat4_t lookAt(const vec3_t& eye, const vec3_t& center, const vec3_t& up) {
+        vec3_t f = (center - eye).normalized();
+        vec3_t s = vec3_t::cross(f, up).normalized();
+        vec3_t u = vec3_t::cross(s, f);
+        mat4_t r = identity();
+        r.m[0] = s.x; r.m[4] = s.y; r.m[8] = s.z;
+        r.m[1] = u.x; r.m[5] = u.y; r.m[9] = u.z;
+        r.m[2] = -f.x; r.m[6] = -f.y; r.m[10] = -f.z;
+        r.m[12] = -vec3_t::dot(s, eye);
+        r.m[13] = -vec3_t::dot(u, eye);
+        r.m[14] = vec3_t::dot(f, eye);
+        return r;
+    }
+    mat4_t operator*(const mat4_t& o) const {
+        mat4_t r;
+        for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j)
+                r.m[i*4 + j] =
+                    m[i*4+0]*o.m[0*4+j] + m[i*4+1]*o.m[1*4+j] +
+                    m[i*4+2]*o.m[2*4+j] + m[i*4+3]*o.m[3*4+j];
+        return r;
+    }
+};
