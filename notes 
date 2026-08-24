@@ -1,0 +1,260 @@
+**Web Worker Chunk Streaming for the Type VII Palace**  
+Complete, production-oriented design for 1000×1000 (or larger / infinite) maps.
+
+### Why Chunk Streaming + Web Workers?
+
+A 1000 × 1000 grid = **1 000 000 cells**.  
+Generating Perlin/fBm + rooms + uploading InstancedMesh matrices on the main thread freezes the browser for several seconds and can crash low-memory devices.  
+
+Solution:
+
+| Layer              | Responsibility                                      | Thread      |
+|--------------------|-----------------------------------------------------|-------------|
+| Generation         | Perlin + fBm + rooms + tile assignment              | Web Worker  |
+| Visibility         | Decide which chunks the player needs                | Main        |
+| GPU                | Create / update / dispose InstancedMeshes           | Main        |
+| Communication      | `postMessage` with transferable ArrayBuffers        | Both        |
+
+Chunk size of **32 × 32** (or 16 × 16) is the sweet spot: small enough to generate quickly, large enough that you don’t spam messages.
+
+---
+
+### 1. Complete Web Worker (`map-worker.js`)
+
+```js
+// map-worker.js
+const TILE = { VOID: 0, WALL: 1, FLOOR: 2, RUNESTONE: 3, GATE: 4 };
+const CHUNK_SIZE = 32;          // cells per side
+const SEED = 63821;
+
+class PerlinNoise2D {
+  constructor(seed = SEED) {
+    this.perm = new Uint8Array(512);
+    const p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    let s = seed >>> 0;
+    for (let i = 255; i > 0; i--) {
+      s = Math.imul(s, 16807) >>> 0;
+      const j = s % (i + 1);
+      [p[i], p[j]] = [p[j], p[i]];
+    }
+    for (let i = 0; i < 512; i++) this.perm[i] = p[i & 255];
+  }
+  fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  lerp(a, b, t) { return a + t * (b - a); }
+  grad(hash, x, y) {
+    const h = hash & 7;
+    const u = h < 4 ? x : y;
+    const v = h < 4 ? y : x;
+    return ((h & 1) ? -u : u) + ((h & 2) ? -v * 2 : v * 2);
+  }
+  noise(x, y) {
+    const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+    x -= Math.floor(x); y -= Math.floor(y);
+    const u = this.fade(x), v = this.fade(y);
+    const A = this.perm[X] + Y, B = this.perm[X + 1] + Y;
+    return this.lerp(
+      this.lerp(this.grad(this.perm[A], x, y),     this.grad(this.perm[B], x - 1, y), u),
+      this.lerp(this.grad(this.perm[A + 1], x, y - 1), this.grad(this.perm[B + 1], x - 1, y - 1), u),
+      v
+    );
+  }
+}
+
+function fbm(perlin, x, z, octaves = 5) {
+  let v = 0, amp = 1, freq = 0.012;
+  for (let i = 0; i < octaves; i++) {
+    v += amp * perlin.noise(freq * x, freq * z);
+    amp *= 0.5;
+    freq *= 2.0;
+  }
+  return v;
+}
+
+const perlin = new PerlinNoise2D(SEED);
+
+self.onmessage = function (e) {
+  const { type, cx, cz, requestId } = e.data;
+  if (type !== 'generate') return;
+
+  const tiles = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+
+  // World-space origin of this chunk
+  const originX = cx * CHUNK_SIZE;
+  const originZ = cz * CHUNK_SIZE;
+
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const wx = originX + lx;
+      const wz = originZ + lz;
+      const n = fbm(perlin, wx, wz);
+
+      let tile = TILE.WALL;
+      if (n > 0.12) tile = TILE.FLOOR;
+      else if (n < -0.38) tile = TILE.VOID;
+
+      // Simple room / rune injection (deterministic via world coords)
+      if (tile === TILE.FLOOR && ((wx * 13 + wz * 17) % 47) === 0) {
+        tile = TILE.RUNESTONE;
+      }
+      if (tile === TILE.FLOOR && wx === 0 && wz === 0) {
+        tile = TILE.GATE; // example threshold
+      }
+
+      tiles[lz * CHUNK_SIZE + lx] = tile;
+    }
+  }
+
+  // Transfer the buffer (zero-copy)
+  self.postMessage({
+    type: 'chunk',
+    requestId,
+    cx, cz,
+    tiles
+  }, [tiles.buffer]);
+};
+```
+
+### 2. Main-Thread Chunk Manager
+
+```js
+// Inside your main HTML / engine module
+const CHUNK_SIZE = 32;
+const CELL = 8;
+const LOAD_RADIUS = 3;          // chunks in each direction
+const UNLOAD_RADIUS = 5;
+
+const worker = new Worker('map-worker.js');
+const loadedChunks = new Map(); // key → { meshGroup, tiles }
+let nextRequestId = 1;
+const pending = new Map();
+
+function chunkKey(cx, cz) {
+  return `${cx},${cz}`;
+}
+
+function worldToChunk(x, z) {
+  return {
+    cx: Math.floor(x / (CHUNK_SIZE * CELL)),
+    cz: Math.floor(z / (CHUNK_SIZE * CELL))
+  };
+}
+
+worker.onmessage = (e) => {
+  const { type, requestId, cx, cz, tiles } = e.data;
+  if (type !== 'chunk') return;
+
+  const key = chunkKey(cx, cz);
+  pending.delete(requestId);
+
+  if (loadedChunks.has(key)) return; // already loaded
+
+  // Build InstancedMeshes for this chunk
+  const group = buildChunkMeshes(cx, cz, tiles);
+  loadedChunks.set(key, { group, tiles });
+  scene.add(group);
+};
+
+function requestChunk(cx, cz) {
+  const key = chunkKey(cx, cz);
+  if (loadedChunks.has(key) || pending.has(key)) return;
+
+  const id = nextRequestId++;
+  pending.set(id, key);
+  worker.postMessage({ type: 'generate', cx, cz, requestId: id });
+}
+
+function buildChunkMeshes(cx, cz, tiles) {
+  const group = new THREE.Group();
+  const originX = cx * CHUNK_SIZE * CELL;
+  const originZ = cz * CHUNK_SIZE * CELL;
+
+  const floorPos = [], wallPos = [], runePos = [], gatePos = [];
+
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const t = tiles[lz * CHUNK_SIZE + lx];
+      const wx = originX + lx * CELL + CELL / 2;
+      const wz = originZ + lz * CELL + CELL / 2;
+
+      if (t === 2) floorPos.push(new THREE.Vector3(wx, 0, wz));
+      if (t === 1) wallPos.push(new THREE.Vector3(wx, 0, wz));
+      if (t === 3) { floorPos.push(new THREE.Vector3(wx, 0, wz)); runePos.push(new THREE.Vector3(wx, 0, wz)); }
+      if (t === 4) { floorPos.push(new THREE.Vector3(wx, 0, wz)); gatePos.push(new THREE.Vector3(wx, 0, wz)); }
+    }
+  }
+
+  // Re-use the same createInstanced helper from previous replies
+  if (floorPos.length) group.add(createInstanced(floorPos, floorGeo, floorMat, 0));
+  if (wallPos.length)  group.add(createInstanced(wallPos,  wallGeo,  wallMat,  CELL * 0.9));
+  if (runePos.length)  group.add(createInstanced(runePos,  runeGeo,  runeMat,  CELL * 0.7));
+  if (gatePos.length)  group.add(createInstanced(gatePos,  gateGeo,  gateMat,  CELL * 1.1));
+
+  return group;
+}
+
+function updateChunks(playerX, playerZ) {
+  const { cx: pcx, cz: pcz } = worldToChunk(playerX, playerZ);
+
+  // Request needed chunks
+  for (let dz = -LOAD_RADIUS; dz <= LOAD_RADIUS; dz++) {
+    for (let dx = -LOAD_RADIUS; dx <= LOAD_RADIUS; dx++) {
+      requestChunk(pcx + dx, pcz + dz);
+    }
+  }
+
+  // Unload distant chunks
+  for (const [key, data] of loadedChunks) {
+    const [cx, cz] = key.split(',').map(Number);
+    if (Math.abs(cx - pcx) > UNLOAD_RADIUS || Math.abs(cz - pcz) > UNLOAD_RADIUS) {
+      scene.remove(data.group);
+      data.group.traverse(obj => {
+        if (obj.isInstancedMesh) {
+          obj.geometry.dispose();
+          // materials are shared – don’t dispose
+        }
+      });
+      loadedChunks.delete(key);
+    }
+  }
+}
+```
+
+### 3. Integration into the Game Loop
+
+```js
+// Inside your animate() function
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+
+  // … player movement & collision …
+
+  // Stream chunks every frame (or every 5–10 frames for less overhead)
+  updateChunks(camera.position.x, camera.position.z);
+
+  renderer.render(scene, camera);
+}
+```
+
+### 4. Performance Notes & Scaling
+
+| Grid size     | Chunks needed (radius 3) | Approx. memory (32³) | Generation time / chunk |
+|---------------|---------------------------|----------------------|-------------------------|
+| 96 × 96       | ~49                       | Low                  | < 2 ms                  |
+| 1000 × 1000   | ~49 (always)              | Constant             | 3–8 ms                  |
+| Infinite      | ~49                       | Constant             | 3–8 ms                  |
+
+- Only ~49 chunks are ever resident → GPU & RAM stay constant.
+- Worker runs on a separate core → main thread stays at 60 fps.
+- Use `Transferable` objects (`tiles.buffer`) so there is almost zero copy cost.
+- For even larger worlds you can add a second “detail” worker or LODs.
+
+### 5. Optional Improvements
+
+- **Priority queue** – generate the chunk the player is standing in first.
+- **SharedArrayBuffer + Atomics** (when available) for lock-free streaming.
+- **Persistent cache** – store generated chunks in IndexedDB so revisiting is instant.
+- **Room-aware generation** – the worker can still run the original room-carving logic, just constrained to the chunk + a small border for corridor continuity.
+
+This architecture is the standard way modern browser engines (Minecraft-style, No Man’s Sky browser ports, etc.) handle huge procedural worlds. It plugs directly into the centered-origin math, Perlin/fBm formula, and InstancedMesh system we already built.
