@@ -1,0 +1,16 @@
+// Shared buffer layout (example – 64 KB is plenty)
+const SHARED_BYTES = 64 * 1024;
+const sab = new SharedArrayBuffer(SHARED_BYTES);
+
+// Views
+const meta   = new Int32Array(sab, 0, 16);          // control flags
+const queue  = new Int32Array(sab, 64, 1024);      // ring buffer of commands
+const tiles  = new Uint8Array(sab, 4096);          // optional large tile scratch space
+
+// Meta indices
+const HEAD        = 0;   // write index (main → worker)
+const TAIL        = 1;   // read index  (worker → main)
+const WORKER_STATE= 2;   // 0 = idle, 1 = busy
+const RESULT_CX   = 3;
+const RESULT_CZ   = 4;
+const RESULT_READY= 5;   // 1 when a chunk is ready
