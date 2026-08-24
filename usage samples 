@@ -1,0 +1,17 @@
+import { instantiate3DProceduralPalace } from './type7_palace_instancer';
+
+// After loading your procedural_palace_map.json
+const palace = instantiate3DProceduralPalace(scene, jsonData, {
+  wallGeo: new THREE.BoxGeometry(1, 1, 1),
+  wallMat: new THREE.MeshStandardMaterial({ color: 0x3a2f2a }),
+  floorGeo: new THREE.BoxGeometry(1, 0.1, 1),
+  floorMat: new THREE.MeshStandardMaterial({ color: 0x1a1a1a }),
+  runestoneGeo: new THREE.CylinderGeometry(0.3, 0.3, 1.2, 8),
+  runestoneMat: new THREE.MeshStandardMaterial({ color: 0x00ffaa, emissive: 0x003322 }),
+  gateGeo: new THREE.BoxGeometry(1.2, 2.2, 0.3),
+  gateMat: new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0x442200 })
+}, {
+  cellSize: 64,
+  // Optional: feed the same Perlin noise for organic height
+  // heightFn: (x, z) => perlin.noise(x * 0.01, z * 0.01) * 8
+});
