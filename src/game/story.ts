@@ -136,7 +136,7 @@ export const BRIEFING_BEATS = [
   "No corridors. No rails. The grounds are open under the galactic arms. The only limit is the gate that seals the inner throne — and that gate does not open until four of the Six Names have been taken.",
   "North — Vaelith, First Flame, ember pylons, Spark Rifle. West — Rynara, Weaver of Runes, floating law stones, Rune Caster. East — Sanguara, Blood of the Cosmos, living red canals, Sanguine Pulse. Sky stairs — Nyxara, Night Ascendant, night rune.",
   "The gate opens after four outer Names. Inside: Eryndra. Final: Aelith under the galactic core. The palace that walks.",
-];
+  "Three extra courts sit beyond the Six Names cycle. Southeast of the Threshold: Kaelith Forge, ember anvil. Southwest: Vespera Hollow, whisper well. Northeast of Vaelith: Ankh Spire, climb of law. Press M for the holographic atlas — click a court to lock a waypoint. Fullscreen the HTML5 atlas from the title.",];
 
 export const CODEX_SECTIONS: { heading: string; body: string[] }[] = [
   {
@@ -166,6 +166,7 @@ export const CODEX_SECTIONS: { heading: string; body: string[] }[] = [
     body: [
       "There are no corridors here. No loading screens. No polite sequence of rooms that force you along a narrative rail. The palace floats between realities the way a thought floats between one mind and another—partially present, partially elsewhere, entirely hungry. You may walk any direction the moment you arrive. The only limit is the gate that seals the inner throne, and that gate does not open until four of the Six Names have been taken and the runes that form them have been burned into your weapons, your blood, and the memory of the place that watches you.",
       "The grounds themselves are vast. North of the main staircase the crystal plain rises into a field of ember pylons—tall, cracked monoliths that leak sparks of pure first-fire. West, beyond a low ridge of black glass, lies an archive of floating hieroglyph stones that rotate slowly in the air, each face covered in law-runes that rewrite themselves when no one is looking. East, the canals begin: wide, silent channels of liquid crimson that reflect the storm above and sometimes, when the light is wrong, reflect faces that are not yours. Skyward, platforms of dark stone hang without support, connected by bridges of frozen lightning, climbing toward the western rise where night itself seems thicker.",
+      "Three extra maps were cut from the original cycle and then remembered. Kaelith Forge burns southeast of spawn — an ember anvil court where constructs still hammer law into the sky. Vespera Hollow sinks southwest — a whisper well of night-violet pylons. Ankh Spire climbs northeast of Vaelith, a stair of living metal toward a hanging ankh of pure arterial light. A holographic table on the Threshold plaza projects every court. Open the atlas with M.",
     ],
   },
   {

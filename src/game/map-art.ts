@@ -1,4 +1,4 @@
-export const MAP_LANDMARKS: { id: string; x: number; z: number; kind: "rune" | "gate" | "palace"; label?: string }[] = [
+export const MAP_LANDMARKS: { id: string; x: number; z: number; kind: "rune" | "gate" | "palace" | "extra"; label?: string }[] = [
   { id: "vaelith", x: 0, z: -82, kind: "rune", label: "Vaelith" },
   { id: "rynara", x: -78, z: 0, kind: "rune", label: "Rynara" },
   { id: "sanguara", x: 80, z: 4, kind: "rune", label: "Sanguara" },
@@ -7,6 +7,9 @@ export const MAP_LANDMARKS: { id: string; x: number; z: number; kind: "rune" | "
   { id: "gate", x: 0, z: 22, kind: "gate", label: "Gate" },
   { id: "palace", x: 0, z: -8, kind: "palace", label: "Palace" },
   { id: "spawn", x: 0, z: 68, kind: "palace", label: "Threshold" },
+  { id: "kaelith", x: 78, z: 68, kind: "extra", label: "Kaelith Forge" },
+  { id: "vespera", x: -78, z: 68, kind: "extra", label: "Vespera Hollow" },
+  { id: "ankh-spire", x: 78, z: -72, kind: "extra", label: "Ankh Spire" },
 ];
 
 export type MapMark = { x: number; z: number; kind: "foe" | "ammo" | "health" };
@@ -39,6 +42,9 @@ const CAL: Cal[] = [
   { x: -52, z: -52, u: 0.42, v: 0.1 },
   { x: 40, z: 10, u: 0.7, v: 0.52 },
   { x: -40, z: 10, u: 0.32, v: 0.58 },
+  { x: 78, z: 68, u: 0.86, v: 0.86 },
+  { x: -78, z: 68, u: 0.14, v: 0.86 },
+  { x: 78, z: -72, u: 0.86, v: 0.18 },
 ];
 
 let atlas: HTMLImageElement | null = null;
@@ -90,7 +96,13 @@ export function headingOnMap(x: number, z: number, yaw: number) {
   return Math.atan2(ahead.u - here.u, -(ahead.v - here.v));
 }
 
-export function drawSatNav(ctx: CanvasRenderingContext2D, w: number, h: number, frame: MapFrame | null | undefined) {
+export function drawSatNav(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  frame: MapFrame | null | undefined,
+  waypoint?: { x: number; z: number } | null,
+) {
   if (!frame || !w || !h) return;
   ensureMapArt();
   const cx = w / 2;
@@ -129,8 +141,20 @@ export function drawSatNav(ctx: CanvasRenderingContext2D, w: number, h: number, 
   };
 
   for (const mark of MAP_LANDMARKS) {
-    if (mark.kind !== "rune") continue;
     const p = pip(mark.x, mark.z);
+    if (mark.kind === "extra") {
+      ctx.save();
+      ctx.translate(p.sx, p.sy);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = "#ff8844";
+      ctx.strokeStyle = "#ffe0c0";
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(-3.5, -3.5, 7, 7);
+      ctx.strokeRect(-3.5, -3.5, 7, 7);
+      ctx.restore();
+      continue;
+    }
+    if (mark.kind !== "rune") continue;
     const claimed = (frame.runes || []).includes(mark.id);
     ctx.fillStyle = claimed ? "#c41e3a" : "#e8c070";
     ctx.strokeStyle = claimed ? "#ff6688" : "#fff4c8";
@@ -176,5 +200,15 @@ export function drawSatNav(ctx: CanvasRenderingContext2D, w: number, h: number, 
   ctx.lineWidth = 1.3;
   ctx.stroke();
   ctx.restore();
+
+  if (waypoint) {
+    const p = pip(waypoint.x, waypoint.z);
+    ctx.strokeStyle = "#7df9ff";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(p.sx, p.sy, 8, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   ctx.restore();
 }

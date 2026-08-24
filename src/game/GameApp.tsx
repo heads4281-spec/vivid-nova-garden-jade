@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type PointerEvent } from "react";
-import { ChevronLeft, ChevronRight, Pause, Volume2, VolumeX } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { ChevronLeft, ChevronRight, Pause, Volume2, VolumeX, Github, Maximize2 } from "lucide-react";
 import { padCode, loadSavedCode, cycleLink } from "./codes";
 import { CONTROL_LEGEND, PAD_BLURB } from "./input-map";
 import { NAMES, OPENING, WEAPONS, BRIEFING_BEATS, CODEX_SECTIONS, TITLE_LEAD, CHARACTERS, CATS } from "./story";
@@ -9,11 +8,21 @@ import { SkillMark } from "./SkillMark";
 import { useGame } from "./store";
 import type { CrimsonGame } from "./engine";
 import { preloadArt } from "./assets";
-import { drawSatNav, worldToMapUV, MAP_LANDMARKS, onMapArtReady } from "./map-art";
-import { UserButton } from "@/lib/auth/gates";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { loadProgress, saveProgress } from "@/lib/saves";
-import { authEnabled } from "@/lib/auth/client";
+import { drawSatNav, onMapArtReady } from "./map-art";
+import { loadRun } from "./persist";
+import { CloudSync, AuthSlot } from "./auth-ui";
+import {
+  drawHoloAtlas,
+  EXTRA_MAPS,
+  GITHUB_PROFILE,
+  GITHUB_REPO,
+  HOLO_ATLAS_HREF,
+  EXTRA_MAPS_HREF,
+  getWaypoint,
+  lockWaypoint,
+  pickHoloTarget,
+  toggleFullscreen,
+} from "./holo-map";
 
 export function GameApp() {
   const screen = useGame((s) => s.screen);
@@ -35,6 +44,13 @@ export function GameApp() {
       useGame.getState().patchSettings({ gyro: false });
     }
     useGame.getState().setSeed(loadSavedCode());
+    const save = loadRun();
+    if (save) {
+      useGame.getState().setCloudSave(save);
+      const urlCode = new URLSearchParams(window.location.search).get("code");
+      if (save.code && !urlCode) useGame.getState().loadCode(save.code);
+      if (save.characterId) useGame.getState().setCharacter(save.characterId as import("./arsenal").CharacterId);
+    }
     void preloadArt().catch(() => undefined);
   }, []);
 
@@ -50,66 +66,6 @@ export function GameApp() {
       {screen === "dead" ? <End kind="dead" /> : null}
       {screen === "victory" ? <End kind="victory" /> : null}
     </div>
-  );
-}
-
-function CloudSync() {
-  const { user, isPending } = useCurrentUserState();
-  const hud = useGame((s) => s.hud);
-  const seed = useGame((s) => s.seed);
-  const character = useGame((s) => s.settings.character);
-  const screen = useGame((s) => s.screen);
-
-  useEffect(() => {
-    if (isPending || !user || !authEnabled) return;
-    void loadProgress()
-      .then((save) => {
-        if (!save) return;
-        useGame.getState().setCloudSave(save);
-        if (save.code) useGame.getState().loadCode(save.code);
-        if (save.characterId) useGame.getState().setCharacter(save.characterId as import("./arsenal").CharacterId);
-      })
-      .catch(() => undefined);
-  }, [user, isPending]);
-
-  useEffect(() => {
-    if (!user || !authEnabled) return;
-    if (screen !== "playing" && screen !== "paused" && screen !== "victory") return;
-    const t = window.setTimeout(() => {
-      void saveProgress({
-        data: {
-          code: padCode(seed),
-          runes: hud.runes,
-          skills: hud.skills,
-          skillPts: hud.skillPts,
-          characterId: character,
-        },
-      }).catch(() => undefined);
-    }, 800);
-    return () => window.clearTimeout(t);
-  }, [user, hud.runes, hud.skills, hud.skillPts, seed, character, screen]);
-
-  return null;
-}
-
-function AuthSlot() {
-  const { user, isPending } = useCurrentUserState();
-  if (!authEnabled) return null;
-  if (isPending) return <div className="h-8 w-36 animate-pulse rounded-md bg-raised" />;
-  if (user) {
-    return (
-      <div className="rounded-md border border-border bg-bg/70 px-3 py-1.5">
-        <UserButton />
-      </div>
-    );
-  }
-  return (
-    <Link
-      to="/login"
-      className="rounded-md border border-crimson bg-crimson/20 px-4 py-2 font-display text-xs tracking-[0.22em] text-fg hover:bg-crimson hover:text-bg"
-    >
-      Sign in
-    </Link>
   );
 }
 
@@ -240,7 +196,7 @@ function Hud() {
         <div className="absolute inset-0 grid place-items-center">
           <div className="rounded-lg border border-border bg-bg/80 px-6 py-4 text-center">
             <p className="font-display text-sm tracking-[0.25em] text-fg">CLICK TO PLAY</p>
-            <p className="mt-1 text-xs text-muted">WASD · V camera · I bag · M map · K tree · Q skill · 1–6 arms · F claim</p>
+            <p className="mt-1 text-xs text-muted">WASD · S+Space backflip · V camera · I bag · M map · K tree · Q skill · 1–6 arms · F claim</p>
           </div>
         </div>
       ) : null}
@@ -259,6 +215,7 @@ function Hud() {
       <header className="absolute left-0 right-0 top-0 flex items-start justify-between gap-3 p-3 pt-[max(2.6rem,env(safe-area-inset-top))] font-display text-[0.7rem] tracking-[0.08em] [text-shadow:0_0_10px_#000] sm:p-4 sm:text-xs">
         <div className="max-w-[46vw] sm:max-w-xs">
           <p>Zone · {hud.zone}</p>
+          {hud.checkpoint ? <p className="mt-1 tracking-[0.18em] text-ember">BOUND · {hud.checkpoint.toUpperCase()}</p> : null}
           <p className="mt-1 text-sm font-sans tracking-normal text-fg/85">{hud.objective}</p>
           <p className="mt-1 font-mono text-[0.65rem] tracking-widest text-subtle">CODE {hud.code}</p>
           <p className="mt-1 tracking-[0.18em] text-ember">
@@ -432,7 +389,7 @@ function PulseMap() {
       if (!c) return;
       const ctx = c.getContext("2d");
       if (!ctx) return;
-      drawSatNav(ctx, c.width, c.height, map);
+      drawSatNav(ctx, c.width, c.height, map, getWaypoint());
     };
     onMapArtReady(paint);
     paint();
@@ -531,45 +488,78 @@ function WeaponBag() {
 function AtlasMap() {
   const atlas = useGame((s) => s.hud.atlas);
   const map = useGame((s) => s.hud.map);
+  const ref = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [wp, setWp] = useState(getWaypoint());
+  useEffect(() => {
+    if (!atlas) return;
+    let raf = 0;
+    const loop = (t: number) => {
+      const c = ref.current;
+      if (!c) return;
+      const ctx = c.getContext("2d");
+      if (ctx) drawHoloAtlas(ctx, c.width, c.height, map, t);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [atlas, map]);
   if (!atlas || !map) return null;
-  const you = worldToMapUV(map.x, map.z);
   return (
-    <div className="absolute inset-0 z-30 grid place-items-center bg-bg/80 p-4">
-      <div className="relative w-[min(920px,96vw)]">
-        <img src="/ui/world-map.jpg" alt="Crimson Sovereign open world" className="w-full rounded-md border border-crimson/40" />
-        {MAP_LANDMARKS.filter((m) => m.kind === "rune").map((m) => {
-          const uv = worldToMapUV(m.x, m.z);
-          const on = map.runes.includes(m.id);
-          return (
-            <span
-              key={m.id}
-              className={`absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-ember ${on ? "bg-crimson" : "bg-ember"}`}
-              style={{ left: `${uv.u * 100}%`, top: `${uv.v * 100}%` }}
-              title={m.label || m.id}
-            />
-          );
-        })}
-        {(map.marks || []).filter((m) => m.kind === "foe").slice(0, 24).map((m, i) => {
-          const uv = worldToMapUV(m.x, m.z);
-          return (
-            <span
-              key={`foe-${i}`}
-              className="absolute size-1.5 -translate-x-1/2 -translate-y-1/2 bg-crimson"
-              style={{ left: `${uv.u * 100}%`, top: `${uv.v * 100}%` }}
-            />
-          );
-        })}
-        <span
-          className="absolute size-0 border-x-[7px] border-b-[12px] border-x-transparent border-b-crimson -translate-x-1/2 -translate-y-full"
-          style={{ left: `${you.u * 100}%`, top: `${you.v * 100}%` }}
+    <div className="absolute inset-0 z-30 grid place-items-center bg-bg/85 p-3">
+      <div ref={wrapRef} className="holo-frame relative w-[min(920px,96vw)] overflow-hidden rounded-md border border-crimson/40 bg-raised">
+        <canvas
+          ref={ref}
+          width={960}
+          height={640}
+          className="h-auto w-full cursor-crosshair"
+          aria-label="Holographic atlas"
+          onClick={(e) => {
+            const c = ref.current;
+            if (!c) return;
+            const r = c.getBoundingClientRect();
+            const nx = (e.clientX - r.left) / r.width;
+            const ny = (e.clientY - r.top) / r.height;
+            setWp(pickHoloTarget(nx, ny));
+          }}
         />
-        <button
-          type="button"
-          className="absolute right-2 top-2 rounded-md border border-border bg-bg/80 px-3 py-1 font-display text-xs tracking-widest text-fg"
-          onClick={() => window.__crimsonInput?.map?.()}
-        >
-          Close · M
-        </button>
+        <div className="absolute left-2 top-2 flex max-w-[70%] flex-wrap gap-1">
+          {EXTRA_MAPS.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              className="holo-chip rounded-sm border bg-bg/80 px-2 py-1 font-display text-[0.55rem] tracking-widest text-ember"
+              onClick={() => setWp(lockWaypoint(m.id))}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <div className="absolute right-2 top-2 flex flex-wrap justify-end gap-1">
+          <button
+            type="button"
+            className="rounded-md border border-border bg-bg/80 px-3 py-1 font-display text-xs tracking-widest text-fg"
+            onClick={() => toggleFullscreen(wrapRef.current)}
+          >
+            Fullscreen
+          </button>
+          <a
+            href={HOLO_ATLAS_HREF}
+            className="rounded-md border border-border bg-bg/80 px-3 py-1 font-display text-xs tracking-widest text-holo"
+          >
+            HTML5 atlas
+          </a>
+          <button
+            type="button"
+            className="rounded-md border border-border bg-bg/80 px-3 py-1 font-display text-xs tracking-widest text-fg"
+            onClick={() => window.__crimsonInput?.map?.()}
+          >
+            Close · M
+          </button>
+        </div>
+        <p className="pointer-events-none absolute bottom-2 left-2 font-mono text-[0.65rem] tracking-widest text-holo">
+          {wp ? `WAYPOINT · ${wp.label}` : "CLICK A COURT TO LOCK A WAYPOINT"}
+        </p>
       </div>
     </div>
   );
@@ -758,7 +748,7 @@ function Title() {
         style={{ background: "radial-gradient(ellipse at 50% 30%, #2a0505 0%, #0a0000 52%, #000 100%)" }}
       />
       <div className="relative flex min-h-dvh flex-col items-center px-6 pb-16 pt-14 text-center">
-        <div className="absolute right-4 top-4">
+        <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
           <AuthSlot />
         </div>
         <p className="font-display text-[0.85rem] tracking-[0.45em] text-crimson/80">TYPE VII · FULL COLOUR CYCLE</p>
@@ -794,6 +784,7 @@ function Title() {
             maxLength={5}
             inputMode="numeric"
             aria-label="Rune code"
+            suppressHydrationWarning
             className="mx-2 h-9 w-[90px] border border-[#660000] bg-[#1a0505] text-center font-mono tracking-[0.2em] text-fg caret-crimson"
           />
           · 100 000 galactic myth cycles
@@ -832,44 +823,35 @@ function Title() {
           >
             Settings
           </button>
-        </div>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2 border-t border-border/60 pt-4">
-          <Link
-            to="/website"
-            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 px-3 py-1 font-display text-xs tracking-[0.2em] text-muted hover:text-fg"
+            onClick={() => toggleFullscreen()}
           >
-            Chronicle
-          </Link>
-          <Link
-            to="/weapons"
-            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
+            <Maximize2 className="size-3" />
+            Fullscreen
+          </button>
+          <a
+            href={GITHUB_PROFILE}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 px-3 py-1 font-display text-xs tracking-[0.2em] text-muted hover:text-fg"
           >
-            Armory
-          </Link>
-          <Link
-            to="/skills"
-            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
+            <Github className="size-3" />
+            GitHub
+          </a>
+          <a
+            href={HOLO_ATLAS_HREF}
+            className="px-3 py-1 font-display text-xs tracking-[0.2em] text-holo hover:text-fg"
           >
-            Rites
-          </Link>
-          <Link
-            to="/gallery"
-            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
+            Holo atlas
+          </a>
+          <a
+            href={EXTRA_MAPS_HREF}
+            className="px-3 py-1 font-display text-xs tracking-[0.2em] text-ember hover:text-fg"
           >
-            Gallery
-          </Link>
-          <Link
-            to="/leaderboard"
-            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
-          >
-            Oathbound
-          </Link>
-          <Link
-            to="/download"
-            className="rounded-md border border-border px-3 py-2 font-display text-[0.65rem] tracking-[0.22em] text-muted hover:border-crimson hover:text-crimson"
-          >
-            Bind
-          </Link>
+            Extra maps
+          </a>
         </div>
         <CharacterPick />
         <FeaturedSkills />
@@ -1401,6 +1383,20 @@ function PauseMenu() {
           </Ghost>
           <Ghost onClick={() => openSettings("paused")}>Settings</Ghost>
           <Ghost onClick={() => setScreen("title")}>Quit to title</Ghost>
+          <a
+            href={GITHUB_REPO}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-raised px-5 py-3 font-display text-sm tracking-[0.12em] text-fg"
+          >
+            GitHub · heads4281-spec
+          </a>
+          <a
+            href={HOLO_ATLAS_HREF}
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-raised px-5 py-3 font-display text-sm tracking-[0.12em] text-holo"
+          >
+            HTML5 holographic atlas
+          </a>
         </div>
         <p className="mt-5 text-xs leading-relaxed text-subtle">{PAD_BLURB}</p>
       </div>
@@ -1422,7 +1418,7 @@ function End({ kind }: { kind: "dead" | "victory" }) {
         <p className="mt-3 text-sm leading-relaxed text-muted">
           {win
             ? "The Offering is accepted under the turning arms of the galaxy. Walk the grounds again, or leave while the door still remembers your name."
-            : "A Type VII will does not forgive trespass. Deploy again. The Names still wait."}
+            : "A Type VII will does not forgive trespass. Rise at the last crystal checkpoint, or deploy again from the Threshold."}
         </p>
         <p className="mt-4 text-xs tabular-nums text-subtle">
           Code {profile.padded} · Names {hud.runes.length}/6 · Kills {hud.kills}
@@ -1430,15 +1426,19 @@ function End({ kind }: { kind: "dead" | "victory" }) {
         <div className="mt-6 flex flex-col gap-2">
           <Primary
             onClick={() => {
-              if (win) window.__crimsonRemain?.();
-              setScreen(win ? "playing" : "title");
-              if (!win) startRun();
+              if (win) {
+                window.__crimsonRemain?.();
+                setScreen("playing");
+              } else {
+                window.__crimsonRise?.();
+                setScreen("playing");
+              }
             }}
           >
-            {win ? "Remain on the grounds" : "Deploy again"}
+            {win ? "Remain on the grounds" : "Rise at checkpoint"}
           </Primary>
-          <Ghost onClick={() => (win ? startRun() : setScreen("title"))}>
-            {win ? "Walk the palace again" : "Return to threshold"}
+          <Ghost onClick={() => (win ? startRun() : startRun())}>
+            {win ? "Walk the palace again" : "Deploy from the Threshold"}
           </Ghost>
           {win ? <Ghost onClick={() => setScreen("title")}>Leave through the rift</Ghost> : null}
         </div>

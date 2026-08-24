@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050010" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="CRIMSON SOVEREIGN" />
+  <meta name="description" content="HTML5 holographic atlas for CRIMSON SOVEREIGN — extra maps Kaelith, Vespera, Ankh Spire plus the Six Names." />
+  <title>CRIMSON SOVEREIGN · Holographic Atlas</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { height: 100%; background: #050010; color: #e8d5c4; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; overflow: hidden; }
+    canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+    #ui { position: fixed; inset: 0; pointer-events: none; }
+    .panel {
+      pointer-events: auto;
+      background: rgba(8,0,12,0.86);
+      border: 1px solid #c41e3a66;
+      box-shadow: 0 0 24px #c41e3a33;
+    }
+    header {
+      position: absolute; top: 12px; left: 12px; right: 12px;
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      padding: 10px 14px;
+    }
+    h1 { font-size: 1rem; letter-spacing: 0.28em; color: #ff4466; }
+    button, header a {
+      background: #1a0508; color: #e8d5c4; border: 1px solid #c41e3a88;
+      padding: 8px 12px; cursor: pointer; letter-spacing: 0.12em; font: inherit; font-size: 0.75rem;
+      text-decoration: none; display: inline-block;
+    }
+    button:hover, header a:hover { background: #3a0a14; }
+    #legend {
+      position: absolute; right: 12px; top: 72px; width: min(280px, 42vw); padding: 12px;
+      max-height: 70vh; overflow: auto;
+    }
+    a { color: #7df9ff; }
+    #hint { position: absolute; bottom: 14px; left: 14px; padding: 10px 12px; font-size: 0.75rem; opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <canvas id="atlas"></canvas>
+  <div id="ui">
+    <header class="panel">
+      <h1>HOLO ATLAS</h1>
+      <span id="scale">1.00×</span>
+      <button type="button" id="reset">Reset</button>
+      <button type="button" id="stretch">Full stretch</button>
+      <button type="button" id="fs">Fullscreen</button>
+      <a href="/">Play</a>
+      <a href="/html5/extra-maps.html">Extra maps</a>
+      <a href="https://github.com/heads4281-spec">github.com/heads4281-spec</a>
+    </header>
+    <aside id="legend" class="panel">
+      <p>EXTRA MAPS</p>
+      <p>Kaelith Forge · SE ember anvil</p>
+      <p>Vespera Hollow · SW whisper well</p>
+      <p>Ankh Spire · NE climb of law</p>
+      <p style="margin-top:10px">SIX NAMES</p>
+      <p>Vaelith N · Rynara W · Sanguara E · Nyxara NW · Eryndra gate · Aelith heart</p>
+      <p style="margin-top:10px"><a href="https://github.com/heads4281-spec/vivid-nova-garden-jade">Source on GitHub</a></p>
+    </aside>
+    <div id="hint" class="panel">Scroll zoom · drag pan · click a court to lock a waypoint. HTML5 canvas + rAF.</div>
+  </div>
+  <script>
+    const canvas = document.getElementById("atlas");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const zones = [
+      { id: "threshold", x: 0, z: 68, r: 10, label: "Threshold", extra: false },
+      { id: "vaelith", x: 0, z: -82, r: 12, label: "Vaelith", extra: false },
+      { id: "rynara", x: -78, z: 0, r: 11, label: "Rynara", extra: false },
+      { id: "sanguara", x: 80, z: 4, r: 11, label: "Sanguara", extra: false },
+      { id: "nyxara", x: -52, z: -52, r: 10, label: "Nyxara", extra: false },
+      { id: "palace", x: 0, z: -8, r: 14, label: "Palace", extra: false },
+      { id: "kaelith", x: 78, z: 68, r: 10, label: "Kaelith Forge", extra: true },
+      { id: "vespera", x: -78, z: 68, r: 10, label: "Vespera Hollow", extra: true },
+      { id: "ankh-spire", x: 78, z: -72, r: 10, label: "Ankh Spire", extra: true },
+    ];
+    let W = 0, H = 0, scale = 1, ox = 0, oy = 0, drag = false, lx = 0, ly = 0, sel = null;
+    function resize() {
+      W = canvas.width = window.innerWidth * Math.min(devicePixelRatio, 2);
+      H = canvas.height = window.innerHeight * Math.min(devicePixelRatio, 2);
+    }
+    window.addEventListener("resize", resize);
+    resize();
+    function worldToScreen(x, z) {
+      const nx = (x + 110) / 220;
+      const ny = (z + 110) / 220;
+      return {
+        x: W * 0.5 + (nx - 0.5) * 900 * scale + ox,
+        y: H * 0.55 + (ny - 0.5) * 700 * scale * 0.62 + oy,
+      };
+    }
+    function loop(t) {
+      ctx.fillStyle = "#050010";
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = "rgba(196,30,58,0.18)";
+      const step = 48 * scale;
+      for (let i = -8; i < 24; i++) {
+        ctx.beginPath(); ctx.moveTo(W * 0.1 + i * step + ox, 0); ctx.lineTo(W * 0.1 + i * step + ox, H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, H * 0.08 + i * step * 0.7 + oy); ctx.lineTo(W, H * 0.08 + i * step * 0.7 + oy); ctx.stroke();
+      }
+      for (const z of zones) {
+        const p = worldToScreen(z.x, z.z);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, z.r * scale * 2.4, 0, Math.PI * 2);
+        ctx.fillStyle = z.extra ? "rgba(255,68,0,0.45)" : "rgba(196,30,58,0.4)";
+        ctx.fill();
+        ctx.strokeStyle = z === sel ? "#7df9ff" : (z.extra ? "#ff8844" : "#ff6688");
+        ctx.lineWidth = z === sel ? 2.4 : 1.2;
+        ctx.stroke();
+        ctx.fillStyle = "#e8d5c4";
+        ctx.font = `${12 * Math.max(scale, 0.8)}px monospace`;
+        ctx.textAlign = "center";
+        ctx.fillText(z.label, p.x, p.y + 18 * scale);
+      }
+      const sy = ((t * 0.08) % (H + 40)) - 20;
+      const g = ctx.createLinearGradient(0, sy - 20, 0, sy + 20);
+      g.addColorStop(0, "rgba(0,229,255,0)");
+      g.addColorStop(0.5, "rgba(0,229,255,0.16)");
+      g.addColorStop(1, "rgba(255,0,51,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, sy - 20, W, 40);
+      ctx.globalAlpha = 0.07;
+      for (let y = 0; y < H; y += 3) {
+        ctx.fillStyle = y % 6 === 0 ? "#00e5ff" : "#ff0033";
+        ctx.fillRect(0, y, W, 1);
+      }
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+    canvas.addEventListener("mousedown", (e) => {
+      drag = true; lx = e.clientX; ly = e.clientY;
+      const mx = e.clientX * (W / window.innerWidth);
+      const my = e.clientY * (H / window.innerHeight);
+      sel = null;
+      for (const z of zones) {
+        const p = worldToScreen(z.x, z.z);
+        if (Math.hypot(mx - p.x, my - p.y) < 36 * scale) sel = z;
+      }
+    });
+    canvas.addEventListener("mousemove", (e) => {
+      if (!drag) return;
+      ox += e.clientX - lx; oy += e.clientY - ly; lx = e.clientX; ly = e.clientY;
+    });
+    canvas.addEventListener("mouseup", () => { drag = false; });
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      scale = Math.max(0.4, Math.min(3.6, scale * (e.deltaY > 0 ? 0.9 : 1.1)));
+      document.getElementById("scale").textContent = scale.toFixed(2) + "×";
+    }, { passive: false });
+    document.getElementById("reset").onclick = () => { scale = 1; ox = 0; oy = 0; document.getElementById("scale").textContent = "1.00×"; };
+    document.getElementById("stretch").onclick = () => { scale = 2.4; ox = -80; oy = -40; document.getElementById("scale").textContent = "2.40×"; };
+    document.getElementById("fs").onclick = () => {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    };
+  </script>
+</body>
+</html>

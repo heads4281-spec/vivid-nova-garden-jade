@@ -81,6 +81,8 @@ export class World {
   private moon: THREE.Mesh | null = null;
   private bolts: THREE.Mesh[] = [];
   private boltT = 0;
+  private holoGroup: THREE.Group | null = null;
+  private holoScan: THREE.Mesh | null = null;
   tide = 1;
   emberOn = false;
   skySpin = 1;
@@ -107,6 +109,10 @@ export class World {
     this.rynaraArchive();
     this.sanguaraCanals();
     this.nyxaraRise();
+    this.kaelithForge();
+    this.vesperaHollow();
+    this.ankhSpire();
+    this.holoTable();
     this.pickupsAndSpawns();
     this.skyVeins();
     this.milkyWay();
@@ -569,6 +575,131 @@ export class World {
     this.billboard("portraitNyxStand", -62, 10.4, -36, 3.2, 5.4, Math.PI / 3);
   }
 
+  private kaelithForge() {
+    const E = this.mats.ember;
+    const pylons: [number, number, number][] = [
+      [78, 68, 9], [88, 62, 7], [70, 76, 8], [86, 78, 6], [68, 60, 7],
+    ];
+    for (const [x, z, h] of pylons) {
+      this.cyl(E, x, 0, z, 0.4, 1.0, h, 6);
+      const flame = new THREE.PointLight(PAL.ember, 2.0, 14, 2);
+      flame.position.set(x, h * 0.65, z);
+      this.group.add(flame);
+    }
+    this.box(this.mats.column, 78, 0, 68, 5.4, 1.1, 4.2);
+    this.box(this.mats.wall, 78, 1.1, 68, 3.2, 0.7, 1.6);
+    this.runeCircle(78, 68, 5.5);
+    this.energyRiver(40, 68, 70, 68, 1.3);
+    this.energyRiver(78, 40, 78, 62, 1.1);
+    const lamp = new THREE.PointLight(PAL.ember, 5.2, 24, 2);
+    lamp.position.set(78, 5, 68);
+    this.group.add(lamp);
+  }
+
+  private vesperaHollow() {
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      const r = 8 + (i % 2) * 3;
+      const x = -78 + Math.cos(a) * r;
+      const z = 68 + Math.sin(a) * r;
+      this.box(this.mats.body, x, 0, z, 1.6, 4.4 + (i % 3), 1.6);
+    }
+    this.runeCircle(-78, 68, 6);
+    const well = new THREE.Mesh(
+      new THREE.CircleGeometry(5.2, 20),
+      new THREE.MeshBasicMaterial({
+        color: 0x220033,
+        transparent: true,
+        opacity: 0.55,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    well.rotation.x = -Math.PI / 2;
+    well.position.set(-78, 0.12, 68);
+    this.group.add(well);
+    this.energyRiver(-40, 68, -70, 68, 1.2);
+    this.energyRiver(-78, 40, -78, 60, 1.0);
+    const l = new THREE.PointLight(0x6622aa, 3.4, 20, 2);
+    l.position.set(-78, 4.2, 68);
+    this.group.add(l);
+  }
+
+  private ankhSpire() {
+    const steps: [number, number, number, number][] = [
+      [72, 0.4, -64, 8],
+      [78, 2.2, -70, 7],
+      [84, 4.4, -76, 6],
+      [78, 6.8, -82, 7],
+    ];
+    for (const [x, y, z, s] of steps) {
+      this.box(this.mats.wall, x, y, z, s, 0.45, s);
+    }
+    this.cyl(this.mats.ember, 78, 7.2, -82, 0.35, 0.7, 8, 6);
+    const loop = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.18, 8, 20), this.mats.energy);
+    loop.position.set(78, 16.4, -82);
+    this.group.add(loop);
+    this.box(this.mats.energy, 78, 12.4, -82, 0.35, 3.6, 0.35, false);
+    this.box(this.mats.energy, 78, 13.6, -82, 2.6, 0.22, 0.22, false);
+    this.runeCircle(78, -72, 5);
+    this.energyRiver(50, -72, 70, -72, 1.2);
+    const l = new THREE.PointLight(PAL.ankh, 4.2, 22, 2);
+    l.position.set(78, 14, -82);
+    this.group.add(l);
+  }
+
+  private holoTable() {
+    const g = new THREE.Group();
+    g.position.set(10, 0, 58);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.8, 0.7, 12), this.mats.column);
+    base.position.y = 0.35;
+    g.add(base);
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(2.1, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0xff1144,
+        transparent: true,
+        opacity: 0.32,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      }),
+    );
+    disc.rotation.x = -Math.PI / 2;
+    disc.position.y = 1.15;
+    g.add(disc);
+    this.holoScan = disc;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.05, 0.05, 8, 32), this.mats.energy);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 1.16;
+    g.add(ring);
+    const mini: [number, number, number][] = [
+      [0, 0, 0.55],
+      [0, -0.9, 0.35],
+      [-0.85, 0, 0.3],
+      [0.85, 0, 0.3],
+      [0.85, 0.75, 0.28],
+      [-0.85, 0.75, 0.28],
+      [0.85, -0.8, 0.4],
+    ];
+    for (const [x, z, h] of mini) {
+      const m = new THREE.Mesh(
+        new THREE.BoxGeometry(0.16, h, 0.16),
+        new THREE.MeshBasicMaterial({ color: 0xff4466, transparent: true, opacity: 0.7, toneMapped: false }),
+      );
+      m.position.set(x, 1.16 + h / 2, z);
+      g.add(m);
+    }
+    const lamp = new THREE.PointLight(PAL.arterial, 2.4, 12, 2);
+    lamp.position.set(0, 1.8, 0);
+    g.add(lamp);
+    this.group.add(g);
+    this.holoGroup = g;
+    this.colliders.push(aabb(10, 0, 58, 4.4, 0.8, 4.4, "holo"));
+  }
+
   private billboard(key: string, x: number, y: number, z: number, w: number, h: number, rotY = Math.PI) {
     const mat = this.mats[key];
     if (!mat) return;
@@ -597,10 +728,13 @@ export class World {
       [6, 0.5, -50], [24, 0.5, -30], [-48, 4, -30], [64, 0.5, -18],
       [12, 0.5, -90], [-16, 0.5, -90], [90, 0.5, -16], [8, 1.4, 52],
       [-8, 1.4, 42], [-70, 0.5, 8],
+      [78, 1.6, 68], [88, 0.5, 62], [-78, 0.5, 68], [-70, 0.5, 74],
+      [78, 7.4, -82], [72, 1.0, -64],
     ] as [number, number, number][]) this.addCrate("ammo", x, y, z);
     for (const [x, y, z] of [
       [0, 0.5, 62], [-30, 0.5, 20], [28, 0.5, -12], [0, 1.6, -12],
       [-52, 9, -52], [80, 1.1, 4], [0, 0.5, -82], [-78, 0.5, 4],
+      [78, 1.2, 74], [-78, 0.5, 62], [84, 4.9, -76],
     ] as [number, number, number][]) this.addCrate("health", x, y, z);
     const ring = (cx: number, cz: number, r: number, n: number, kind: Spawn["kind"]) => {
       for (let i = 0; i < n; i++) {
@@ -620,6 +754,9 @@ export class World {
     ring(-52, -48, 8, 3, "shade");
     ring(0, -6, 8, 3, "construct");
     ring(0, 48, 10, 2, "shade");
+    ring(78, 68, 8, 3, "construct");
+    ring(-78, 68, 8, 3, "shade");
+    ring(78, -74, 7, 2, "sentinel");
     this.spawns.push({ x: 18, z: 68, kind: "shade" }, { x: -20, z: 66, kind: "shade" });
     this.spawns.push({ x: 8, z: 36, kind: "wraith" }, { x: -8, z: 36, kind: "wraith" });
     for (let i = 0; i < this.profile.extraWraiths; i++) {
@@ -840,8 +977,8 @@ export class World {
     for (const s of this.swarms) if (s.id === id) s.alive = false;
   }
 
-  gift(kind: "ammo" | "health", x: number, z: number) {
-    this.addCrate(kind, x, 0.5, z);
+  gift(kind: "ammo" | "health", x: number, z: number, y = 0.5) {
+    this.addCrate(kind, x, y, z);
   }
 
   setDetail(high: boolean) {
@@ -870,6 +1007,9 @@ export class World {
   getZone(x: number, y: number, z: number) {
     if (y > 4 && x < -32 && z < -18) return { id: "nyxara", name: "The Night Ascendant" };
     if (Math.abs(x) < 20 && z > -22 && z < 24) return { id: "eryndra", name: "The Eternal Throne" };
+    if (x > 52 && z < -55) return { id: "ankh-spire", name: "Ankh Spire" };
+    if (x > 52 && z > 48) return { id: "kaelith", name: "Kaelith Forge" };
+    if (x < -52 && z > 48) return { id: "vespera", name: "Vespera Hollow" };
     if (z < -60) return { id: "vaelith", name: "Court of the First Flame" };
     if (x < -58) return { id: "rynara", name: "The Rune Archive" };
     if (x > 58) return { id: "sanguara", name: "Blood Canals" };
@@ -901,6 +1041,11 @@ export class World {
       mat.opacity = 0.4 + Math.sin(t * 1.3) * 0.18;
     }
     if (this.galaxyPts) this.galaxyPts.rotation.y = t * 0.008 * this.skySpin;
+    if (this.holoGroup) this.holoGroup.rotation.y = t * 0.28;
+    if (this.holoScan) {
+      const mat = this.holoScan.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.22 + Math.sin(t * 4.2) * 0.1;
+    }
     const dt = 1 / 60;
     for (const s of this.swarms) {
       const pos = s.pts.geometry.getAttribute("position");

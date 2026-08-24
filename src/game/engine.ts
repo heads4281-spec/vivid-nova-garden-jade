@@ -15,6 +15,10 @@ import { C, colourShift, mixHex } from "./palette";
 import { createCrystalMaterial, tickCrystal, setCrystalQuality, crystalBlade, crystalMetal, disposeCrystal, procCrystalCanvas } from "./crystal";
 import { THRESHOLD_NPCS, FIGURE_LINES } from "./figures";
 import { RecoilSim } from "./recoil";
+import { ShapeGraphicsEngine } from "./shape-graphics-engine";
+import { FlowNav } from "./pathfind";
+import { rollLoot } from "./loot";
+import { CHECKPOINTS, nearestCheckpoint, saveRun, loadRun, type Checkpoint } from "./persist";
 
 const EYE = 1.58;
 const RADIUS = .38;
@@ -68,6 +72,14 @@ export class CrimsonGame {
 	_booted = false;
 	hash = new SpatialHash(8);
 	recoilSim = new RecoilSim();
+	nav = new FlowNav();
+	shapes = null;
+	checkpoint = CHECKPOINTS[0];
+	pity = {};
+	flipT = 0;
+	flipYaw = 0;
+	flipPitch0 = 0;
+	saveAcc = 0;
 	jumpWasHeld = false;
 	engine = ENGINE_VER;
 	yaw = 0;
@@ -452,21 +464,8 @@ export class CrimsonGame {
 				this.bootSkyMat.needsUpdate = true;
 			}
 			this.textures.push(tex);
-			try {
-				const pmrem = new THREE.PMREMGenerator(this.renderer);
-				this.scene.environment = pmrem.fromEquirectangular(tex).texture;
-			} catch {
-				this.scene.environment = tex;
-			}
+			this.scene.environment = tex;
 		});
-		try {
-			const pmrem = new THREE.PMREMGenerator(this.renderer);
-			const envScene = new THREE.Scene();
-			envScene.background = new THREE.Color(0x3a1018);
-			this.scene.environment = pmrem.fromScene(envScene, 0.04).texture;
-		} catch {
-			/* env is optional */
-		}
 		this.world = new World(this.mats, this.profile);
 		this.world.build();
 		this.world.setGateOpen(false);
@@ -508,11 +507,46 @@ export class CrimsonGame {
 		this.charId = ch.id;
 		this.spawnNpcs();
 		this.applyCloudSave();
+		this.dressPalace();
+		this.nav.rebuild(this.world.colliders);
+		const local = loadRun();
+		if (local?.checkpoint) this.checkpoint = local.checkpoint;
+		if (local?.pity) this.pity = local.pity;
 		this.yawObj.position.set(this.px, this.py + EYE, this.pz);
 		this.render();
 	}
+	dressPalace() {
+		this.shapes = new ShapeGraphicsEngine(this.scene, 1);
+		const ember = this.profile?.ember ?? 0xff2244;
+		for (let i = 0; i < 8; i++) {
+			const a = (i / 8) * Math.PI * 2;
+			const mesh = this.shapes.createExtrudedPolygon(`nave-${i}`, 7, 1.15, 2.4, ember);
+			mesh.position.set(Math.sin(a) * 18, 0, -12 + Math.cos(a) * 18);
+			mesh.userData.radius = 1;
+		}
+		for (let i = 0; i < 5; i++) {
+			const mesh = this.shapes.createSolidPolygon(`rune-disc-${i}`, 5 + (i % 3), 1.6 + i * 0.15, ember, 0.04);
+			mesh.position.set((i - 2) * 11, 0.04, 42);
+			mesh.userData.radius = 1;
+		}
+		const throne = this.shapes.createExtrudedPolygon("throne-knot", 8, 2.8, 1.1, 0xaa1122);
+		throne.position.set(0, 0, -10);
+		throne.userData.radius = 1;
+		for (const cp of CHECKPOINTS) {
+			const ox = cp.id === "threshold" ? 1.8 : 0;
+			const mesh = this.shapes.createExtrudedPolygon(`crystal-${cp.id}`, 6, 0.42, 1.8, ember);
+			mesh.position.set(cp.x + ox, 0, cp.z);
+			mesh.userData.radius = 1;
+			const lamp = new THREE.PointLight(ember, 1.4, 9, 1.6);
+			lamp.position.set(cp.x + ox, 1.8, cp.z);
+			this.scene.add(lamp);
+		}
+	}
 	rebuildHash() {
-		if (this.world) this.hash.rebuild(this.world.colliders);
+		if (this.world) {
+			this.hash.rebuild(this.world.colliders);
+			this.nav.rebuild(this.world.colliders);
+		}
 	}
 	nearBoxes(x, z, r) {
 		if (this.hash.all.length) return this.hash.query(x, z, r);
@@ -808,6 +842,8 @@ export class CrimsonGame {
 		this.move(dt);
 		this.weaponsTick(dt);
 		this.pickups();
+		this.touchCheckpoints();
+		this.nav.tick(dt, this.px, this.pz);
 		this.enemiesTick(dt);
 		this.projectilesTick(dt);
 		this.particlesTick(dt);
@@ -851,6 +887,9 @@ export class CrimsonGame {
 		this.owned = new Set(save.skills.length ? save.skills : ["ember-fortitude"]);
 		this.skillPts = save.skillPts ?? 2;
 		if (save.characterId) this.applyCharacter(save.characterId);
+		if (save.pity) this.pity = { ...save.pity };
+		if (save.checkpoint) this.checkpoint = save.checkpoint;
+		if (typeof save.kills === "number") this.kills = save.kills;
 		for (const id of save.runes || []) {
 			this.runes.add(id);
 			const p = this.world.pickups.find((x) => x.kind === "rune" && x.name === id);
@@ -1097,7 +1136,76 @@ export class CrimsonGame {
 	}
 	remain() {
 		this.ended = false;
+		this.health = Math.max(this.health, (this.maxHealth || 100) * 0.55);
+		this.setPaused(false);
+		this.grace = Math.max(this.grace, 1.2);
+		this.persistRun();
 		this.tell("The palace grows quiet. You may walk the grounds again.");
+	}
+	persistRun() {
+		const save = {
+			version: 4 as const,
+			code: String(this.profile?.padded || this.profile?.code || "63821"),
+			runes: [...this.runes],
+			skills: [...(this.owned || [])],
+			skillPts: this.skillPts || 0,
+			characterId: this.charId || "warden",
+			checkpoint: this.checkpoint || CHECKPOINTS[0],
+			pity: this.pity || {},
+			kills: this.kills || 0,
+		};
+		saveRun(save);
+		useGame.getState().setCloudSave({
+			code: save.code,
+			runes: save.runes,
+			skills: save.skills,
+			skillPts: save.skillPts,
+			characterId: save.characterId,
+			checkpoint: save.checkpoint,
+			pity: save.pity,
+			kills: save.kills,
+		});
+	}
+	touchCheckpoints() {
+		const hit = nearestCheckpoint(this.px, this.pz, 4.6);
+		if (!hit) return;
+		if (this.checkpoint?.id !== hit.id) {
+			this.checkpoint = hit;
+			this.persistRun();
+			this.tell(`Crystal binds — ${hit.name}`);
+			this.audio.rune();
+		}
+		if (!this.nearPrompt) {
+			this.nearPrompt = `Bound · ${hit.name}`;
+			this.nearKey = this.input.interactGlyph?.() || "F";
+		}
+	}
+	riseAtCheckpoint() {
+		const cp = this.checkpoint || CHECKPOINTS[0];
+		this.ended = false;
+		this.health = this.maxHealth || 100;
+		this.px = cp.x;
+		this.py = cp.y || 0;
+		this.pz = cp.z;
+		this.yaw = cp.yaw || 0;
+		this.pitch = -0.08;
+		this.vx = 0;
+		this.vy = 0;
+		this.vz = 0;
+		this.grounded = true;
+		this.coyote = 0.1;
+		this.flipT = 0;
+		this.grace = 1.8;
+		this.trauma = 0;
+		this.dmgFlash = 0;
+		this.freeze = 0;
+		this.yawObj.rotation.y = this.yaw;
+		this.yawObj.position.set(this.px, this.py + EYE, this.pz);
+		this.setPaused(false);
+		this.persistRun();
+		this.tell(`Rise — ${cp.name}`);
+		this.audio.rune();
+		this.pushHud();
 	}
 	setQuality(q) {
 		this.quality = q || 1080;
@@ -1132,9 +1240,15 @@ export class CrimsonGame {
 		this.pitch -= look.y * sens * (s.invertY ? -1 : 1);
 		this.yaw -= this.input.lookStickX * 2.6 * dt * adsMul;
 		this.pitch -= this.input.lookStickY * 2.2 * dt * adsMul * (s.invertY ? -1 : 1);
-		const lim = Math.PI / 2 - .02;
-		if (this.pitch > lim) this.pitch = lim;
-		if (this.pitch < -lim) this.pitch = -lim;
+		if (this.flipT > 0) {
+			const dur = 0.72;
+			const p = 1 - this.flipT / dur;
+			this.pitch = (this.flipPitch0 || 0) + p * Math.PI * 2;
+		} else {
+			const lim = Math.PI / 2 - .02;
+			if (this.pitch > lim) this.pitch = lim;
+			if (this.pitch < -lim) this.pitch = -lim;
+		}
 		this.yawObj.rotation.y = this.yaw;
 		this.camera.rotation.set(this.pitch + this.recoilSim.camPitch + this.recoilSim.camTr, this.recoilSim.camYaw, this.recoilSim.camRoll);
 	}
@@ -1161,17 +1275,38 @@ export class CrimsonGame {
 		const sprint = this.input.sprintHeld && len > .1 && this.grounded;
 		let speed = (sprint ? 10.4 : 6.3) * (this.mods().speed || 1);
 		if (this.staggerT > 0) speed *= 0.38;
-		const wishX = ax * speed;
-		const wishZ = az * speed;
-		const rate = this.grounded ? 16 : 3.6;
-		const lerpAmt = 1 - Math.exp(-rate * dt);
-		this.vx += (wishX - this.vx) * lerpAmt;
-		this.vz += (wishZ - this.vz) * lerpAmt;
+		const wantFlip = this.grounded && this.flipT <= 0 && this.input.jumpPressed && (my < -0.4 || this.input.keys.has("ControlLeft") || this.input.keys.has("ControlRight"));
+		if (wantFlip) {
+			this.flipT = 0.72;
+			this.flipYaw = this.yaw;
+			this.flipPitch0 = this.pitch;
+			this.vy = 6.4;
+			this.grounded = false;
+			this.coyote = 0;
+			this.jumpBuf = 0;
+			this.jumpWasHeld = false;
+			this.vx = -fx * 5.2;
+			this.vz = -fz * 5.2;
+			this.grace = Math.max(this.grace || 0, 0.72);
+			this.audio.jump();
+			this.tell("Standing backflip.");
+		}
+		if (this.flipT > 0) {
+			this.flipT = Math.max(0, this.flipT - dt);
+			if (this.flipT <= 0) this.pitch = this.flipPitch0 || -0.08;
+		} else {
+			const wishX = ax * speed;
+			const wishZ = az * speed;
+			const rate = this.grounded ? 16 : 3.6;
+			const lerpAmt = 1 - Math.exp(-rate * dt);
+			this.vx += (wishX - this.vx) * lerpAmt;
+			this.vz += (wishZ - this.vz) * lerpAmt;
+		}
 		if (this.input.jumpPressed) this.jumpBuf = .12;
 		else this.jumpBuf = Math.max(0, this.jumpBuf - dt);
 		const wasGrounded = this.grounded;
 		const fall = this.vy;
-		if (this.jumpBuf > 0 && (this.grounded || this.coyote > 0)) {
+		if (this.flipT <= 0 && this.jumpBuf > 0 && (this.grounded || this.coyote > 0)) {
 			const jumpMul = this.owm?.flags?.jumpMul || 1;
 			this.vy = 8.1 * jumpMul;
 			this.grounded = false;
@@ -1634,6 +1769,17 @@ export class CrimsonGame {
 				this.skillPts = (this.skillPts || 0) + 1;
 				this.tell("A Sovereign Stone falls. The tree drinks.");
 			}
+			const drops = rollLoot(e.kind === "boss" ? "boss" : e.kind, this.pity);
+			for (const d of drops) {
+				if (d.kind === "stone") {
+					this.skillPts = (this.skillPts || 0) + 1;
+					this.tell(d.label);
+				} else if (this.world?.gift) {
+					this.world.gift(d.kind, e.root.position.x + (Math.random() - 0.5) * 1.2, e.root.position.z + (Math.random() - 0.5) * 1.2, Math.max(0.4, e.root.position.y + 0.4));
+					this.tell(d.label);
+				}
+			}
+			this.persistRun();
 			this.spark(e.root.position.clone().add(new THREE.Vector3(0, 1, 0)), 3);
 			this.audio.at(e.root.position.x, e.root.position.z);
 			this.audio.enemyDeath(e.kind);
@@ -1847,6 +1993,12 @@ export class CrimsonGame {
 		return { x: sx, z: sz };
 	}
 	enemySteer(e, wx, wz, speed, dt) {
+		const flow = this.nav?.dir(e.root.position.x, e.root.position.z);
+		const hd = Math.hypot(e.root.position.x - this.px, e.root.position.z - this.pz);
+		if (flow && hd > 7 && (flow.x || flow.z)) {
+			wx = wx * 0.38 + flow.x * 0.62;
+			wz = wz * 0.38 + flow.z * 0.62;
+		}
 		const len = Math.hypot(wx, wz) || 1;
 		let nx = e.root.position.x + (wx / len) * speed * dt;
 		let nz = e.root.position.z + (wz / len) * speed * dt;
@@ -1948,6 +2100,7 @@ export class CrimsonGame {
 				});
 				this.tell(`${n.title} — ${n.rune} is yours.`);
 				this.trauma = .5;
+				this.persistRun();
 				if ([...this.runes].filter((id) => id !== "eryndra" && id !== "aelith").length >= 4 && !this.world.gateOpen) {
 					this.world.setGateOpen(true);
 					this.rebuildHash();
@@ -2058,9 +2211,11 @@ export class CrimsonGame {
 			this.hunter.root.visible = !fps;
 			this.hunter.root.position.set(this.px, this.py, this.pz);
 			this.hunter.root.rotation.y = this.yaw + Math.PI;
+			this.hunter.root.rotation.x = this.flipT > 0 ? -((1 - this.flipT / 0.72) * Math.PI * 2) : 0;
 			poseHunter(this.hunter, this.bob, this.grounded, Math.hypot(this.vx, this.vz), this.pitch, w?.view ?? 0, this.time, 0);
 		}
 		tickCrystal(this.time, this.scene.fog);
+		this.shapes?.updateAllGraphics?.(dt);
 		this.world?.flashLightning?.(this.time);
 		if (fps) this.camera.position.set(0, 0, 0);
 		else if (cam === "tps") this.camera.position.set(0.55, 0.22, 2.6);
@@ -2176,6 +2331,7 @@ export class CrimsonGame {
 			skillCd: this.skillCd || 0,
 			skillCast: this.skillCastT > 0 ? this.skillCast : null,
 			recoilHeat: this.recoilSim.heat01(),
+			checkpoint: this.checkpoint?.name || "The Threshold",
 			map: {
 				x: this.px,
 				z: this.pz,
@@ -2192,6 +2348,11 @@ export class CrimsonGame {
 				gateOpen: !!this.world?.gateOpen,
 			},
 		});
+		this.saveAcc = (this.saveAcc || 0) + 0.08;
+		if (this.saveAcc > 4.5) {
+			this.saveAcc = 0;
+			this.persistRun();
+		}
 	}
 	render() {
 		const w = this.canvas.clientWidth || window.innerWidth;
@@ -2290,6 +2451,9 @@ export class CrimsonGame {
 				bw: this.canvas.width,
 				bh: this.canvas.height,
 				recoil: this.recoilSim.dump(),
+				checkpoint: this.checkpoint?.id,
+				flipT: this.flipT,
+				navBlocked: this.nav?.blockedAt(this.px, this.pz),
 			}),
 		};
 		this._probe = probe;
@@ -2297,9 +2461,14 @@ export class CrimsonGame {
 		window.__crimsonQa = {
 			seed: () => this.profile.code,
 			runes: () => [...this.runes],
-			padded: () => padCode(this.profile.code)
+			padded: () => padCode(this.profile.code),
+			checkpoint: () => this.checkpoint?.id,
+			pity: () => ({ ...this.pity }),
+			flipT: () => this.flipT,
 		};
 		window.__crimsonAudio = this.audio;
+		window.__crimsonRemain = () => this.remain();
+		window.__crimsonRise = () => this.riseAtCheckpoint();
 	}
 	dispose() {
 		this.disposed = true;
@@ -2333,6 +2502,8 @@ export class CrimsonGame {
 			delete window.__crimsonInput;
 			delete window.__crimsonQa;
 			delete window.__crimsonAudio;
+			delete window.__crimsonRemain;
+			delete window.__crimsonRise;
 		}
 	}
 }

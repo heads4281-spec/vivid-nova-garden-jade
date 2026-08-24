@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050010" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="CRIMSON SOVEREIGN" />
+  <meta name="description" content="Extra maps of CRIMSON SOVEREIGN — Kaelith Forge, Vespera Hollow, Ankh Spire plus the Six Names cycle." />
+  <title>CRIMSON SOVEREIGN · Extra Maps</title>
+  <style>
+    :root { color-scheme: dark; --crimson: #c41e3a; --ember: #ff4400; --fg: #e8d5c4; --holo: #7df9ff; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #050010; color: var(--fg); font-family: ui-sans-serif, system-ui, sans-serif; }
+    body { padding: 24px 18px 48px; }
+    a { color: var(--holo); }
+    header { max-width: 920px; margin: 0 auto 28px; }
+    h1 { font-family: ui-serif, Georgia, serif; letter-spacing: 0.18em; color: var(--crimson); font-size: clamp(1.4rem, 4vw, 2.4rem); }
+    nav { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    nav a, button {
+      background: #1a0508; color: var(--fg); border: 1px solid #c41e3a88;
+      padding: 10px 14px; text-decoration: none; letter-spacing: 0.12em; font: inherit; font-size: 0.78rem; cursor: pointer;
+    }
+    main { max-width: 920px; margin: 0 auto; display: grid; gap: 16px; }
+    article {
+      border: 1px solid #c41e3a55; background: #0a0015; padding: 16px 18px;
+      box-shadow: 0 0 24px #c41e3a22;
+    }
+    article h2 { margin: 0 0 6px; font-family: ui-serif, Georgia, serif; letter-spacing: 0.14em; color: var(--ember); font-size: 1.05rem; }
+    article p { margin: 0; line-height: 1.5; color: #c8b8aa; }
+    .coord { font-family: ui-monospace, SF Mono, Menlo, monospace; color: var(--holo); font-size: 0.78rem; margin-top: 8px; }
+    .extra { border-color: #ff440088; }
+  </style>
+</head>
+<body>
+  <header>
+    <p style="letter-spacing:0.4em;color:var(--crimson);font-size:0.75rem">TYPE VII · EXTRA MAPS</p>
+    <h1>CRIMSON SOVEREIGN</h1>
+    <p>Three extra courts sit beyond the Six Names cycle. Walk them in the open world, or lock a waypoint on the holographic atlas (press M in play).</p>
+    <nav>
+      <a href="/">Play the palace</a>
+      <a href="/html5/holographic-atlas.html">HTML5 holo atlas</a>
+      <a href="https://github.com/heads4281-spec">github.com/heads4281-spec</a>
+      <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade">Source repo</a>
+      <button type="button" id="fs">Fullscreen</button>
+    </nav>
+  </header>
+  <main>
+    <article class="extra">
+      <h2>Kaelith Forge · Ember Anvil</h2>
+      <p>Southeast of the Threshold. Ember pylons, a hammered anvil slab, constructs still beating law into the sky. Health and ammo sit on the anvil. Checkpoint: Kaelith Forge.</p>
+      <p class="coord">WORLD 78 / 68 · SE of spawn</p>
+    </article>
+    <article class="extra">
+      <h2>Vespera Hollow · Whisper Well</h2>
+      <p>Southwest of the Threshold. Night-violet pylons ring a well of quiet. Shades drift the rim. Checkpoint: Vespera Hollow.</p>
+      <p class="coord">WORLD −78 / 68 · SW of spawn</p>
+    </article>
+    <article class="extra">
+      <h2>Ankh Spire · Climb of Law</h2>
+      <p>Northeast of Vaelith. Stepped platforms climb to a hanging ankh of arterial light. Sentinels keep the stair. Checkpoint: Ankh Spire.</p>
+      <p class="coord">WORLD 78 / −72 · NE climb</p>
+    </article>
+    <article>
+      <h2>Six Names (canonical cycle)</h2>
+      <p>Vaelith N (0, −82) · Rynara W (−78, 0) · Sanguara E (80, 4) · Nyxara NW (−52, −52) · Eryndra gate (0, −15) · Aelith heart (0, −8). Threshold spawn (0, 68). Gate (0, 22) opens after four Names.</p>
+    </article>
+  </main>
+  <script>
+    document.getElementById("fs").onclick = () => {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    };
+  </script>
+</body>
+</html>

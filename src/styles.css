@@ -15,6 +15,7 @@
   --color-blood: #8b0000;
   --color-night: #0a0015;
   --color-ankh: #ff1144;
+  --color-holo: #7df9ff;
   --color-border: #3a0a14;
   --color-ok: #7d9a7a;
   --font-display: "Cinzel", ui-serif, Georgia, "Times New Roman", serif;
@@ -42,8 +43,9 @@
     background: var(--color-bg);
     color: var(--color-fg);
     font-family: var(--font-sans);
-    overflow: auto;
-    touch-action: manipulation;
+    overflow: hidden;
+    touch-action: none;
+    color-scheme: dark;
   }
 
   button:not(:disabled),
@@ -64,4 +66,12 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.holo-frame {
+  box-shadow: 0 0 28px color-mix(in srgb, var(--color-crimson) 45%, transparent), inset 0 0 40px color-mix(in srgb, var(--color-holo) 12%, transparent);
+}
+
+.holo-chip {
+  border-color: color-mix(in srgb, var(--color-ember) 70%, var(--color-border));
 }
