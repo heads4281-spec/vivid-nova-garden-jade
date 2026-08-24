@@ -1,0 +1,73 @@
+const worker = new Worker('map-worker.js'); }
+const workerCode = `
+  // entire worker source here
+  self.onmessage = (e) => { ... };
+`;
+
+const blob = new Blob([workerCode], { type: 'application/javascript' });
+const workerUrl = URL.createObjectURL(blob);
+const worker = new Worker(workerUrl);
+
+// Optional: revoke later to free memory
+// URL.revokeObjectURL(workerUrl); }
+function createWorkerFromCode(code) {
+  const blob = new Blob([code], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  const worker = new Worker(url);
+
+  // Keep the URL alive as long as the worker lives
+  worker._blobUrl = url;
+
+  // Clean up when the worker is terminated
+  const originalTerminate = worker.terminate.bind(worker);
+  worker.terminate = () => {
+    originalTerminate();
+    URL.revokeObjectURL(url);
+  };
+
+  return worker;
+}
+
+// Usage
+const mapWorker = createWorkerFromCode(`
+  const CHUNK_SIZE = 32;
+  // ... full Perlin + fBm + generate logic ...
+  self.onmessage = function(e) {
+    if (e.data.type === 'gen') {
+      const tiles = generateChunk(e.data.cx, e.data.cz);
+      self.postMessage({ type: 'chunk', ...e.data, tiles }, [tiles.buffer]);
+    }
+  };
+`);
+function spawnPool(code, count = 4) {
+  return Array.from({ length: count }, () => createWorkerFromCode(code));
+}
+function createMapWorker(seed = 63821, chunkSize = 32) {
+  const code = `
+    const SEED = ${seed};
+    const CS = ${chunkSize};
+    // ... rest of the worker ...
+  `;
+  return createWorkerFromCode(code);
+}
+worker.onerror = (err) => {
+  console.error('Worker error:', err.message, err.filename, err.lineno);
+};
+
+worker.onmessageerror = (err) => {
+  console.error('Message deserialization error', err);
+};
+const code = `
+  //# sourceURL=map-worker.js
+  self.onmessage = ...
+`;const code = `
+  //# sourceURL=map-worker.js
+  self.onmessage = ...
+`;
+
+function destroyWorker(worker) {
+  worker.terminate();
+  if (worker._blobUrl) {
+    URL.revokeObjectURL(worker._blobUrl);
+  }
+}
