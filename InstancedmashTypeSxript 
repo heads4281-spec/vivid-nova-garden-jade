@@ -1,0 +1,123 @@
+// type7_palace_instancer.ts
+import * as THREE from 'three';
+import { Type7MapParser, Type7TileType, WorldCoord } from './type7-map-parser';
+
+export interface PalaceAssets {
+  wallGeo: THREE.BufferGeometry;
+  wallMat: THREE.Material;
+  floorGeo: THREE.BufferGeometry;
+  floorMat: THREE.Material;
+  runestoneGeo: THREE.BufferGeometry;
+  runestoneMat: THREE.Material;
+  gateGeo: THREE.BufferGeometry;
+  gateMat: THREE.Material;
+}
+
+export interface InstantiatedPalace {
+  walls: THREE.InstancedMesh;
+  floors: THREE.InstancedMesh;
+  runestones: THREE.InstancedMesh;
+  gates: THREE.InstancedMesh;
+  metadata: ReturnType<Type7MapParser['getMapMetadata']>;
+}
+
+/**
+ * Instantiates the full procedural palace into a Three.js scene.
+ * Designed for 1000×1000 grids with maximum performance.
+ */
+export function instantiate3DProceduralPalace(
+  scene: THREE.Scene,
+  rawJsonData: any,
+  assets: PalaceAssets,
+  options: {
+    cellSize?: number;
+    heightFn?: (x: number, z: number) => number; // optional Perlin elevation
+  } = {}
+): InstantiatedPalace {
+  const cellSize = options.cellSize ?? 64;
+  const parser = new Type7MapParser(rawJsonData, cellSize);
+  const metadata = parser.getMapMetadata();
+
+  // -------------------------------------------------
+  // Helper: create one InstancedMesh from coordinates
+  // -------------------------------------------------
+  function createInstancedMesh(
+    positions: WorldCoord[],
+    geometry: THREE.BufferGeometry,
+    material: THREE.Material,
+    yOffset = 0
+  ): THREE.InstancedMesh {
+    const mesh = new THREE.InstancedMesh(geometry, material, positions.length);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); // allows future updates
+
+    const dummy = new THREE.Object3D();
+
+    positions.forEach((pos, i) => {
+      dummy.position.set(pos.x, pos.y + yOffset, pos.z);
+      dummy.scale.set(cellSize, cellSize, cellSize);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    return mesh;
+  }
+
+  // -------------------------------------------------
+  // Extract all tile categories
+  // -------------------------------------------------
+  const wallPositions   = parser.extract3DWorldCoordinates(Type7TileType.WALL, options.heightFn);
+  const floorPositions  = parser.extract3DWorldCoordinates(Type7TileType.FLOOR, options.heightFn);
+  const runePositions   = parser.extract3DWorldCoordinates(Type7TileType.RUNESTONE, options.heightFn);
+  const gatePositions   = parser.extract3DWorldCoordinates(Type7TileType.THRESHOLD_GATE, options.heightFn);
+
+  // -------------------------------------------------
+  // Create meshes
+  // -------------------------------------------------
+  const walls = createInstancedMesh(
+    wallPositions,
+    assets.wallGeo,
+    assets.wallMat,
+    cellSize / 2          // walls sit on top of the floor plane
+  );
+
+  const floors = createInstancedMesh(
+    floorPositions,
+    assets.floorGeo,
+    assets.floorMat,
+    0                     // floor level
+  );
+
+  const runestones = createInstancedMesh(
+    runePositions,
+    assets.runestoneGeo,
+    assets.runestoneMat,
+    cellSize * 0.6        // slightly raised
+  );
+
+  const gates = createInstancedMesh(
+    gatePositions,
+    assets.gateGeo,
+    assets.gateMat,
+    cellSize / 2
+  );
+
+  console.log(
+    `[Type VII Engine] Instantiated → ` +
+    `${wallPositions.length} walls | ` +
+    `${floorPositions.length} floors | ` +
+    `${runePositions.length} runestones | ` +
+    `${gatePositions.length} threshold gates`
+  );
+
+  return {
+    walls,
+    floors,
+    runestones,
+    gates,
+    metadata
+  };
+}
