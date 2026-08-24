@@ -1,0 +1,36 @@
+#pragma once
+#include "MathTypes.hpp"
+#include <string>
+#include <vector>
+
+enum class EntityType {
+    Sovereign,      // Player
+    BloodKnight,    // Ally / minion
+    CrimsonWraith,  // Enemy
+    ThroneRelic,    // Interactive
+    GateOfSovereign // Level portal (15 of them across the campaign)
+};
+
+struct Mesh {
+    std::vector<float> vertices; // pos(3) + normal(3) + uv(2)
+    std::vector<uint32_t> indices;
+};
+
+struct Material {
+    vec3_t albedo{0.8f, 0.1f, 0.15f}; // default crimson
+    float metallic = 0.3f;
+    float roughness = 0.45f;
+    // Later: texture IDs for albedo / normal / metallicRoughness
+};
+
+struct Entity {
+    EntityType type = EntityType::CrimsonWraith;
+    std::string name;
+    vec3_t position{0,0,0};
+    vec3_t rotation{0,0,0}; // Euler for simplicity
+    vec3_t scale{1,1,1};
+    Mesh* mesh = nullptr;
+    Material material;
+    float health = 100.f;
+    float crimsonPower = 0.f; // unique resource
+};
