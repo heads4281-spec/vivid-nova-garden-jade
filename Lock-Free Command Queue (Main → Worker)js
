@@ -1,0 +1,17 @@
+// Main thread – push a generate request
+function enqueueChunkRequest(cx, cz) {
+  const head = Atomics.load(meta, HEAD);
+  const next = (head + 2) % queue.length;          // each request = 2 ints (cx, cz)
+
+  // Simple back-pressure: if queue is full, drop lowest priority
+  if (next === Atomics.load(meta, TAIL)) {
+    console.warn('Shared queue full – dropping request');
+    return false;
+  }
+
+  queue[head]     = cx;
+  queue[head + 1] = cz;
+  Atomics.store(meta, HEAD, next);
+  Atomics.notify(meta, HEAD);                      // wake worker if waiting
+  return true;
+}
