@@ -1,0 +1,100 @@
+// Inside your main HTML / engine module
+const CHUNK_SIZE = 32;
+const CELL = 8;
+const LOAD_RADIUS = 3;          // chunks in each direction
+const UNLOAD_RADIUS = 5;
+
+const worker = new Worker('map-worker.js');
+const loadedChunks = new Map(); // key → { meshGroup, tiles }
+let nextRequestId = 1;
+const pending = new Map();
+
+function chunkKey(cx, cz) {
+  return `${cx},${cz}`;
+}
+
+function worldToChunk(x, z) {
+  return {
+    cx: Math.floor(x / (CHUNK_SIZE * CELL)),
+    cz: Math.floor(z / (CHUNK_SIZE * CELL))
+  };
+}
+
+worker.onmessage = (e) => {
+  const { type, requestId, cx, cz, tiles } = e.data;
+  if (type !== 'chunk') return;
+
+  const key = chunkKey(cx, cz);
+  pending.delete(requestId);
+
+  if (loadedChunks.has(key)) return; // already loaded
+
+  // Build InstancedMeshes for this chunk
+  const group = buildChunkMeshes(cx, cz, tiles);
+  loadedChunks.set(key, { group, tiles });
+  scene.add(group);
+};
+
+function requestChunk(cx, cz) {
+  const key = chunkKey(cx, cz);
+  if (loadedChunks.has(key) || pending.has(key)) return;
+
+  const id = nextRequestId++;
+  pending.set(id, key);
+  worker.postMessage({ type: 'generate', cx, cz, requestId: id });
+}
+
+function buildChunkMeshes(cx, cz, tiles) {
+  const group = new THREE.Group();
+  const originX = cx * CHUNK_SIZE * CELL;
+  const originZ = cz * CHUNK_SIZE * CELL;
+
+  const floorPos = [], wallPos = [], runePos = [], gatePos = [];
+
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const t = tiles[lz * CHUNK_SIZE + lx];
+      const wx = originX + lx * CELL + CELL / 2;
+      const wz = originZ + lz * CELL + CELL / 2;
+
+      if (t === 2) floorPos.push(new THREE.Vector3(wx, 0, wz));
+      if (t === 1) wallPos.push(new THREE.Vector3(wx, 0, wz));
+      if (t === 3) { floorPos.push(new THREE.Vector3(wx, 0, wz)); runePos.push(new THREE.Vector3(wx, 0, wz)); }
+      if (t === 4) { floorPos.push(new THREE.Vector3(wx, 0, wz)); gatePos.push(new THREE.Vector3(wx, 0, wz)); }
+    }
+  }
+
+  // Re-use the same createInstanced helper from previous replies
+  if (floorPos.length) group.add(createInstanced(floorPos, floorGeo, floorMat, 0));
+  if (wallPos.length)  group.add(createInstanced(wallPos,  wallGeo,  wallMat,  CELL * 0.9));
+  if (runePos.length)  group.add(createInstanced(runePos,  runeGeo,  runeMat,  CELL * 0.7));
+  if (gatePos.length)  group.add(createInstanced(gatePos,  gateGeo,  gateMat,  CELL * 1.1));
+
+  return group;
+}
+
+function updateChunks(playerX, playerZ) {
+  const { cx: pcx, cz: pcz } = worldToChunk(playerX, playerZ);
+
+  // Request needed chunks
+  for (let dz = -LOAD_RADIUS; dz <= LOAD_RADIUS; dz++) {
+    for (let dx = -LOAD_RADIUS; dx <= LOAD_RADIUS; dx++) {
+      requestChunk(pcx + dx, pcz + dz);
+    }
+  }
+
+  // Unload distant chunks
+  for (const [key, data] of loadedChunks) {
+    const [cx, cz] = key.split(',').map(Number);
+    if (Math.abs(cx - pcx) > UNLOAD_RADIUS || Math.abs(cz - pcz) > UNLOAD_RADIUS) {
+      scene.remove(data.group);
+      data.group.traverse(obj => {
+        if (obj.isInstancedMesh) {
+          obj.geometry.dispose();
+          // materials are shared – don’t dispose
+        }
+      });
+      loadedChunks.delete(key);
+    }
+  }
+}
