@@ -1,0 +1,12 @@
+function pollResults() {
+  if (Atomics.load(meta, RESULT_READY) === 1) {
+    const cx = Atomics.load(meta, RESULT_CX);
+    const cz = Atomics.load(meta, RESULT_CZ);
+    Atomics.store(meta, RESULT_READY, 0);
+
+    // tiles can be read from shared memory or received via a light postMessage
+    buildChunkMeshes(cx, cz, /* tiles */);
+  }
+}
+
+// Call pollResults() every frame or use Atomics.waitAsync (newer browsers)
