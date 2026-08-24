@@ -1,0 +1,27 @@
+#include "SuperEngine.hpp"
+// #include <GLFW/glfw3.h>  // or SDL2 / your window lib
+
+int main() {
+    // Create window (GLFW example – replace with your preferred)
+    // GLFWwindow* window = glfwCreateWindow(1920, 1080, "Crimson Sovereign", nullptr, nullptr);
+    // glfwMakeContextCurrent(window);
+
+    SuperEngine engine;
+    if (!engine.init(GraphicsAPI::OpenGL, /*glfwGetWin32Window(window) or nullptr*/, 1920, 1080)) {
+        return 1;
+    }
+
+    double last = 0.0; // glfwGetTime();
+    while (true /* !glfwWindowShouldClose(window) */) {
+        double now = 0.016; // glfwGetTime();
+        float dt = float(now - last);
+        last = now;
+
+        engine.update(dt);
+        engine.render();
+        // glfwSwapBuffers(window); glfwPollEvents();
+    }
+
+    engine.shutdown();
+    return 0;
+}
