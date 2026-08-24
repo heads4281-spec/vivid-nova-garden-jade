@@ -1,0 +1,126 @@
+const CHUNK_SIZE   = 32;
+const CELL         = 8;
+const LOAD_RADIUS  = 3;
+const UNLOAD_RADIUS = 5;
+const MAX_PENDING  = 12;          // never let the worker queue grow too large
+
+const worker       = new Worker('map-worker.js');
+const loadedChunks = new Map();   // key → { group, tiles }
+const pendingQueue = new PriorityQueue();
+const pendingKeys  = new Set();   // fast lookup
+let   nextRequestId = 1;
+let   workerBusy    = false;
+
+function chunkKey(cx, cz) {
+  return `${cx},${cz}`;
+}
+
+function worldToChunk(x, z) {
+  return {
+    cx: Math.floor(x / (CHUNK_SIZE * CELL)),
+    cz: Math.floor(z / (CHUNK_SIZE * CELL))
+  };
+}
+
+// Distance priority (Manhattan is cheap & good enough)
+function priority(cx, cz, pcx, pcz) {
+  return Math.abs(cx - pcx) + Math.abs(cz - pcz);
+}
+
+// -------------------------------------------------
+// Request a chunk (adds to priority queue)
+// -------------------------------------------------
+function requestChunk(cx, cz, pcx, pcz) {
+  const key = chunkKey(cx, cz);
+  if (loadedChunks.has(key) || pendingKeys.has(key)) return;
+
+  const prio = priority(cx, cz, pcx, pcz);
+  const requestId = nextRequestId++;
+
+  pendingQueue.enqueue({ key, cx, cz, priority: prio, requestId });
+  pendingKeys.add(key);
+
+  trySendNext();
+}
+
+// -------------------------------------------------
+// Send the highest-priority pending chunk to the worker
+// -------------------------------------------------
+function trySendNext() {
+  if (workerBusy || pendingQueue.size === 0) return;
+
+  // Keep the queue from exploding
+  while (pendingQueue.size > MAX_PENDING) {
+    const dropped = pendingQueue.dequeue();
+    pendingKeys.delete(dropped.key);
+  }
+
+  const item = pendingQueue.dequeue();
+  if (!item) return;
+
+  workerBusy = true;
+  worker.postMessage({
+    type: 'generate',
+    cx: item.cx,
+    cz: item.cz,
+    requestId: item.requestId
+  });
+}
+
+// -------------------------------------------------
+// Worker reply
+// -------------------------------------------------
+worker.onmessage = (e) => {
+  const { type, requestId, cx, cz, tiles } = e.data;
+  if (type !== 'chunk') return;
+
+  workerBusy = false;
+  const key = chunkKey(cx, cz);
+  pendingKeys.delete(key);
+
+  if (!loadedChunks.has(key)) {
+    const group = buildChunkMeshes(cx, cz, tiles); // same as before
+    loadedChunks.set(key, { group, tiles });
+    scene.add(group);
+  }
+
+  // Immediately start the next highest-priority chunk
+  trySendNext();
+};
+
+// -------------------------------------------------
+// Called every frame (or every few frames)
+// -------------------------------------------------
+function updateChunks(playerX, playerZ) {
+  const { cx: pcx, cz: pcz } = worldToChunk(playerX, playerZ);
+
+  // 1. Request all chunks in the load radius
+  for (let dz = -LOAD_RADIUS; dz <= LOAD_RADIUS; dz++) {
+    for (let dx = -LOAD_RADIUS; dx <= LOAD_RADIUS; dx++) {
+      requestChunk(pcx + dx, pcz + dz, pcx, pcz);
+    }
+  }
+
+  // 2. Re-prioritise everything still pending
+  //    (cheap because the queue is tiny)
+  for (const item of pendingQueue.heap) {
+    item.priority = priority(item.cx, item.cz, pcx, pcz);
+  }
+  // Rebuild heap order
+  pendingQueue.heap.sort((a, b) => a.priority - b.priority);
+
+  // 3. Unload far chunks
+  for (const [key, data] of loadedChunks) {
+    const [cx, cz] = key.split(',').map(Number);
+    if (Math.abs(cx - pcx) > UNLOAD_RADIUS || Math.abs(cz - pcz) > UNLOAD_RADIUS) {
+      scene.remove(data.group);
+      data.group.traverse(o => {
+        if (o.isInstancedMesh) o.geometry.dispose();
+      });
+      loadedChunks.delete(key);
+    }
+  }
+
+  // 4. Kick the worker if it is idle
+  trySendNext();
+}
