@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Devon Hundreds – Full Scale Holographic Game Map Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Share+Tech+Mono&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0a0f1a;
+    color:#c8e6ff;
+    font-family:'Share Tech Mono', monospace;
+    overflow:hidden;
+    height:100vh;
+  }
+  #ui {
+    position:absolute; top:0; left:0; right:0; bottom:0;
+    pointer-events:none; z-index:10;
+  }
+  .panel {
+    pointer-events:auto;
+    background:rgba(8,20,40,0.92);
+    border:1px solid #00e5ff44;
+    box-shadow:0 0 20px #00e5ff33, inset 0 0 30px #00e5ff11;
+    backdrop-filter:blur(8px);
+    border-radius:6px;
+  }
+  #header {
+    position:absolute; top:12px; left:12px; right:12px;
+    height:54px; display:flex; align-items:center; gap:18px;
+    padding:0 20px;
+  }
+  #header h1 {
+    font-family:'Cinzel', serif;
+    font-size:1.35rem;
+    letter-spacing:3px;
+    color:#7df9ff;
+    text-shadow:0 0 12px #00e5ff;
+  }
+  .stat { font-size:0.9rem; opacity:0.9; }
+  #minimap {
+    position:absolute; bottom:18px; left:18px;
+    width:220px; height:160px;
+  }
+  #upgradeRoom {
+    position:absolute; top:80px; right:18px;
+    width:320px; max-height:70vh; overflow-y:auto;
+    padding:16px;
+  }
+  #upgradeRoom h2 {
+    font-family:'Cinzel', serif;
+    color:#7df9ff;
+    margin-bottom:12px;
+    font-size:1.1rem;
+  }
+  .upgrade-btn, .scale-btn {
+    display:block; width:100%; margin:6px 0;
+    padding:10px; background:#001a2e;
+    border:1px solid #00e5ff66;
+    color:#aef; cursor:pointer;
+    transition:all .2s;
+  }
+  .upgrade-btn:hover, .scale-btn:hover {
+    background:#003a5e;
+    box-shadow:0 0 12px #00e5ff88;
+  }
+  #info {
+    position:absolute; bottom:18px; right:18px;
+    width:280px; padding:14px;
+    font-size:0.85rem;
+  }
+  canvas {
+    display:block; width:100vw; height:100vh;
+    cursor:crosshair;
+  }
+  .holo {
+    animation:holoPulse 3s ease-in-out infinite;
+  }
+  @keyframes holoPulse {
+    0%,100% { filter:drop-shadow(0 0 8px #00e5ff88); }
+    50% { filter:drop-shadow(0 0 18px #00e5ffcc); }
+  }
+</style>
+</head>
+<body>
+<canvas id="map"></canvas>
+
+<div id="ui">
+  <div id="header" class="panel">
+    <h1>DEVON HUNDREDS</h1>
+    <div class="stat">Scale: <span id="scaleVal">1.00×</span></div>
+    <div class="stat">Resources: <span id="res">1200</span></div>
+    <div class="stat">Selected: <span id="sel">None</span></div>
+    <button class="scale-btn" style="width:auto;padding:6px 14px;" onclick="resetView()">Reset View</button>
+    <button class="scale-btn" style="width:auto;padding:6px 14px;" onclick="toggleHolo()">Holo Scale</button>
+    <button class="scale-btn" style="width:auto;padding:6px 14px;" onclick="expandFull()">Full Engine Stretch</button>
+  </div>
+
+  <div id="minimap" class="panel">
+    <canvas id="mini" width="220" height="160"></canvas>
+  </div>
+
+  <div id="upgradeRoom" class="panel">
+    <h2>⬆ UPGRADE ROOM</h2>
+    <div id="upgrades"></div>
+    <hr style="border-color:#00e5ff33;margin:12px 0;">
+    <button class="upgrade-btn" onclick="expandRoom()">Expand Room (+scale)</button>
+    <button class="upgrade-btn" onclick="fillUpgradeScales()">Fill / Stretch All Scales</button>
+    <button class="upgrade-btn" onclick="saveGame()">Save Engine State</button>
+    <button class="upgrade-btn" onclick="loadGame()">Load Engine State</button>
+  </div>
+
+  <div id="info" class="panel">
+    <div id="infoText">Click a Hundred to select.<br>Scroll to zoom • Drag to pan<br>Holographic scale active.</div>
+  </div>
+</div>
+
+<script>
+/* ========== FULL MAP ENGINE ========== */
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+const mini = document.getElementById('mini');
+const mctx = mini.getContext('2d');
+
+let W, H, scale = 1.0, offsetX = 0, offsetY = 0;
+let holo = true, resources = 1200;
+let selected = null;
+let roomLevel = 1;
+
+/* Approximate Devon outline + Hundreds (derived from your Cary map reference) */
+const hundreds = [
+  {id:1,  name:"Braunton",       x:0.18,y:0.22,r:0.07, color:"#4a90a4"},
+  {id:2,  name:"Shirwell",       x:0.28,y:0.18,r:0.06, color:"#3d7a8c"},
+  {id:3,  name:"Fremington",     x:0.22,y:0.32,r:0.05, color:"#5ba3b8"},
+  {id:4,  name:"South Molton",   x:0.38,y:0.28,r:0.07, color:"#6bb8cc"},
+  {id:5,  name:"Hartland",       x:0.12,y:0.38,r:0.06, color:"#2e6b7a"},
+  {id:6,  name:"Shebbear",       x:0.25,y:0.42,r:0.05, color:"#4a9aab"},
+  {id:7,  name:"North Tawton",   x:0.42,y:0.38,r:0.06, color:"#5aa8bc"},
+  {id:8,  name:"Winkleigh",      x:0.48,y:0.32,r:0.05, color:"#6ab6c8"},
+  {id:9,  name:"Crediton",       x:0.52,y:0.45,r:0.07, color:"#7ac4d4"},
+  {id:10, name:"West Budleigh",  x:0.62,y:0.48,r:0.05, color:"#4a8c9e"},
+  {id:11, name:"East Budleigh",  x:0.72,y:0.52,r:0.05, color:"#5a9cae"},
+  {id:12, name:"Hayridge",       x:0.58,y:0.58,r:0.06, color:"#6aacbe"},
+  {id:13, name:"Hemyock",        x:0.68,y:0.38,r:0.05, color:"#3d7a8c"},
+  {id:14, name:"Bampton",        x:0.55,y:0.28,r:0.05, color:"#4a90a4"},
+  {id:15, name:"Halberton",      x:0.62,y:0.35,r:0.04, color:"#5ba3b8"},
+  {id:16, name:"Tiverton",       x:0.58,y:0.42,r:0.05, color:"#6bb8cc"},
+  {id:17, name:"Cliston",        x:0.72,y:0.42,r:0.05, color:"#2e6b7a"},
+  {id:18, name:"Axminster",      x:0.82,y:0.48,r:0.06, color:"#4a9aab"},
+  {id:19, name:"Lifton",         x:0.32,y:0.55,r:0.06, color:"#5aa8bc"},
+  {id:20, name:"Tavistock",      x:0.28,y:0.65,r:0.07, color:"#6ab6c8"},
+  {id:21, name:"Roborough",      x:0.38,y:0.68,r:0.06, color:"#7ac4d4"},
+  {id:22, name:"Plympton",       x:0.42,y:0.78,r:0.05, color:"#4a8c9e"},
+  {id:23, name:"Ermington",      x:0.48,y:0.82,r:0.05, color:"#5a9cae"},
+  {id:24, name:"Stanborough",    x:0.55,y:0.78,r:0.05, color:"#6aacbe"},
+  {id:25, name:"Coleridge",      x:0.62,y:0.72,r:0.05, color:"#3d7a8c"},
+  {id:26, name:"Haytor",         x:0.55,y:0.62,r:0.06, color:"#4a90a4"},
+  {id:27, name:"Teignbridge",    x:0.65,y:0.62,r:0.05, color:"#5ba3b8"},
+  {id:28, name:"Exminster",      x:0.72,y:0.62,r:0.05, color:"#6bb8cc"},
+  {id:29, name:"Wonford",        x:0.78,y:0.58,r:0.04, color:"#2e6b7a"},
+  {id:30, name:"Black Torrington",x:0.35,y:0.48,r:0.06,color:"#4a9aab"},
+  {id:31, name:"Westleigh",      x:0.18,y:0.48,r:0.05, color:"#5aa8bc"},
+  {id:32, name:"Northam",        x:0.15,y:0.28,r:0.04, color:"#6ab6c8"}
+];
+
+/* State for each hundred */
+hundreds.forEach(h => {
+  h.level = 1;
+  h.income = 8 + Math.floor(Math.random()*6);
+  h.upgrades = 0;
+});
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* Coordinate helpers (map space 0-1) */
+function toScreen(x, y) {
+  return {
+    x: (x * 900 + 80) * scale + offsetX,
+    y: (y * 700 + 40) * scale + offsetY
+  };
+}
+
+/* Drawing */
+function draw() {
+  ctx.fillStyle = '#050a14';
+  ctx.fillRect(0,0,W,H);
+
+  // water / channel
+  ctx.fillStyle = '#0c2a3a';
+  ctx.beginPath();
+  ctx.moveTo(0, H*0.75);
+  ctx.quadraticCurveTo(W*0.4, H*0.85, W, H*0.7);
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.fill();
+
+  // Devon outline approximation
+  ctx.strokeStyle = holo ? '#00e5ff' : '#3a6a7a';
+  ctx.lineWidth = 2.5 * scale;
+  if (holo) ctx.shadowColor = '#00e5ff'; ctx.shadowBlur = 12;
+  ctx.beginPath();
+  // rough Devon shape from your map
+  const outline = [
+    [0.08,0.25],[0.12,0.15],[0.25,0.08],[0.45,0.12],[0.65,0.18],
+    [0.82,0.28],[0.92,0.42],[0.88,0.58],[0.78,0.72],[0.65,0.85],
+    [0.48,0.92],[0.32,0.88],[0.18,0.75],[0.10,0.55],[0.08,0.35]
+  ];
+  outline.forEach((p,i)=>{
+    const s = toScreen(p[0],p[1]);
+    i===0 ? ctx.moveTo(s.x,s.y) : ctx.lineTo(s.x,s.y);
+  });
+  ctx.closePath();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Hundreds
+  hundreds.forEach(h => {
+    const s = toScreen(h.x, h.y);
+    const r = h.r * 900 * scale * (1 + h.level*0.08);
+
+    // holographic fill
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI*2);
+    ctx.fillStyle = h === selected ? '#00e5ff55' : h.color + 'cc';
+    ctx.fill();
+    if (holo) {
+      ctx.strokeStyle = '#7df9ff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // level ring
+    if (h.level > 1) {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, r + 6*scale, 0, Math.PI*2);
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // name
+    if (scale > 0.6) {
+      ctx.fillStyle = '#e0f7ff';
+      ctx.font = `${11*scale}px Share Tech Mono`;
+      ctx.textAlign = 'center';
+      ctx.fillText(h.name, s.x, s.y + 4);
+      ctx.font = `${9*scale}px Share Tech Mono`;
+      ctx.fillText(`Lv.${h.level}`, s.x, s.y + 16*scale);
+    }
+  });
+
+  // holographic grid overlay
+  if (holo) {
+    ctx.strokeStyle = '#00e5ff18';
+    ctx.lineWidth = 1;
+    for (let i=0;i<20;i++) {
+      const x = (i/20)*W;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+    }
+    for (let i=0;i<15;i++) {
+      const y = (i/15)*H;
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+  }
+
+  // minimap
+  mctx.fillStyle = '#050a14';
+  mctx.fillRect(0,0,220,160);
+  mctx.strokeStyle = '#00e5ff';
+  mctx.strokeRect(2,2,216,156);
+  hundreds.forEach(h=>{
+    mctx.beginPath();
+    mctx.arc(h.x*200+10, h.y*140+10, h.r*60, 0, Math.PI*2);
+    mctx.fillStyle = h===selected ? '#00e5ff' : h.color;
+    mctx.fill();
+  });
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+/* Interaction */
+let dragging = false, lastX, lastY;
+canvas.addEventListener('mousedown', e => {
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  // select hundred
+  const mx = (e.clientX - offsetX) / scale;
+  const my = (e.clientY - offsetY) / scale;
+  selected = null;
+  hundreds.forEach(h=>{
+    const dx = mx - (h.x*900+80);
+    const dy = my - (h.y*700+40);
+    if (Math.sqrt(dx*dx+dy*dy) < h.r*900*(1+h.level*0.08)) selected = h;
+  });
+  updateUI();
+});
+canvas.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  offsetX += e.clientX - lastX;
+  offsetY += e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('mouseup', () => dragging = false);
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  scale = Math.max(0.35, Math.min(4.5, scale * delta));
+  document.getElementById('scaleVal').textContent = scale.toFixed(2)+'×';
+});
+
+/* UI & Upgrades */
+function updateUI() {
+  document.getElementById('res').textContent = resources;
+  document.getElementById('sel').textContent = selected ? selected.name : 'None';
+  const box = document.getElementById('upgrades');
+  box.innerHTML = '';
+  if (!selected) {
+    box.innerHTML = '<p style="opacity:0.6">Select a Hundred</p>';
+    return;
+  }
+  box.innerHTML = `
+    <p><b>${selected.name}</b> – Level ${selected.level}</p>
+    <p>Income: +${selected.income}/tick</p>
+    <button class="upgrade-btn" onclick="upgradeSelected()">Upgrade Hundred (cost ${selected.level*45})</button>
+  `;
+  document.getElementById('infoText').innerHTML = `
+    <b>${selected.name}</b><br>
+    Historic Hundred of Devon<br>
+    Level ${selected.level} • Upgrades: ${selected.upgrades}<br>
+    Holographic scale locked to engine.
+  `;
+}
+
+function upgradeSelected() {
+  if (!selected) return;
+  const cost = selected.level * 45;
+  if (resources < cost) return alert('Insufficient resources');
+  resources -= cost;
+  selected.level++;
+  selected.income += 6;
+  selected.upgrades++;
+  updateUI();
+}
+
+function expandRoom() {
+  roomLevel++;
+  scale = Math.min(4.5, scale * 1.15);
+  document.getElementById('scaleVal').textContent = scale.toFixed(2)+'×';
+  resources += 80;
+  updateUI();
+}
+
+function fillUpgradeScales() {
+  hundreds.forEach(h => {
+    if (resources >= 30) {
+      resources -= 30;
+      h.level++;
+      h.income += 4;
+    }
+  });
+  scale = Math.min(4.5, scale * 1.25);
+  document.getElementById('scaleVal').textContent = scale.toFixed(2)+'×';
+  updateUI();
+}
+
+function toggleHolo() { holo = !holo; }
+function resetView() { scale=1; offsetX=0; offsetY=0; document.getElementById('scaleVal').textContent='1.00×'; }
+function expandFull() {
+  scale = 2.8;
+  offsetX = -180; offsetY = -90;
+  document.getElementById('scaleVal').textContent = '2.80×';
+}
+
+function saveGame() {
+  const data = {resources, scale, roomLevel, hundreds: hundreds.map(h=>({id:h.id,level:h.level,income:h.income}))};
+  localStorage.setItem('devonEngine', JSON.stringify(data));
+  alert('Engine state saved');
+}
+function loadGame() {
+  const raw = localStorage.getItem('devonEngine');
+  if (!raw) return;
+  const data = JSON.parse(raw);
+  resources = data.resources;
+  scale = data.scale;
+  roomLevel = data.roomLevel;
+  data.hundreds.forEach(d => {
+    const h = hundreds.find(x=>x.id===d.id);
+    if (h) { h.level=d.level; h.income=d.income; }
+  });
+  document.getElementById('scaleVal').textContent = scale.toFixed(2)+'×';
+  updateUI();
+}
+
+/* Resource tick */
+setInterval(()=>{
+  let gain = 0;
+  hundreds.forEach(h => gain += h.income);
+  resources += Math.floor(gain / 8);
+  updateUI();
+}, 2500);
+
+updateUI();
+</script>
+</body>
+</html>
