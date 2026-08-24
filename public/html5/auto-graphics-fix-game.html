@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Auto Graphics Fix - Full HTML5 Game</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #0a0a0f;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  #gameContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  canvas {
+    display: block;
+    background: #111;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    max-width: 100%;
+    max-height: 100%;
+  }
+  #ui {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    color: #fff;
+    font-size: 14px;
+    pointer-events: none;
+    text-shadow: 0 1px 3px #000;
+    z-index: 10;
+  }
+  #ui span {
+    display: block;
+    margin-bottom: 4px;
+  }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="game"></canvas>
+</div>
+<div id="ui">
+  <span id="score">Score: 0</span>
+  <span id="fps">FPS: --</span>
+  <span id="res">Resolution: --</span>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d', { alpha: false });
+const LOGICAL_WIDTH  = 800;
+const LOGICAL_HEIGHT = 450;
+let scale = 1;
+let dpr = 1;
+let score = 0;
+let gameOver = false;
+let lastTime = 0;
+let fps = 0;
+let frameCount = 0;
+let fpsTimer = 0;
+const player = {
+  x: 100, y: 300, w: 40, h: 40,
+  vx: 0, vy: 0, speed: 280, jumpPower: -420,
+  onGround: false, color: '#00ffcc'
+};
+const platforms = [
+  { x: 0,   y: 400, w: 800, h: 50 },
+  { x: 200, y: 320, w: 120, h: 20 },
+  { x: 400, y: 250, w: 120, h: 20 },
+  { x: 600, y: 180, w: 120, h: 20 },
+  { x: 100, y: 150, w: 100, h: 20 }
+];
+let coins = [];
+function spawnCoins() {
+  coins = [
+    { x: 240, y: 280, r: 12, collected: false },
+    { x: 440, y: 210, r: 12, collected: false },
+    { x: 640, y: 140, r: 12, collected: false },
+    { x: 140, y: 110, r: 12, collected: false }
+  ];
+}
+spawnCoins();
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['Space', 'ArrowUp', 'KeyW'].includes(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup', e => keys[e.code] = false);
+let touchLeft = false, touchRight = false, touchJump = false;
+canvas.addEventListener('touchstart', handleTouch, { passive: false });
+canvas.addEventListener('touchmove', handleTouch, { passive: false });
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  touchLeft = touchRight = touchJump = false;
+});
+function handleTouch(e) {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const touches = e.touches;
+  touchLeft = touchRight = touchJump = false;
+  for (let i = 0; i < touches.length; i++) {
+    const tx = (touches[i].clientX - rect.left) / scale;
+    const ty = (touches[i].clientY - rect.top) / scale;
+    if (ty > LOGICAL_HEIGHT * 0.6) {
+      if (tx < LOGICAL_WIDTH * 0.35) touchLeft = true;
+      else if (tx > LOGICAL_WIDTH * 0.65) touchRight = true;
+      else touchJump = true;
+    } else {
+      touchJump = true;
+    }
+  }
+}
+function autoGraphicsFix() {
+  dpr = window.devicePixelRatio || 1;
+  const maxW = window.innerWidth;
+  const maxH = window.innerHeight;
+  const scaleX = maxW / LOGICAL_WIDTH;
+  const scaleY = maxH / LOGICAL_HEIGHT;
+  scale = Math.min(scaleX, scaleY);
+  const cssW = Math.floor(LOGICAL_WIDTH * scale);
+  const cssH = Math.floor(LOGICAL_HEIGHT * scale);
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  canvas.width  = Math.floor(LOGICAL_WIDTH * dpr * scale);
+  canvas.height = Math.floor(LOGICAL_HEIGHT * dpr * scale);
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  document.getElementById('res').textContent =
+    `Resolution: ${LOGICAL_WIDTH}×${LOGICAL_HEIGHT} → ${cssW}×${cssH} @${dpr.toFixed(1)}x`;
+}
+window.addEventListener('resize', autoGraphicsFix);
+window.addEventListener('orientationchange', () => setTimeout(autoGraphicsFix, 100));
+autoGraphicsFix();
+function update(dt) {
+  if (gameOver) return;
+  player.vx = 0;
+  if (keys['ArrowLeft'] || keys['KeyA'] || touchLeft)  player.vx = -player.speed;
+  if (keys['ArrowRight'] || keys['KeyD'] || touchRight) player.vx =  player.speed;
+  if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW'] || touchJump) && player.onGround) {
+    player.vy = player.jumpPower;
+    player.onGround = false;
+  }
+  player.vy += 1200 * dt;
+  player.x += player.vx * dt;
+  player.y += player.vy * dt;
+  player.onGround = false;
+  for (const p of platforms) {
+    if (player.x < p.x + p.w && player.x + player.w > p.x &&
+        player.y < p.y + p.h && player.y + player.h > p.y) {
+      if (player.vy > 0 && player.y + player.h - player.vy * dt <= p.y) {
+        player.y = p.y - player.h;
+        player.vy = 0;
+        player.onGround = true;
+      } else if (player.vy < 0 && player.y - player.vy * dt >= p.y + p.h) {
+        player.y = p.y + p.h;
+        player.vy = 0;
+      } else if (player.vx > 0) {
+        player.x = p.x - player.w;
+      } else if (player.vx < 0) {
+        player.x = p.x + p.w;
+      }
+    }
+  }
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.w > LOGICAL_WIDTH) player.x = LOGICAL_WIDTH - player.w;
+  if (player.y > LOGICAL_HEIGHT + 100) resetGame();
+  for (const c of coins) {
+    if (!c.collected) {
+      const dx = (player.x + player.w / 2) - c.x;
+      const dy = (player.y + player.h / 2) - c.y;
+      if (Math.sqrt(dx * dx + dy * dy) < player.w / 2 + c.r) {
+        c.collected = true;
+        score += 10;
+        document.getElementById('score').textContent = `Score: ${score}`;
+      }
+    }
+  }
+  if (coins.every(c => c.collected)) {
+    score += 50;
+    document.getElementById('score').textContent = `Score: ${score} — LEVEL CLEAR!`;
+    setTimeout(resetGame, 1500);
+  }
+}
+function resetGame() {
+  player.x = 100; player.y = 300; player.vx = 0; player.vy = 0;
+  spawnCoins(); score = 0;
+  document.getElementById('score').textContent = `Score: 0`;
+  gameOver = false;
+}
+function draw() {
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+  ctx.fillStyle = '#ffffff22';
+  for (let i = 0; i < 40; i++) {
+    const sx = (i * 73) % LOGICAL_WIDTH;
+    const sy = (i * 97) % LOGICAL_HEIGHT;
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+  ctx.fillStyle = '#30363d';
+  for (const p of platforms) {
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#58a6ff';
+    ctx.fillRect(p.x, p.y, p.w, 3);
+    ctx.fillStyle = '#30363d';
+  }
+  for (const c of coins) {
+    if (!c.collected) {
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffd700';
+      ctx.fill();
+      ctx.strokeStyle = '#ffaa00';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(player.x + 8, player.y + 10, 8, 8);
+  ctx.fillRect(player.x + 24, player.y + 10, 8, 8);
+  if ('ontouchstart' in window) {
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(0, LOGICAL_HEIGHT * 0.7, LOGICAL_WIDTH * 0.3, LOGICAL_HEIGHT * 0.3);
+    ctx.fillRect(LOGICAL_WIDTH * 0.7, LOGICAL_HEIGHT * 0.7, LOGICAL_WIDTH * 0.3, LOGICAL_HEIGHT * 0.3);
+    ctx.fillRect(LOGICAL_WIDTH * 0.35, LOGICAL_HEIGHT * 0.7, LOGICAL_WIDTH * 0.3, LOGICAL_HEIGHT * 0.3);
+  }
+}
+function loop(timestamp) {
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+  frameCount++;
+  fpsTimer += dt;
+  if (fpsTimer >= 0.5) {
+    fps = Math.round(frameCount / fpsTimer);
+    document.getElementById('fps').textContent = `FPS: ${fps}`;
+    frameCount = 0;
+    fpsTimer = 0;
+  }
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
