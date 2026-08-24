@@ -1,0 +1,39 @@
+// Already provided earlier – pure Perlin + fBm
+function fbm(perlin: PerlinNoise2D, x: number, z: number,
+             octaves = 5, persistence = 0.5, lacunarity = 2.0): number {
+  let value = 0;
+  let amplitude = 1.0;
+  let frequency = 0.004;          // base frequency matching your Python
+
+  for (let i = 0; i < octaves; i++) {
+    value += amplitude * perlin.noise(frequency * x, frequency * z);
+    amplitude *= persistence;
+    frequency *= lacunarity;
+  }
+  return value;
+}
+n = self.fbm(x, y)
+if n > 0.62:
+    self.grid[y][x] = TILE_FLOOR
+elif n < 0.28:
+    self.grid[y][x] = TILE_VOID
+# otherwise remains WALL; }
+const dummy = new THREE.Object3D();
+
+positions.forEach((pos, i) => {
+  dummy.position.set(pos.x, pos.y, pos.z);   // already centered
+  dummy.scale.set(S, S, S);                  // uniform CELL_SIZE
+  dummy.updateMatrix();                      // builds the 4×4 matrix T
+  instancedMesh.setMatrixAt(i, dummy.matrix);
+});
+
+instancedMesh.instanceMatrix.needsUpdate = true; }
+// After instantiation
+console.log('Map centered at origin:', 
+  palace.metadata.width, '×', palace.metadata.height,
+  'cellSize =', palace.metadata.cellSize);
+
+// First wall matrix should be near (-halfW, S/2, -halfH)
+const m = new THREE.Matrix4();
+palace.walls.getMatrixAt(0, m);
+console.log('First instance matrix:', m.elements); }
