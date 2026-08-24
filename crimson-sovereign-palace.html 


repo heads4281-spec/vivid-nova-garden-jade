@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CRIMSON SOVEREIGN — Type VII Palace | Cycle 63821</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #050308; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; color: #e8d5c4; }
+  #canvas { display: block; width: 100vw; height: 100vh; }
+  #ui {
+    position: absolute; inset: 0; pointer-events: none;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .hud {
+    pointer-events: auto;
+    background: rgba(20, 8, 12, 0.85);
+    border: 1px solid #8b1a2b66;
+    backdrop-filter: blur(8px);
+    padding: 10px 16px;
+    border-radius: 6px;
+  }
+  #topBar {
+    display: flex; gap: 12px; padding: 12px;
+    align-items: center;
+  }
+  #topBar h1 {
+    font-size: 1.1rem; letter-spacing: 3px; color: #ff6b7a;
+    text-shadow: 0 0 12px #ff2a4a88;
+  }
+  .stat { font-size: 0.85rem; opacity: 0.9; }
+  #bottomBar {
+    display: flex; gap: 10px; padding: 12px; justify-content: center; flex-wrap: wrap;
+  }
+  button {
+    background: #2a0a12; border: 1px solid #8b1a2b;
+    color: #ffb3bc; padding: 10px 18px; cursor: pointer;
+    font-family: inherit; letter-spacing: 1px; border-radius: 4px;
+    transition: all 0.15s;
+  }
+  button:hover { background: #4a1220; box-shadow: 0 0 12px #ff2a4a55; }
+  #crosshair {
+    position: absolute; top: 50%; left: 50%;
+    width: 18px; height: 18px; margin: -9px 0 0 -9px;
+    border: 2px solid #ff6b7a88; border-radius: 50%;
+    pointer-events: none;
+  }
+  #panel {
+    position: absolute; top: 70px; right: 16px; width: 280px;
+    max-height: 60vh; overflow-y: auto; display: none;
+  }
+  #panel h2 { color: #ff6b7a; margin-bottom: 10px; font-size: 1rem; }
+  .name-item {
+    padding: 8px; margin: 4px 0; background: #1a080c;
+    border-left: 3px solid #8b1a2b; cursor: pointer;
+  }
+  .name-item.claimed { border-left-color: #00e5a0; color: #a0ffd0; }
+  #mobileControls {
+    display: none; position: absolute; bottom: 20px; left: 0; right: 0;
+    height: 160px; pointer-events: none;
+  }
+  .joy, .btn-fire {
+    pointer-events: auto; position: absolute;
+    background: rgba(255,80,100,0.25); border: 2px solid #ff6b7a66;
+    border-radius: 50%;
+  }
+  .joy { width: 110px; height: 110px; bottom: 20px; left: 20px; }
+  .btn-fire { width: 70px; height: 70px; bottom: 30px; right: 30px; }
+  @media (max-width: 800px) { #mobileControls { display: block; } }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="crosshair"></div>
+
+<div id="ui">
+  <div id="topBar">
+    <div class="hud">
+      <h1>CRIMSON SOVEREIGN</h1>
+      <div class="stat">Cycle <span id="seed">63821</span> · Threshold</div>
+    </div>
+    <div class="hud">
+      <div class="stat">Names Claimed: <span id="namesCount">0</span>/6</div>
+      <div class="stat">HP <span id="hp">100</span> · Ammo <span id="ammo">∞</span></div>
+    </div>
+  </div>
+
+  <div id="panel" class="hud">
+    <h2 id="panelTitle">MAP</h2>
+    <div id="panelContent"></div>
+  </div>
+
+  <div id="bottomBar">
+    <button onclick="togglePanel('map')">MAP</button>
+    <button onclick="togglePanel('bag')">BAG</button>
+    <button onclick="togglePanel('rites')">RITES</button>
+    <button onclick="claimNearestName()">CLAIM NAME</button>
+    <button onclick="lockPointer()">ENTER PALACE</button>
+  </div>
+</div>
+
+<div id="mobileControls">
+  <div class="joy" id="joy"></div>
+  <div class="btn-fire" id="fireBtn"></div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+/* ============================================================
+   PERLIN + fBm (exact formula from conversation)
+   ============================================================ */
+class PerlinNoise2D {
+  constructor(seed = 63821) {
+    this.perm = new Uint8Array(512);
+    const p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    let s = seed;
+    for (let i = 255; i > 0; i--) {
+      s = (s * 16807) % 2147483647;
+      const j = s % (i + 1);
+      [p[i], p[j]] = [p[j], p[i]];
+    }
+    for (let i = 0; i < 512; i++) this.perm[i] = p[i & 255];
+  }
+  fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  lerp(a, b, t) { return a + t * (b - a); }
+  grad(hash, x, y) {
+    const h = hash & 7;
+    const u = h < 4 ? x : y;
+    const v = h < 4 ? y : x;
+    return ((h & 1) ? -u : u) + ((h & 2) ? -2 * v : 2 * v);
+  }
+  noise(x, y) {
+    const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+    x -= Math.floor(x); y -= Math.floor(y);
+    const u = this.fade(x), v = this.fade(y);
+    const A = this.perm[X] + Y, B = this.perm[X + 1] + Y;
+    return this.lerp(
+      this.lerp(this.grad(this.perm[A], x, y), this.grad(this.perm[B], x - 1, y), u),
+      this.lerp(this.grad(this.perm[A + 1], x, y - 1), this.grad(this.perm[B + 1], x - 1, y - 1), u),
+      v
+    );
+  }
+}
+
+function fbm(perlin, x, z, octaves = 5, persistence = 0.5, lacunarity = 2.0) {
+  let value = 0, amp = 1, freq = 0.018;
+  for (let i = 0; i < octaves; i++) {
+    value += amp * perlin.noise(freq * x, freq * z);
+    amp *= persistence;
+    freq *= lacunarity;
+  }
+  return value;
+}
+
+/* ============================================================
+   MAP GENERATION (simplified 96×96 for browser performance)
+   Full 1000×1000 works the same way – just change SIZE
+   ============================================================ */
+const SIZE = 96;
+const CELL = 8;
+const SEED = 63821;
+const TILE = { VOID: 0, WALL: 1, FLOOR: 2, RUNESTONE: 3, GATE: 4 };
+
+const perlin = new PerlinNoise2D(SEED);
+const grid = Array.from({ length: SIZE }, () => new Array(SIZE).fill(TILE.WALL));
+const rooms = [];
+
+function generateMap() {
+  // Noise base
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const n = fbm(perlin, c, r);
+      if (n > 0.15) grid[r][c] = TILE.FLOOR;
+      else if (n < -0.35) grid[r][c] = TILE.VOID;
+    }
+  }
+
+  // Carve rooms + corridors
+  for (let i = 0; i < 28; i++) {
+    const w = 6 + Math.floor(Math.random() * 10);
+    const h = 6 + Math.floor(Math.random() * 10);
+    const x = 3 + Math.floor(Math.random() * (SIZE - w - 6));
+    const y = 3 + Math.floor(Math.random() * (SIZE - h - 6));
+    let overlap = false;
+    for (const o of rooms) {
+      if (x < o.x + o.w + 2 && x + w + 2 > o.x && y < o.y + o.h + 2 && y + h + 2 > o.y) {
+        overlap = true; break;
+      }
+    }
+    if (overlap) continue;
+    for (let rr = y; rr < y + h; rr++)
+      for (let cc = x; cc < x + w; cc++) grid[rr][cc] = TILE.FLOOR;
+    if (rooms.length) {
+      const prev = rooms[rooms.length - 1];
+      const cx1 = prev.x + (prev.w >> 1), cy1 = prev.y + (prev.h >> 1);
+      const cx2 = x + (w >> 1), cy2 = y + (h >> 1);
+      for (let c = Math.min(cx1, cx2); c <= Math.max(cx1, cx2); c++) grid[cy1][c] = TILE.FLOOR;
+      for (let r = Math.min(cy1, cy2); r <= Math.max(cy1, cy2); r++) grid[r][cx2] = TILE.FLOOR;
+    }
+    rooms.push({ x, y, w, h });
+  }
+
+  // Gate + runestones
+  if (rooms[0]) {
+    const g = rooms[0];
+    grid[g.y + (g.h >> 1)][g.x + (g.w >> 1)] = TILE.GATE;
+  }
+  for (let i = 1; i < rooms.length; i++) {
+    const r = rooms[i];
+    for (let k = 0; k < 3; k++) {
+      const rx = r.x + 1 + Math.floor(Math.random() * (r.w - 2));
+      const ry = r.y + 1 + Math.floor(Math.random() * (r.h - 2));
+      if (grid[ry][rx] === TILE.FLOOR) grid[ry][rx] = TILE.RUNESTONE;
+    }
+  }
+}
+
+/* ============================================================
+   THREE.JS SCENE + INSTANCED MESHES
+   ============================================================ */
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0508);
+scene.fog = new THREE.FogExp2(0x1a080c, 0.012);
+
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 600);
+const controls = new PointerLockControls(camera, document.body);
+
+const ambient = new THREE.AmbientLight(0x3a1a22, 0.45);
+scene.add(ambient);
+const dir = new THREE.DirectionalLight(0xff8866, 0.9);
+dir.position.set(40, 80, 30);
+dir.castShadow = true;
+scene.add(dir);
+
+const half = (SIZE * CELL) / 2;
+
+function worldPos(c, r, y = 0) {
+  return new THREE.Vector3(c * CELL - half, y, r * CELL - half);
+}
+
+function createInstanced(positions, geo, mat, yOffset = 0) {
+  const mesh = new THREE.InstancedMesh(geo, mat, positions.length);
+  const dummy = new THREE.Object3D();
+  positions.forEach((p, i) => {
+    dummy.position.copy(p);
+    dummy.position.y += yOffset;
+    dummy.scale.set(CELL * 0.98, CELL, CELL * 0.98);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  return mesh;
+}
+
+generateMap();
+
+const floorPos = [], wallPos = [], runePos = [], gatePos = [];
+for (let r = 0; r < SIZE; r++) {
+  for (let c = 0; c < SIZE; c++) {
+    const t = grid[r][c];
+    if (t === TILE.FLOOR) floorPos.push(worldPos(c, r, 0));
+    else if (t === TILE.WALL) wallPos.push(worldPos(c, r, 0));
+    else if (t === TILE.RUNESTONE) { floorPos.push(worldPos(c, r, 0)); runePos.push(worldPos(c, r, 0)); }
+    else if (t === TILE.GATE) { floorPos.push(worldPos(c, r, 0)); gatePos.push(worldPos(c, r, 0)); }
+  }
+}
+
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1218, roughness: 0.85 });
+const wallMat  = new THREE.MeshStandardMaterial({ color: 0x2e1a22, roughness: 0.7 });
+const runeMat  = new THREE.MeshStandardMaterial({ color: 0x00e5a0, emissive: 0x003322, emissiveIntensity: 0.8 });
+const gateMat  = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0x442200, emissiveIntensity: 0.9 });
+
+createInstanced(floorPos, new THREE.BoxGeometry(1, 0.2, 1), floorMat, 0);
+createInstanced(wallPos,  new THREE.BoxGeometry(1, 1.8, 1), wallMat, CELL * 0.9);
+createInstanced(runePos,  new THREE.CylinderGeometry(0.25, 0.25, 1.4, 8), runeMat, CELL * 0.7);
+createInstanced(gatePos,  new THREE.BoxGeometry(1.1, 2.4, 0.3), gateMat, CELL * 1.1);
+
+/* Player start at first room center */
+if (rooms[0]) {
+  const start = worldPos(rooms[0].x + (rooms[0].w >> 1), rooms[0].y + (rooms[0].h >> 1), 4);
+  camera.position.copy(start);
+} else {
+  camera.position.set(0, 4, 0);
+}
+
+/* ============================================================
+   CONTROLS + GAME STATE
+   ============================================================ */
+const keys = {};
+let velocity = new THREE.Vector3();
+let canJump = false;
+let hp = 100;
+const names = [
+  { id: 'vaelith', name: 'Vaelith – Court of the First Flame', claimed: false },
+  { id: 'rynara',  name: 'Rynara – The Rune Archive', claimed: false },
+  { id: 'sanguara',name: 'Sanguara – Blood Canals', claimed: false },
+  { id: 'nyxara',  name: 'Nyxara – The Night Ascendant', claimed: false },
+  { id: 'eryndra', name: 'Eryndra – The Eternal Throne', claimed: false },
+  { id: 'aelith',  name: 'Aelith the Crimson', claimed: false }
+];
+
+document.addEventListener('keydown', e => keys[e.code] = true);
+document.addEventListener('keyup', e => keys[e.code] = false);
+
+function lockPointer() {
+  controls.lock();
+}
+controls.addEventListener('lock', () => console.log('Entered the Palace'));
+controls.addEventListener('unlock', () => {});
+
+window.lockPointer = lockPointer;
+
+function claimNearestName() {
+  const unclaimed = names.find(n => !n.claimed);
+  if (unclaimed) {
+    unclaimed.claimed = true;
+    document.getElementById('namesCount').textContent = names.filter(n => n.claimed).length;
+    alert(`You claimed: ${unclaimed.name}`);
+  }
+}
+window.claimNearestName = claimNearestName;
+
+function togglePanel(type) {
+  const panel = document.getElementById('panel');
+  const title = document.getElementById('panelTitle');
+  const content = document.getElementById('panelContent');
+  if (panel.style.display === 'block' && title.textContent === type.toUpperCase()) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  title.textContent = type.toUpperCase();
+  if (type === 'map') {
+    content.innerHTML = `<p>Seed ${SEED} · ${SIZE}×${SIZE} grid<br>Rooms: ${rooms.length}<br>Centered at origin (0,0,0)</p>`;
+  } else if (type === 'bag') {
+    content.innerHTML = names.map(n =>
+      `<div class="name-item ${n.claimed ? 'claimed' : ''}">${n.name}</div>`
+    ).join('');
+  } else {
+    content.innerHTML = `<p>Rites of the Threshold<br>Cycle code locked: 63821</p>`;
+  }
+}
+window.togglePanel = togglePanel;
+
+/* Simple collision against walls */
+function isWall(x, z) {
+  const c = Math.floor((x + half) / CELL);
+  const r = Math.floor((z + half) / CELL);
+  if (c < 0 || c >= SIZE || r < 0 || r >= SIZE) return true;
+  return grid[r][c] === TILE.WALL || grid[r][c] === TILE.VOID;
+}
+
+/* ============================================================
+   MAIN LOOP
+   ============================================================ */
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if (controls.isLocked) {
+    const speed = keys['ShiftLeft'] ? 28 : 14;
+    velocity.x -= velocity.x * 8 * dt;
+    velocity.z -= velocity.z * 8 * dt;
+    velocity.y -= 28 * dt; // gravity
+
+    const forward = new THREE.Vector3();
+    const right = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.y = 0; forward.normalize();
+    right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
+
+    if (keys['KeyW']) velocity.addScaledVector(forward, speed * dt);
+    if (keys['KeyS']) velocity.addScaledVector(forward, -speed * dt);
+    if (keys['KeyA']) velocity.addScaledVector(right, -speed * dt);
+    if (keys['KeyD']) velocity.addScaledVector(right, speed * dt);
+    if (keys['Space'] && canJump) { velocity.y = 11; canJump = false; }
+
+    const next = camera.position.clone().add(velocity.clone().multiplyScalar(dt));
+    if (!isWall(next.x, camera.position.z)) camera.position.x = next.x;
+    if (!isWall(camera.position.x, next.z)) camera.position.z = next.z;
+    camera.position.y = Math.max(3.2, camera.position.y + velocity.y * dt);
+    if (camera.position.y <= 3.2) { velocity.y = 0; canJump = true; }
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+console.log('%cCRIMSON SOVEREIGN — Type VII Palace ready. Cycle 63821', 'color:#ff6b7a');
+</script>
+</body>
+</html>
