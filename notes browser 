@@ -1,0 +1,178 @@
+**SharedArrayBuffer + Atomics for Lock-Free Chunk Streaming**
+
+### Why SharedArrayBuffer?
+
+| Approach                    | Copy Cost          | Latency          | Complexity | Requirements                  |
+|----------------------------|--------------------|------------------|------------|-------------------------------|
+| Structured clone           | High               | Higher           | Low        | None                          |
+| Transferable ArrayBuffer   | Zero (move)        | Low              | Low        | None                          |
+| **SharedArrayBuffer**      | Zero (shared)      | Lowest           | Higher     | COOP + COEP headers + HTTPS   |
+
+SharedArrayBuffer gives both sides a live view of the same memory. Combined with `Atomics`, you can build a lock-free (or almost lock-free) ring buffer / command queue so the main thread never blocks waiting for the worker and vice-versa.
+
+### Required Headers (Critical)
+
+Your server (or Vite dev server plugin) must send:
+
+```
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Without these headers `SharedArrayBuffer` is `undefined` (Spectre protection).
+
+### Architecture Sketch
+
+```
+┌─────────────────────┐          Shared Memory          ┌─────────────────────┐
+│     Main Thread     │◄──────────────────────────────►│      Web Worker     │
+│                     │                                 │                     │
+│  Priority Queue     │   Ring Buffer of Commands       │  Perlin Generator   │
+│  Player position    │   (Int32Array + Atomics)        │  Chunk generation   │
+│  InstancedMeshes    │                                 │                     │
+└─────────────────────┘                                 └─────────────────────┘
+```
+
+### 1. Shared Memory Layout
+
+```js
+// Shared buffer layout (example – 64 KB is plenty)
+const SHARED_BYTES = 64 * 1024;
+const sab = new SharedArrayBuffer(SHARED_BYTES);
+
+// Views
+const meta   = new Int32Array(sab, 0, 16);          // control flags
+const queue  = new Int32Array(sab, 64, 1024);      // ring buffer of commands
+const tiles  = new Uint8Array(sab, 4096);          // optional large tile scratch space
+
+// Meta indices
+const HEAD        = 0;   // write index (main → worker)
+const TAIL        = 1;   // read index  (worker → main)
+const WORKER_STATE= 2;   // 0 = idle, 1 = busy
+const RESULT_CX   = 3;
+const RESULT_CZ   = 4;
+const RESULT_READY= 5;   // 1 when a chunk is ready
+```
+
+### 2. Lock-Free Command Queue (Main → Worker)
+
+```js
+// Main thread – push a generate request
+function enqueueChunkRequest(cx, cz) {
+  const head = Atomics.load(meta, HEAD);
+  const next = (head + 2) % queue.length;          // each request = 2 ints (cx, cz)
+
+  // Simple back-pressure: if queue is full, drop lowest priority
+  if (next === Atomics.load(meta, TAIL)) {
+    console.warn('Shared queue full – dropping request');
+    return false;
+  }
+
+  queue[head]     = cx;
+  queue[head + 1] = cz;
+  Atomics.store(meta, HEAD, next);
+  Atomics.notify(meta, HEAD);                      // wake worker if waiting
+  return true;
+}
+```
+
+### 3. Worker Side – Lock-Free Consumer
+
+```js
+// Inside the Worker
+self.onmessage = (e) => {
+  if (e.data.type === 'init') {
+    // Receive the SharedArrayBuffer once
+    const sab = e.data.sab;
+    // ... create the same views ...
+    startWorkerLoop();
+  }
+};
+
+function startWorkerLoop() {
+  while (true) {
+    // Wait until there is work
+    Atomics.wait(meta, HEAD, Atomics.load(meta, TAIL));
+
+    const tail = Atomics.load(meta, TAIL);
+    const head = Atomics.load(meta, HEAD);
+
+    if (tail === head) continue;                   // spurious wake
+
+    const cx = queue[tail];
+    const cz = queue[tail + 1];
+    Atomics.store(meta, TAIL, (tail + 2) % queue.length);
+
+    // Generate the chunk (Perlin + fBm)
+    const tiles = generateChunk(cx, cz);           // Uint8Array
+
+    // Write result into shared memory (or postMessage the small metadata)
+    // For simplicity we still postMessage the tiles (or write into a larger shared region)
+    Atomics.store(meta, RESULT_CX, cx);
+    Atomics.store(meta, RESULT_CZ, cz);
+    Atomics.store(meta, RESULT_READY, 1);
+    Atomics.notify(meta, RESULT_READY);
+
+    // Optionally copy tiles into a shared tile buffer here
+  }
+}
+```
+
+### 4. Main Thread – Polling / Waiting for Results
+
+```js
+function pollResults() {
+  if (Atomics.load(meta, RESULT_READY) === 1) {
+    const cx = Atomics.load(meta, RESULT_CX);
+    const cz = Atomics.load(meta, RESULT_CZ);
+    Atomics.store(meta, RESULT_READY, 0);
+
+    // tiles can be read from shared memory or received via a light postMessage
+    buildChunkMeshes(cx, cz, /* tiles */);
+  }
+}
+
+// Call pollResults() every frame or use Atomics.waitAsync (newer browsers)
+```
+
+### 5. Practical Recommendations for the Type VII Palace
+
+| Technique                        | Recommendation                                      | Reason |
+|----------------------------------|-----------------------------------------------------|--------|
+| **SharedArrayBuffer**            | Use for the **command queue** only                  | Tiny, high-frequency |
+| **Transferable ArrayBuffer**     | Still use for the actual tile data (32×32×1 = 1 KB)| Simpler, zero-copy, no header issues |
+| Hybrid                           | Shared command queue + transferable result         | Best of both worlds |
+| Atomics.wait / notify            | Yes                                                 | Avoid busy-waiting |
+| Atomics.waitAsync                | Prefer when available                               | Non-blocking on main thread |
+
+### Hybrid Pattern (Recommended)
+
+```js
+// Main thread
+worker.postMessage(
+  { type: 'generate', cx, cz, requestId },
+  // no transfer needed for small message
+);
+
+// Worker finishes → transfers the tile buffer
+self.postMessage(
+  { type: 'chunk', cx, cz, tiles: tiles.buffer },
+  [tiles.buffer]          // zero-copy transfer
+);
+```
+
+Use SharedArrayBuffer **only** for a high-frequency control channel (player position, priority updates, cancellation flags). Keep the heavy tile data as transferable ArrayBuffers. This gives you near lock-free signalling without the full complexity and header requirements of putting everything in shared memory.
+
+### Browser Support & Caveats
+
+- Chrome / Edge / Firefox: supported under the required headers.
+- Safari: supported in recent versions with the same headers.
+- Must be served from HTTPS (or `localhost`).
+- Debugging is harder (shared state races).
+- If the headers are missing, fall back gracefully to normal `postMessage` + transferable buffers.
+
+### Summary
+
+SharedArrayBuffer + Atomics shines when you need **very frequent, low-latency signalling** (player position broadcasts, cancellation, priority updates). For the actual chunk payloads, transferable ArrayBuffers remain simpler and equally fast.  
+
+A hybrid approach (shared control channel + transferable tile data) is the most practical way to add lock-free characteristics to the Type VII Palace chunk streamer while staying robust across browsers.
