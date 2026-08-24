@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CRIMSON SOVEREIGN — Full Round | Cycle 63821</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#050308;overflow:hidden;font-family:system-ui,sans-serif;color:#e8d5c4}
+  #c{display:block;width:100vw;height:100vh}
+  #ui{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between}
+  .hud{pointer-events:auto;background:rgba(20,8,12,.88);border:1px solid #8b1a2b66;
+       backdrop-filter:blur(8px);padding:10px 16px;border-radius:6px}
+  #top{display:flex;gap:12px;padding:12px;align-items:center;flex-wrap:wrap}
+  h1{font-size:1.05rem;letter-spacing:2px;color:#ff6b7a;text-shadow:0 0 10px #ff2a4a88}
+  .stat{font-size:.82rem;opacity:.9}
+  #bottom{display:flex;gap:8px;padding:12px;justify-content:center;flex-wrap:wrap}
+  button{background:#2a0a12;border:1px solid #8b1a2b;color:#ffb3bc;padding:9px 16px;
+         cursor:pointer;font-family:inherit;border-radius:4px;letter-spacing:1px}
+  button:hover{background:#4a1220;box-shadow:0 0 10px #ff2a4a55}
+  #cross{position:absolute;top:50%;left:50%;width:16px;height:16px;margin:-8px 0 0 -8px;
+         border:2px solid #ff6b7a77;border-radius:50%;pointer-events:none}
+  #panel{position:absolute;top:70px;right:14px;width:270px;max-height:55vh;overflow:auto;display:none}
+  #panel h2{color:#ff6b7a;margin-bottom:8px;font-size:.95rem}
+  .item{padding:7px;margin:3px 0;background:#1a080c;border-left:3px solid #8b1a2b}
+  .item.ok{border-left-color:#00e5a0;color:#a0ffd0}
+  #info{position:absolute;bottom:70px;left:14px;font-size:.75rem;opacity:.7}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="cross"></div>
+<div id="ui">
+  <div id="top">
+    <div class="hud">
+      <h1>CRIMSON SOVEREIGN</h1>
+      <div class="stat">Cycle 63821 · Type VII Palace</div>
+    </div>
+    <div class="hud">
+      <div class="stat">Names <span id="nc">0</span>/6 · HP <span id="hp">100</span></div>
+      <div class="stat">Chunks <span id="ch">0</span> · Queue <span id="qu">0</span></div>
+    </div>
+  </div>
+  <div id="panel" class="hud">
+    <h2 id="pt">MAP</h2>
+    <div id="pc"></div>
+  </div>
+  <div id="bottom">
+    <button onclick="toggle('map')">MAP</button>
+    <button onclick="toggle('bag')">BAG</button>
+    <button onclick="toggle('rites')">RITES</button>
+    <button onclick="claim()">CLAIM NAME</button>
+    <button onclick="lock()">ENTER PALACE</button>
+  </div>
+</div>
+<div id="info">WASD move · Shift sprint · Space jump · Click to lock pointer</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+"three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+/* ============================================================
+   EMBEDDED WEB WORKER (Blob – no external file needed)
+   ============================================================ */
+const workerCode = `
+const TILE={VOID:0,WALL:1,FLOOR:2,RUNESTONE:3,GATE:4};
+const CS=32;
+class Perlin{
+  constructor(seed=63821){
+    this.p=new Uint8Array(512);
+    const a=new Uint8Array(256);
+    for(let i=0;i<256;i++)a[i]=i;
+    let s=seed>>>0;
+    for(let i=255;i>0;i--){s=Math.imul(s,16807)>>>0;const j=s%(i+1);[a[i],a[j]]=[a[j],a[i]];}
+    for(let i=0;i<512;i++)this.p[i]=a[i&255];
+  }
+  fade(t){return t*t*t*(t*(t*6-15)+10);}
+  lerp(a,b,t){return a+t*(b-a);}
+  grad(h,x,y){const u=h<4?x:y,v=h<4?y:x;return((h&1)?-u:u)+((h&2)?-v*2:v*2);}
+  noise(x,y){
+    const X=Math.floor(x)&255,Y=Math.floor(y)&255;
+    x-=Math.floor(x);y-=Math.floor(y);
+    const u=this.fade(x),v=this.fade(y);
+    const A=this.p[X]+Y,B=this.p[X+1]+Y;
+    return this.lerp(
+      this.lerp(this.grad(this.p[A],x,y),this.grad(this.p[B],x-1,y),u),
+      this.lerp(this.grad(this.p[A+1],x,y-1),this.grad(this.p[B+1],x-1,y-1),u),v);
+  }
+}
+function fbm(p,x,z){
+  let v=0,a=1,f=0.012;
+  for(let i=0;i<5;i++){v+=a*p.noise(f*x,f*z);a*=.5;f*=2;}
+  return v;
+}
+const perlin=new Perlin(63821);
+self.onmessage=e=>{
+  if(e.data.type!=='gen')return;
+  const {cx,cz,id}=e.data;
+  const tiles=new Uint8Array(CS*CS);
+  const ox=cx*CS,oz=cz*CS;
+  for(let z=0;z<CS;z++)for(let x=0;x<CS;x++){
+    const n=fbm(perlin,ox+x,oz+z);
+    let t=1;
+    if(n>0.12)t=2;
+    else if(n<-0.38)t=0;
+    if(t===2&&((ox+x)*13+(oz+z)*17)%47===0)t=3;
+    if(t===2&&ox+x===0&&oz+z===0)t=4;
+    tiles[z*CS+x]=t;
+  }
+  self.postMessage({type:'chunk',id,cx,cz,tiles},[tiles.buffer]);
+};
+`;
+
+const blob = new Blob([workerCode], { type: 'application/javascript' });
+const worker = new Worker(URL.createObjectURL(blob));
+
+/* ============================================================
+   PRIORITY QUEUE
+   ============================================================ */
+class PQ {
+  constructor(){this.h=[];}
+  get size(){return this.h.length;}
+  push(item){this.h.push(item);this.up(this.h.length-1);}
+  pop(){
+    if(!this.h.length)return null;
+    const t=this.h[0],l=this.h.pop();
+    if(this.h.length){this.h[0]=l;this.down(0);}
+    return t;
+  }
+  up(i){while(i>0){const p=(i-1)>>1;if(this.h[i].p>=this.h[p].p)break;
+    [this.h[i],this.h[p]]=[this.h[p],this.h[i]];i=p;}}
+  down(i){const n=this.h.length;while(1){let s=i,l=i*2+1,r=l+1;
+    if(l<n&&this.h[l].p<this.h[s].p)s=l;
+    if(r<n&&this.h[r].p<this.h[s].p)s=r;
+    if(s===i)break;[this.h[i],this.h[s]]=[this.h[s],this.h[i]];i=s;}}
+}
+
+/* ============================================================
+   THREE.JS + STREAMING
+   ============================================================ */
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0a0508);
+scene.fog=new THREE.FogExp2(0x1a080c,0.011);
+
+const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,500);
+const controls=new PointerLockControls(camera,document.body);
+
+scene.add(new THREE.AmbientLight(0x3a1a22,0.5));
+const dir=new THREE.DirectionalLight(0xff8866,0.85);
+dir.position.set(30,60,20);scene.add(dir);
+
+const CELL=8, CS=32, LOAD=3, UNLOAD=5;
+const floorGeo=new THREE.BoxGeometry(1,0.15,1);
+const wallGeo =new THREE.BoxGeometry(1,1.7,1);
+const runeGeo =new THREE.CylinderGeometry(0.22,0.22,1.3,8);
+const gateGeo =new THREE.BoxGeometry(1.1,2.3,0.25);
+
+const floorMat=new THREE.MeshStandardMaterial({color:0x1a1218,roughness:0.85});
+const wallMat =new THREE.MeshStandardMaterial({color:0x2e1a22,roughness:0.7});
+const runeMat =new THREE.MeshStandardMaterial({color:0x00e5a0,emissive:0x003322,emissiveIntensity:0.85});
+const gateMat =new THREE.MeshStandardMaterial({color:0xffd700,emissive:0x442200,emissiveIntensity:0.9});
+
+function createInstanced(pos,geo,mat,yOff=0){
+  const m=new THREE.InstancedMesh(geo,mat,pos.length);
+  const d=new THREE.Object3D();
+  pos.forEach((p,i)=>{d.position.copy(p);d.position.y+=yOff;d.scale.setScalar(CELL*0.97);d.updateMatrix();m.setMatrixAt(i,d.matrix);});
+  m.instanceMatrix.needsUpdate=true;scene.add(m);return m;
+}
+
+const loaded=new Map();
+const pq=new PQ();
+const pending=new Set();
+let busy=false, reqId=1;
+
+function key(cx,cz){return cx+','+cz;}
+function worldChunk(x,z){return {cx:Math.floor(x/(CS*CELL)),cz:Math.floor(z/(CS*CELL))};}
+function prio(cx,cz,pcx,pcz){return Math.abs(cx-pcx)+Math.abs(cz-pcz);}
+
+function request(cx,cz,pcx,pcz){
+  const k=key(cx,cz);
+  if(loaded.has(k)||pending.has(k))return;
+  pending.add(k);
+  pq.push({k,cx,cz,p:prio(cx,cz,pcx,pcz),id:reqId++});
+  kick();
+}
+
+function kick(){
+  if(busy||!pq.size)return;
+  const item=pq.pop();
+  if(!item||!pending.has(item.k)){kick();return;}
+  busy=true;
+  worker.postMessage({type:'gen',cx:item.cx,cz:item.cz,id:item.id});
+}
+
+worker.onmessage=e=>{
+  const {type,id,cx,cz,tiles}=e.data;
+  if(type!=='chunk')return;
+  busy=false;
+  const k=key(cx,cz);
+  pending.delete(k);
+  if(!loaded.has(k)){
+    const group=new THREE.Group();
+    const ox=cx*CS*CELL, oz=cz*CS*CELL;
+    const fp=[],wp=[],rp=[],gp=[];
+    for(let z=0;z<CS;z++)for(let x=0;x<CS;x++){
+      const t=tiles[z*CS+x];
+      const wx=ox+x*CELL+CELL/2, wz=oz+z*CELL+CELL/2;
+      if(t===2||t===3||t===4)fp.push(new THREE.Vector3(wx,0,wz));
+      if(t===1)wp.push(new THREE.Vector3(wx,0,wz));
+      if(t===3)rp.push(new THREE.Vector3(wx,0,wz));
+      if(t===4)gp.push(new THREE.Vector3(wx,0,wz));
+    }
+    if(fp.length)group.add(createInstanced(fp,floorGeo,floorMat,0));
+    if(wp.length)group.add(createInstanced(wp,wallGeo,wallMat,CELL*0.85));
+    if(rp.length)group.add(createInstanced(rp,runeGeo,runeMat,CELL*0.65));
+    if(gp.length)group.add(createInstanced(gp,gateGeo,gateMat,CELL*1.05));
+    scene.add(group);
+    loaded.set(k,{group});
+  }
+  document.getElementById('ch').textContent=loaded.size;
+  document.getElementById('qu').textContent=pq.size;
+  kick();
+};
+
+function updateStream(px,pz){
+  const {cx:pcx,cz:pcz}=worldChunk(px,pz);
+  for(let dz=-LOAD;dz<=LOAD;dz++)
+    for(let dx=-LOAD;dx<=LOAD;dx++)
+      request(pcx+dx,pcz+dz,pcx,pcz);
+
+  // re-prioritise
+  pq.h.forEach(i=>i.p=prio(i.cx,i.cz,pcx,pcz));
+  pq.h.sort((a,b)=>a.p-b.p);
+
+  for(const [k,d] of loaded){
+    const [cx,cz]=k.split(',').map(Number);
+    if(Math.abs(cx-pcx)>UNLOAD||Math.abs(cz-pcz)>UNLOAD){
+      scene.remove(d.group);
+      d.group.traverse(o=>{if(o.isInstancedMesh)o.geometry.dispose();});
+      loaded.delete(k);
+    }
+  }
+  document.getElementById('ch').textContent=loaded.size;
+  document.getElementById('qu').textContent=pq.size;
+  kick();
+}
+
+/* ============================================================
+   PLAYER + CONTROLS
+   ============================================================ */
+camera.position.set(0,4,0);
+const keys={};
+let vel=new THREE.Vector3(), canJump=false;
+
+document.addEventListener('keydown',e=>keys[e.code]=true);
+document.addEventListener('keyup',e=>keys[e.code]=false);
+
+window.lock=()=>controls.lock();
+controls.addEventListener('lock',()=>{});
+
+const names=[
+  {n:'Vaelith – Court of the First Flame',ok:false},
+  {n:'Rynara – The Rune Archive',ok:false},
+  {n:'Sanguara – Blood Canals',ok:false},
+  {n:'Nyxara – The Night Ascendant',ok:false},
+  {n:'Eryndra – The Eternal Throne',ok:false},
+  {n:'Aelith the Crimson',ok:false}
+];
+
+window.claim=()=>{
+  const u=names.find(x=>!x.ok);
+  if(u){u.ok=true;document.getElementById('nc').textContent=names.filter(x=>x.ok).length;
+    alert('Claimed: '+u.n);}
+};
+
+window.toggle=(t)=>{
+  const p=document.getElementById('panel'),pt=document.getElementById('pt'),pc=document.getElementById('pc');
+  if(p.style.display==='block'&&pt.textContent===t.toUpperCase()){p.style.display='none';return;}
+  p.style.display='block';pt.textContent=t.toUpperCase();
+  if(t==='map')pc.innerHTML=`<p>Seed 63821<br>Chunk ${CS}×${CS}<br>Streaming active</p>`;
+  else if(t==='bag')pc.innerHTML=names.map(x=>`<div class="item ${x.ok?'ok':''}">${x.n}</div>`).join('');
+  else pc.innerHTML='<p>Rites of the Threshold<br>Cycle locked: 63821</p>';
+};
+
+/* ============================================================
+   LOOP
+   ============================================================ */
+const clock=new THREE.Clock();
+function loop(){
+  requestAnimationFrame(loop);
+  const dt=Math.min(clock.getDelta(),0.05);
+
+  if(controls.isLocked){
+    const sp=keys['ShiftLeft']?26:13;
+    vel.x-=vel.x*9*dt;vel.z-=vel.z*9*dt;vel.y-=26*dt;
+    const f=new THREE.Vector3(),r=new THREE.Vector3();
+    camera.getWorldDirection(f);f.y=0;f.normalize();
+    r.crossVectors(f,new THREE.Vector3(0,1,0));
+    if(keys['KeyW'])vel.addScaledVector(f,sp*dt);
+    if(keys['KeyS'])vel.addScaledVector(f,-sp*dt);
+    if(keys['KeyA'])vel.addScaledVector(r,-sp*dt);
+    if(keys['KeyD'])vel.addScaledVector(r,sp*dt);
+    if(keys['Space']&&canJump){vel.y=10.5;canJump=false;}
+    camera.position.x+=vel.x*dt;
+    camera.position.z+=vel.z*dt;
+    camera.position.y=Math.max(3.1,camera.position.y+vel.y*dt);
+    if(camera.position.y<=3.1){vel.y=0;canJump=true;}
+  }
+
+  updateStream(camera.position.x,camera.position.z);
+  renderer.render(scene,camera);
+}
+loop();
+
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+console.log('%cCRIMSON SOVEREIGN full round ready – localhost / file://','color:#ff6b7a');
+</script>
+</body>
+</html>; }
