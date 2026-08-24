@@ -1,0 +1,12 @@
+// Inside your animate() function
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+
+  // … player movement & collision …
+
+  // Stream chunks every frame (or every 5–10 frames for less overhead)
+  updateChunks(camera.position.x, camera.position.z);
+
+  renderer.render(scene, camera);
+}
