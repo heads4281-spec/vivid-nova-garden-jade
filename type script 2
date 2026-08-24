@@ -1,0 +1,26 @@
+const S = metadata.cellSize;          // 64
+const halfW = (metadata.width  * S) / 2;
+const halfH = (metadata.height * S) / 2;
+
+const X = c * S - halfW;
+const Z = r * S - halfH;
+const Y = (tile === Type7TileType.WALL || tile === Type7TileType.THRESHOLD_GATE)
+  ? S / 2
+  : tile === Type7TileType.RUNESTONE
+    ? S * 0.6
+    : 0; }
+
+// Already provided earlier – pure Perlin + fBm
+function fbm(perlin: PerlinNoise2D, x: number, z: number,
+             octaves = 5, persistence = 0.5, lacunarity = 2.0): number {
+  let value = 0;
+  let amplitude = 1.0;
+  let frequency = 0.004;          // base frequency matching your Python
+
+  for (let i = 0; i < octaves; i++) {
+    value += amplitude * perlin.noise(frequency * x, frequency * z);
+    amplitude *= persistence;
+    frequency *= lacunarity;
+  }
+  return value;
+} 
