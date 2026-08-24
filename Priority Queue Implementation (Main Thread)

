@@ -1,0 +1,68 @@
+// -------------------------------------------------
+// Simple binary-heap priority queue (lower = higher priority)
+// -------------------------------------------------
+class PriorityQueue {
+  constructor() {
+    this.heap = [];          // { key, cx, cz, priority, requestId }
+  }
+
+  get size() { return this.heap.length; }
+
+  enqueue(item) {
+    this.heap.push(item);
+    this.#bubbleUp(this.heap.length - 1);
+  }
+
+  dequeue() {
+    if (this.heap.length === 0) return null;
+    const top = this.heap[0];
+    const last = this.heap.pop();
+    if (this.heap.length > 0) {
+      this.heap[0] = last;
+      this.#bubbleDown(0);
+    }
+    return top;
+  }
+
+  // Update priority of an existing item (or ignore if not present)
+  updatePriority(key, newPriority) {
+    const idx = this.heap.findIndex(i => i.key === key);
+    if (idx === -1) return;
+    this.heap[idx].priority = newPriority;
+    this.#bubbleUp(idx);
+    this.#bubbleDown(idx);
+  }
+
+  remove(key) {
+    const idx = this.heap.findIndex(i => i.key === key);
+    if (idx === -1) return;
+    const last = this.heap.pop();
+    if (idx < this.heap.length) {
+      this.heap[idx] = last;
+      this.#bubbleUp(idx);
+      this.#bubbleDown(idx);
+    }
+  }
+
+  #bubbleUp(i) {
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (this.heap[i].priority >= this.heap[p].priority) break;
+      [this.heap[i], this.heap[p]] = [this.heap[p], this.heap[i]];
+      i = p;
+    }
+  }
+
+  #bubbleDown(i) {
+    const n = this.heap.length;
+    while (true) {
+      let smallest = i;
+      const l = i * 2 + 1, r = i * 2 + 2;
+      if (l < n && this.heap[l].priority < this.heap[smallest].priority) smallest = l;
+      if (r < n && this.heap[r].priority < this.heap[smallest].priority) smallest = r;
+      if (smallest === i) break;
+      [this.heap[i], this.heap[smallest]] = [this.heap[smallest], this.heap[i]];
+      i = smallest;
+    }
+  }
+}
