@@ -1,0 +1,1034 @@
+castle.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ancient Link Castle – HTML5 Raycaster</title>
+<style>
+  body { margin:0; background:#111; color:#ccc; font-family:monospace; overflow:hidden; }
+  canvas { display:block; margin:0 auto; background:#000; cursor:none; }
+  #ui {
+    position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.7);
+    padding:10px; border:1px solid #555; max-width:280px;
+  }
+  button { margin:3px; padding:6px 10px; background:#333; color:#fff; border:1px solid #666; cursor:pointer; }
+  button:hover { background:#555; }
+  #msg { color:#8f8; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div>WASD / Arrows = move • Mouse = look • Space = jump</div>
+  <div id="msg">Explore the ancient palace</div>
+  <br>
+  <button onclick="upgradeTextures()">Upgrade Textures (3rd set)</button>
+  <button onclick="upgradeLighting()">Upgrade Lighting</button>
+  <button onclick="addStairs()">Add More Stairs</button>
+  <button onclick="addRoom()">Add Palace Room</button>
+</div>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width = innerWidth;
+const H = canvas.height = innerHeight;
+
+// ===== MAP (1 = wall, 2 = stairs up, 3 = stairs down, 0 = floor) =====
+let map = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+  [1,0,1,1,0,1,0,1,0,1,1,1,0,1,0,1],
+  [1,0,1,0,0,1,0,0,0,0,0,1,0,1,0,1],
+  [1,0,1,0,1,1,1,1,1,1,0,1,0,1,0,1],
+  [1,0,0,0,0,0,0,2,0,0,0,0,0,0,0,1], // stairs
+  [1,1,1,1,0,1,0,1,0,1,1,1,1,1,0,1],
+  [1,0,0,0,0,1,0,1,0,0,0,0,0,1,0,1],
+  [1,0,1,1,1,1,0,1,1,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
+  [1,0,0,1,0,0,0,3,0,0,0,1,0,0,0,1], // stairs down
+  [1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1],
+  [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+  [1,0,1,1,1,1,0,1,1,1,1,1,1,1,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+const mapW = map[0].length;
+const mapH = map.length;
+const TILE = 64;
+
+// Player
+let px = 1.5 * TILE, py = 1.5 * TILE;
+let pa = 0;               // angle
+let pHeight = 0;          // for stairs
+let moveSpeed = 3.2;
+let rotSpeed = 0.045;
+
+// Raycasting
+const FOV = Math.PI / 3;
+const numRays = W;
+const maxDist = 20 * TILE;
+
+// Textures (procedural stone – 3 sets)
+let texLevel = 0;
+const texSize = 64;
+const textures = [];
+
+function makeTexture(variant) {
+  const t = document.createElement('canvas');
+  t.width = t.height = texSize;
+  const g = t.getContext('2d');
+  for (let y = 0; y < texSize; y++) {
+    for (let x = 0; x < texSize; x++) {
+      let n = Math.sin(x*0.3 + y*0.2) * 20 + Math.random()*30;
+      let c;
+      if (variant === 0) c = 90 + n;           // dark stone
+      else if (variant === 1) c = 110 + n*1.2; // brighter
+      else c = 70 + n*1.5 + (x%8===0||y%8===0 ? 40 : 0); // 3rd textured bricks
+      g.fillStyle = `rgb(${c*0.7|0},${c*0.65|0},${c*0.55|0})`;
+      g.fillRect(x, y, 1, 1);
+    }
+  }
+  // mortar lines
+  g.strokeStyle = 'rgba(40,35,30,0.6)';
+  g.lineWidth = 1;
+  for (let i = 0; i < texSize; i += 16) {
+    g.beginPath(); g.moveTo(i,0); g.lineTo(i,texSize); g.stroke();
+    g.beginPath(); g.moveTo(0,i); g.lineTo(texSize,i); g.stroke();
+  }
+  return t;
+}
+textures[0] = makeTexture(0);
+textures[1] = makeTexture(1);
+textures[2] = makeTexture(2);
+
+// Lighting upgrade
+let lightMul = 1.0;
+
+// Keys
+const keys = {};
+onkeydown = e => keys[e.key.toLowerCase()] = true;
+onkeyup   = e => keys[e.key.toLowerCase()] = false;
+
+// Mouse look
+let pointerLocked = false;
+canvas.onclick = () => canvas.requestPointerLock();
+document.onpointerlockchange = () => pointerLocked = !!document.pointerLockElement;
+onmousemove = e => {
+  if (pointerLocked) pa += e.movementX * 0.0025;
+};
+
+// Collision (no-clip fix)
+function canMove(nx, ny) {
+  const margin = 12;
+  const cells = [
+    [nx-margin, ny-margin], [nx+margin, ny-margin],
+    [nx-margin, ny+margin], [nx+margin, ny+margin]
+  ];
+  for (let [x,y] of cells) {
+    const mx = Math.floor(x / TILE);
+    const my = Math.floor(y / TILE);
+    if (mx < 0 || my < 0 || mx >= mapW || my >= mapH) return false;
+    if (map[my][mx] === 1) return false;
+  }
+  return true;
+}
+
+// Stairs handling
+function checkStairs() {
+  const mx = Math.floor(px / TILE);
+  const my = Math.floor(py / TILE);
+  if (map[my][mx] === 2) pHeight = Math.min(40, pHeight + 1.5);
+  else if (map[my][mx] === 3) pHeight = Math.max(0, pHeight - 1.5);
+  else pHeight *= 0.92; // settle
+}
+
+// Upgrade functions
+function upgradeTextures() {
+  texLevel = (texLevel + 1) % 3;
+  document.getElementById('msg').textContent = `Textures upgraded to set ${texLevel+1}`;
+}
+function upgradeLighting() {
+  lightMul = Math.min(1.8, lightMul + 0.25);
+  document.getElementById('msg').textContent = `Lighting upgraded (${lightMul.toFixed(1)}x)`;
+}
+function addStairs() {
+  // find empty floor and place stairs
+  for (let y = 2; y < mapH-2; y++) {
+    for (let x = 2; x < mapW-2; x++) {
+      if (map[y][x] === 0) {
+        map[y][x] = 2;
+        document.getElementById('msg').textContent = `Stairs added at (${x},${y}) – you can add more!`;
+        return;
+      }
+    }
+  }
+}
+function addRoom() {
+  // simple expansion example – open a wall
+  for (let y = 3; y < mapH-3; y++) {
+    for (let x = 3; x < mapW-3; x++) {
+      if (map[y][x] === 1 && map[y][x+1] === 0) {
+        map[y][x] = 0;
+        document.getElementById('msg').textContent = `Palace room expanded!`;
+        return;
+      }
+    }
+  }
+}
+
+// Main loop
+function frame() {
+  // Movement
+  let dx = 0, dy = 0;
+  if (keys['w'] || keys['arrowup'])    { dx += Math.cos(pa); dy += Math.sin(pa); }
+  if (keys['s'] || keys['arrowdown'])  { dx -= Math.cos(pa); dy -= Math.sin(pa); }
+  if (keys['a'] || keys['arrowleft'])  { dx += Math.cos(pa-Math.PI/2); dy += Math.sin(pa-Math.PI/2); }
+  if (keys['d'] || keys['arrowright']) { dx += Math.cos(pa+Math.PI/2); dy += Math.sin(pa+Math.PI/2); }
+  if (keys[' ']) pHeight = Math.min(50, pHeight + 4); // jump
+
+  const len = Math.hypot(dx, dy) || 1;
+  dx = (dx / len) * moveSpeed;
+  dy = (dy / len) * moveSpeed;
+
+  if (canMove(px + dx, py)) px += dx;
+  if (canMove(px, py + dy)) py += dy;
+  checkStairs();
+
+  // Clear
+  ctx.fillStyle = '#1a1510';
+  ctx.fillRect(0, 0, W, H/2 + pHeight*0.4); // ceiling
+  ctx.fillStyle = '#2a2218';
+  ctx.fillRect(0, H/2 + pHeight*0.4, W, H/2); // floor
+
+  // Rays
+  for (let r = 0; r < numRays; r++) {
+    const rayAngle = pa - FOV/2 + (r / numRays) * FOV;
+    let dist = 0, hit = false, hitSide = 0, texX = 0;
+    const sin = Math.sin(rayAngle), cos = Math.cos(rayAngle);
+
+    while (!hit && dist < maxDist) {
+      dist += 2;
+      const rx = px + cos * dist;
+      const ry = py + sin * dist;
+      const mx = Math.floor(rx / TILE);
+      const my = Math.floor(ry / TILE);
+      if (mx < 0 || my < 0 || mx >= mapW || my >= mapH || map[my][mx] === 1) {
+        hit = true;
+        // side & texture coord
+        const testX = Math.floor((px + cos*(dist-2)) / TILE);
+        hitSide = (testX !== mx) ? 0 : 1;
+        texX = hitSide === 0 ? (ry % TILE) : (rx % TILE);
+        if (cos < 0 && hitSide===0) texX = TILE - texX;
+        if (sin > 0 && hitSide===1) texX = TILE - texX;
+      }
+    }
+
+    // Fix fisheye
+    dist *= Math.cos(rayAngle - pa);
+    const wallH = Math.min(H*1.5, (TILE * H) / dist);
+    const wallTop = (H - wallH) / 2 - pHeight * 0.6;
+    const shade = Math.max(0.15, Math.min(1, (1 - dist/maxDist) * lightMul));
+
+    // Draw textured column
+    const tex = textures[texLevel];
+    const sx = Math.floor(texX / TILE * texSize) % texSize;
+    ctx.drawImage(tex, sx, 0, 1, texSize, r, wallTop, 1, wallH);
+
+    // Apply shade
+    ctx.fillStyle = `rgba(0,0,0,${1-shade})`;
+    ctx.fillRect(r, wallTop, 1, wallH);
+  }
+
+  // Mini crosshair
+  ctx.strokeStyle = '#fff8';
+  ctx.beginPath();
+  ctx.moveTo(W/2-8, H/2); ctx.lineTo(W/2+8, H/2);
+  ctx.moveTo(W/2, H/2-8); ctx.lineTo(W/2, H/2+8);
+  ctx.stroke();
+
+  requestAnimationFrame(frame);
+}
+frame();
+
+// Resize
+onresize = () => {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+};
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ancient Multi-Story Palace – Realistic Textures + Full Floors</title>
+<style>
+  body{margin:0;background:#0a0a0a;color:#ccc;font-family:monospace;overflow:hidden}
+  canvas{display:block;margin:0 auto;background:#000;cursor:none}
+  #ui{
+    position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.82);
+    padding:12px;border:1px solid #555;max-width:320px;font-size:13px;line-height:1.4
+  }
+  button{margin:3px 2px;padding:7px 11px;background:#2a2a2a;color:#eee;border:1px solid #666;cursor:pointer;border-radius:3px}
+  button:hover{background:#444}
+  #msg{color:#8f8;margin-top:6px}
+  #floor{color:#6af;font-weight:bold}
+</style>
+</head>
+<body>
+<div id="ui">
+  <div>WASD / Arrows = move • Mouse = look • Space = jump</div>
+  <div>Stairs automatically change floors</div>
+  <div id="floor">Current Floor: Ground</div>
+  <div id="msg">Explore the multi-story palace</div>
+  <br>
+  <button onclick="upgradeTextures()">Upgrade Texture Art</button>
+  <button onclick="upgradeLighting()">Upgrade Lighting</button>
+  <button onclick="addUpperRoom()">Add Whole Room (Upper)</button>
+  <button onclick="addStairs()">Add Extra Stairs</button>
+</div>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = canvas.width = innerWidth;
+let H = canvas.height = innerHeight;
+
+// ===================== MULTI-STORY MAPS =====================
+// 0 = empty floor, 1 = solid wall, 2 = stairs UP, 3 = stairs DOWN
+const floors = [
+  // FLOOR 0 – Ground / entrance hall
+  [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,0,1,1,1,1,0,1,1,1,1,1,0,1,0,1],
+    [1,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,1], // main stairs up
+    [1,0,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],
+    [1,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  ],
+  // FLOOR 1 – Upper gallery + rooms
+  [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,1], // stairs down
+    [1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,0,1,1,1,0,1,1,1,0,1,1,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],
+    [1,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,1], // stairs to top
+    [1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  ],
+  // FLOOR 2 – Top palace rooms (throne / private)
+  [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,1], // stairs down
+    [1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,0,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1],
+    [1,0,1,0,1,1,1,1,0,1,1,1,1,0,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  ]
+];
+
+let currentFloor = 0;
+const mapW = floors[0][0].length;
+const mapH = floors[0].length;
+const TILE = 64;
+
+// Player
+let px = 2.5 * TILE, py = 2.5 * TILE;
+let pa = 0;
+let pHeight = 0;          // visual bob / jump
+let moveSpeed = 3.4;
+let rotSpeed = 0.048;
+let floorTransition = 0;  // smooth height change when changing floors
+
+// ===================== SUPER REALISTIC TEXTURE ART =====================
+const texSize = 128; // higher resolution
+let texLevel = 0;
+const textures = []; // [floor][variant]
+
+function noise(x, y, seed = 0) {
+  const n = Math.sin(x * 12.9898 + y * 78.233 + seed) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function makeRealisticTexture(type, variant) {
+  const t = document.createElement('canvas');
+  t.width = t.height = texSize;
+  const g = t.getContext('2d');
+  const img = g.createImageData(texSize, texSize);
+  const d = img.data;
+
+  for (let y = 0; y < texSize; y++) {
+    for (let x = 0; x < texSize; x++) {
+      let r, g_, b;
+      const n1 = noise(x * 0.07, y * 0.07, variant);
+      const n2 = noise(x * 0.18, y * 0.18, variant + 3);
+      const n3 = noise(x * 0.4, y * 0.4, variant + 7);
+
+      if (type === 'stone') {
+        // ancient weathered stone
+        let base = 78 + n1 * 45 + n2 * 25;
+        if (variant === 1) base += 18;
+        if (variant === 2) base -= 12;
+        // mortar cracks
+        const crack = (Math.abs(x % 32 - 16) < 1.2 || Math.abs(y % 32 - 16) < 1.2) ? 35 : 0;
+        r = base * 0.72 - crack;
+        g_ = base * 0.65 - crack;
+        b = base * 0.52 - crack;
+        // moss / age
+        if (n3 > 0.82) { r -= 18; g_ += 8; b -= 10; }
+      } else if (type === 'brick') {
+        // palace brick
+        const bx = Math.floor(x / 16);
+        const by = Math.floor(y / 10);
+        const offset = (by % 2) * 8;
+        const isMortar = (x + offset) % 16 < 1.8 || y % 10 < 1.5;
+        let base = isMortar ? 55 : 105 + n1 * 30;
+        if (variant === 2) base *= 0.85;
+        r = base * 0.85;
+        g_ = base * 0.55;
+        b = base * 0.42;
+      } else { // plaster / wood panel
+        let base = 130 + n1 * 40;
+        r = base * 0.92;
+        g_ = base * 0.85;
+        b = base * 0.72;
+        if (n2 > 0.7) { r -= 15; g_ -= 10; }
+      }
+
+      const i = (y * texSize + x) * 4;
+      d[i]     = Math.max(0, Math.min(255, r));
+      d[i + 1] = Math.max(0, Math.min(255, g_));
+      d[i + 2] = Math.max(0, Math.min(255, b));
+      d[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+
+  // extra surface detail (scratches, age)
+  g.globalAlpha = 0.15;
+  g.strokeStyle = '#000';
+  for (let i = 0; i < 40; i++) {
+    g.beginPath();
+    g.moveTo(Math.random() * texSize, Math.random() * texSize);
+    g.lineTo(Math.random() * texSize, Math.random() * texSize);
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+  return t;
+}
+
+// Pre-generate 3 quality levels × 3 material types
+for (let v = 0; v < 3; v++) {
+  textures[v] = {
+    stone: makeRealisticTexture('stone', v),
+    brick: makeRealisticTexture('brick', v),
+    plaster: makeRealisticTexture('plaster', v)
+  };
+}
+
+let lightMul = 1.15;
+
+// ===================== INPUT =====================
+const keys = {};
+onkeydown = e => { keys[e.key.toLowerCase()] = true; if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault(); };
+onkeyup   = e => keys[e.key.toLowerCase()] = false;
+
+let pointerLocked = false;
+canvas.onclick = () => canvas.requestPointerLock();
+document.onpointerlockchange = () => pointerLocked = !!document.pointerLockElement;
+onmousemove = e => { if (pointerLocked) pa += e.movementX * 0.0022; };
+
+// ===================== COLLISION + MULTI-STORY STAIRS =====================
+function canMove(nx, ny) {
+  const m = 14;
+  const pts = [[nx-m,ny-m],[nx+m,ny-m],[nx-m,ny+m],[nx+m,ny+m]];
+  for (const [x,y] of pts) {
+    const mx = Math.floor(x / TILE);
+    const my = Math.floor(y / TILE);
+    if (mx < 0 || my < 0 || mx >= mapW || my >= mapH) return false;
+    if (floors[currentFloor][my][mx] === 1) return false;
+  }
+  return true;
+}
+
+function handleStairs() {
+  const mx = Math.floor(px / TILE);
+  const my = Math.floor(py / TILE);
+  const cell = floors[currentFloor][my]?.[mx];
+
+  if (cell === 2 && currentFloor < floors.length - 1) {
+    // go up
+    currentFloor++;
+    floorTransition = 80;
+    document.getElementById('floor').textContent = `Current Floor: ${['Ground','Gallery','Throne'][currentFloor]}`;
+    document.getElementById('msg').textContent = 'Climbed to higher palace level';
+  } else if (cell === 3 && currentFloor > 0) {
+    // go down
+    currentFloor--;
+    floorTransition = -80;
+    document.getElementById('floor').textContent = `Current Floor: ${['Ground','Gallery','Throne'][currentFloor]}`;
+    document.getElementById('msg').textContent = 'Descended to lower level';
+  }
+}
+
+// ===================== UPGRADE FUNCTIONS =====================
+function upgradeTextures() {
+  texLevel = (texLevel + 1) % 3;
+  document.getElementById('msg').textContent = `Texture art upgraded to quality set ${texLevel + 1} (more realistic detail)`;
+}
+function upgradeLighting() {
+  lightMul = Math.min(2.0, lightMul + 0.22);
+  document.getElementById('msg').textContent = `Lighting upgraded → ${lightMul.toFixed(2)}x`;
+}
+function addUpperRoom() {
+  // open a whole new room on the highest floor
+  const f = floors[floors.length - 1];
+  for (let y = 3; y < mapH - 3; y++) {
+    for (let x = 3; x < mapW - 3; x++) {
+      if (f[y][x] === 1 && f[y][x+1] === 1 && f[y+1][x] === 1) {
+        f[y][x] = 0; f[y][x+1] = 0; f[y+1][x] = 0; f[y+1][x+1] = 0;
+        document.getElementById('msg').textContent = 'Whole new room added on top floor!';
+        return;
+      }
+    }
+  }
+}
+function addStairs() {
+  const f = floors[currentFloor];
+  for (let y = 2; y < mapH - 2; y++) {
+    for (let x = 2; x < mapW - 2; x++) {
+      if (f[y][x] === 0) {
+        f[y][x] = currentFloor < floors.length - 1 ? 2 : 3;
+        document.getElementById('msg').textContent = 'Extra stairs added on current floor';
+        return;
+      }
+    }
+  }
+}
+
+// ===================== RENDER =====================
+function frame() {
+  // movement
+  let dx = 0, dy = 0;
+  if (keys['w'] || keys['arrowup'])    { dx += Math.cos(pa); dy += Math.sin(pa); }
+  if (keys['s'] || keys['arrowdown'])  { dx -= Math.cos(pa); dy -= Math.sin(pa); }
+  if (keys['a'] || keys['arrowleft'])  { dx += Math.cos(pa - Math.PI/2); dy += Math.sin(pa - Math.PI/2); }
+  if (keys['d'] || keys['arrowright']) { dx += Math.cos(pa + Math.PI/2); dy += Math.sin(pa + Math.PI/2); }
+  if (keys[' ']) pHeight = Math.min(55, pHeight + 5);
+
+  const len = Math.hypot(dx, dy) || 1;
+  dx = (dx / len) * moveSpeed;
+  dy = (dy / len) * moveSpeed;
+
+  if (canMove(px + dx, py)) px += dx;
+  if (canMove(px, py + dy)) py += dy;
+
+  handleStairs();
+  pHeight *= 0.88;
+  floorTransition *= 0.9;
+
+  // sky / floor colors change slightly per story
+  const ceilCol = currentFloor === 2 ? '#1a120c' : currentFloor === 1 ? '#15100c' : '#12100b';
+  const floorCol = currentFloor === 2 ? '#2e2418' : '#252018';
+  ctx.fillStyle = ceilCol;
+  ctx.fillRect(0, 0, W, H/2 + pHeight*0.35 + floorTransition*0.4);
+  ctx.fillStyle = floorCol;
+  ctx.fillRect(0, H/2 + pHeight*0.35 + floorTransition*0.4, W, H);
+
+  // raycasting
+  const FOV = Math.PI / 2.9;
+  const numRays = W;
+  const maxDist = 22 * TILE;
+
+  for (let r = 0; r < numRays; r++) {
+    const rayAngle = pa - FOV/2 + (r / numRays) * FOV;
+    let dist = 0, hit = false, hitSide = 0, texX = 0;
+    const cosA = Math.cos(rayAngle), sinA = Math.sin(rayAngle);
+
+    while (!hit && dist < maxDist) {
+      dist += 1.8;
+      const rx = px + cosA * dist;
+      const ry = py + sinA * dist;
+      const mx = Math.floor(rx / TILE);
+      const my = Math.floor(ry / TILE);
+      if (mx < 0 || my < 0 || mx >= mapW || my >= mapH || floors[currentFloor][my][mx] === 1) {
+        hit = true;
+        const prevX = Math.floor((px + cosA * (dist - 1.8)) / TILE);
+        hitSide = (prevX !== mx) ? 0 : 1;
+        texX = hitSide === 0 ? (ry % TILE) : (rx % TILE);
+        if ((hitSide === 0 && cosA < 0) || (hitSide === 1 && sinA > 0)) texX = TILE - texX;
+      }
+    }
+
+    dist *= Math.cos(rayAngle - pa); // fisheye fix
+    const wallH = Math.min(H * 1.6, (TILE * 1.05 * H) / dist);
+    const wallTop = (H - wallH) / 2 - pHeight * 0.55 - floorTransition * 0.5;
+    const shade = Math.max(0.12, Math.min(1, (1 - dist / maxDist) * lightMul * (1 - currentFloor * 0.07)));
+
+    // choose realistic texture
+    let tex;
+    if (currentFloor === 2) tex = textures[texLevel].plaster;
+    else if (currentFloor === 1) tex = textures[texLevel].brick;
+    else tex = textures[texLevel].stone;
+
+    const sx = Math.floor((texX / TILE) * texSize) % texSize;
+    ctx.drawImage(tex, sx, 0, 1, texSize, r, wallTop, 1, wallH);
+
+    // distance + ambient shade
+    ctx.fillStyle = `rgba(0,0,0,${1 - shade})`;
+    ctx.fillRect(r, wallTop, 1, wallH);
+  }
+
+  // crosshair
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(W/2 - 9, H/2); ctx.lineTo(W/2 + 9, H/2);
+  ctx.moveTo(W/2, H/2 - 9); ctx.lineTo(W/2, H/2 + 9);
+  ctx.stroke();
+
+  requestAnimationFrame(frame);
+}
+frame();
+
+onresize = () => {
+  W = canvas.width = innerWidth;
+  H = canvas.height = innerHeight;
+};
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multi-Story Palace – Shape Area Codes + 3rd Neon Textures</title>
+<style>
+  body{margin:0;background:#050505;color:#ccc;font-family:monospace;overflow:hidden}
+  canvas{display:block;margin:0 auto;background:#000;cursor:none}
+  #ui{
+    position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.85);
+    padding:12px;border:1px solid #555;max-width:340px;font-size:13px;line-height:1.45
+  }
+  button{margin:3px 2px;padding:7px 11px;background:#222;color:#eee;border:1px solid #666;cursor:pointer;border-radius:3px}
+  button:hover{background:#444}
+  #msg{color:#8f8;margin-top:6px}
+  #floor{color:#6af;font-weight:bold}
+  #area{color:#f8a;font-weight:bold}
+</style>
+</head>
+<body>
+<div id="ui">
+  <div>WASD / Arrows = move • Mouse = look • Space = jump</div>
+  <div>Stairs change floors automatically</div>
+  <div id="floor">Current Floor: Ground</div>
+  <div id="area">Area Code: Entrance Circle</div>
+  <div id="msg">Shape-coded multi-story palace ready</div>
+  <br>
+  <button onclick="upgradeTextures()">Cycle 3rd Neon Shape Textures</button>
+  <button onclick="upgradeLighting()">Upgrade Lighting</button>
+  <button onclick="addRectangleRoom()">Add Rectangle Block Room</button>
+  <button onclick="addStairs()">Add Extra Stairs</button>
+</div>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = canvas.width = innerWidth;
+let H = canvas.height = innerHeight;
+
+// ===================== MULTI-STORY MAPS + AREA CODES =====================
+// 0 = empty, 1 = wall, 2 = stairs UP, 3 = stairs DOWN
+// Area codes are stored in parallel (shape IDs)
+const floors = [
+  // Floor 0 – Ground
+  [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,0,1,1,1,1,0,1,1,1,1,1,0,1,0,1],
+    [1,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],
+    [1,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  ],
+  // Floor 1 – Gallery
+  [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,0,1,1,1,0,1,1,1,0,1,1,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],
+    [1,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  ],
+  // Floor 2 – Throne / top
+  [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,0,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1],
+    [1,0,1,0,1,1,1,1,0,1,1,1,1,0,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  ]
+];
+
+// Area shape codes for every cell (0=none, 1=circle, 2=triangle, 3=rectangle/cube, 4=pyramid, 5=polyhedron)
+const areaCodes = [
+  // Floor 0
+  [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,1,0],
+    [0,1,0,3,3,3,3,3,3,3,3,3,3,3,3,0,1,0],
+    [0,1,0,3,0,0,0,0,3,0,0,0,0,0,3,0,1,0],
+    [0,1,1,3,3,3,3,2,3,3,3,3,3,3,3,1,1,0],
+    [0,1,0,0,0,0,3,0,0,0,3,0,0,0,0,0,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0],
+    [0,1,1,0,1,4,4,4,4,4,4,4,1,0,1,1,1,0],
+    [0,1,0,0,0,0,4,0,0,0,0,4,0,0,0,0,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+  ],
+  // Floor 1
+  [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,2,2,2,2,2,2,3,2,2,2,2,2,2,2,2,2,0],
+    [0,2,0,0,0,0,2,0,0,0,0,2,0,0,0,0,2,0],
+    [0,2,0,5,5,5,5,5,5,5,5,5,5,5,5,0,2,0],
+    [0,2,0,5,0,0,0,5,0,0,0,5,0,0,5,0,2,0],
+    [0,2,2,5,5,5,5,5,5,5,5,5,5,5,5,2,2,0],
+    [0,2,0,0,5,0,0,0,0,0,0,0,5,0,0,0,2,0],
+    [0,2,2,0,5,3,3,3,3,3,3,3,5,0,2,2,2,0],
+    [0,2,0,0,0,0,3,0,0,0,3,0,0,0,0,0,2,0],
+    [0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0],
+    [0,2,0,0,0,2,0,0,0,0,0,2,0,0,0,0,2,0],
+    [0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+  ],
+  // Floor 2
+  [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,4,4,4,4,4,4,3,4,4,4,4,4,4,4,4,4,0],
+    [0,4,0,0,0,0,4,0,0,0,0,4,0,0,0,0,4,0],
+    [0,4,0,1,1,1,1,1,1,1,1,1,1,1,1,0,4,0],
+    [0,4,0,1,0,0,0,0,0,0,0,0,0,0,1,0,4,0],
+    [0,4,4,1,1,1,1,1,1,1,1,1,1,1,1,4,4,0],
+    [0,4,0,0,0,1,0,0,0,0,0,1,0,0,0,0,4,0],
+    [0,4,4,4,0,1,3,3,3,3,3,1,0,4,4,4,4,0],
+    [0,4,0,4,0,0,0,0,3,0,0,0,0,4,0,0,4,0],
+    [0,4,0,4,1,1,1,1,1,1,1,1,1,4,0,0,4,0],
+    [0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0],
+    [0,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+  ]
+];
+
+const shapeNames = ['None','Circle','Triangle','Rectangle/Cube','Pyramid','Polyhedron'];
+let currentFloor = 0;
+const mapW = floors[0][0].length;
+const mapH = floors[0].length;
+const TILE = 64;
+
+// Player
+let px = 2.5 * TILE, py = 2.5 * TILE;
+let pa = 0;
+let pHeight = 0;
+let moveSpeed = 3.5;
+let floorTransition = 0;
+
+// ===================== 3RD NEON SHAPE TEXTURES =====================
+const texSize = 128;
+let texLevel = 0; // 0=stone, 1=brick, 2=neon holographic shapes (3rd)
+const textures = [];
+
+function noise(x, y, seed=0) {
+  const n = Math.sin(x*12.9898 + y*78.233 + seed)*43758.5453;
+  return n - Math.floor(n);
+}
+
+function makeTexture(level) {
+  const t = document.createElement('canvas');
+  t.width = t.height = texSize;
+  const g = t.getContext('2d');
+  const img = g.createImageData(texSize, texSize);
+  const d = img.data;
+
+  for (let y=0; y<texSize; y++) {
+    for (let x=0; x<texSize; x++) {
+      let r,g_,b;
+      const n1 = noise(x*0.06,y*0.06,level);
+      const n2 = noise(x*0.15,y*0.15,level+4);
+
+      if (level < 2) {
+        // classic stone / brick
+        let base = 80 + n1*50 + n2*20;
+        if (level===1) base = 95 + n1*40;
+        r = base*0.75; g_ = base*0.62; b = base*0.48;
+        if ((x%18<1.5||y%14<1.5) && level===1) { r*=0.55; g_*=0.55; b*=0.55; }
+      } else {
+        // ===== 3RD TEXTURE: NEON HOLOGRAPHIC SHAPES =====
+        // Rainbow gradient base
+        const hue = (x/texSize*360 + y/texSize*120 + n1*60) % 360;
+        const sat = 0.85 + n2*0.15;
+        const light = 0.45 + n1*0.25;
+        const rgb = hslToRgb(hue/360, sat, light);
+        r = rgb[0]; g_ = rgb[1]; b = rgb[2];
+
+        // Overlay glowing geometric shapes (from your image)
+        const cx = texSize/2, cy = texSize/2;
+        const dx = x-cx, dy = y-cy;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+
+        // Circle rings
+        if (Math.abs(dist-28)<2.5 || Math.abs(dist-48)<2) {
+          r = Math.min(255,r+90); g_ = Math.min(255,g_+70); b = Math.min(255,b+120);
+        }
+        // Triangle
+        if (y > 40 && y < 90 && Math.abs(dx) < (y-40)*0.7) {
+          if (Math.abs(dx) > (y-40)*0.7-3) {
+            r = Math.min(255,r+100); g_ = Math.min(255,g_+40); b = Math.min(255,b+80);
+          }
+        }
+        // Rectangle / Cube face
+        if (x>35 && x<93 && y>35 && y<93) {
+          if (x<38||x>90||y<38||y>90) {
+            r = Math.min(255,r+80); g_ = Math.min(255,g_+90); b = Math.min(255,b+60);
+          }
+        }
+        // Small pyramid accents
+        if (dist < 18 && y < cy) {
+          r = Math.min(255,r+70); g_ = Math.min(255,g_+50); b = Math.min(255,b+110);
+        }
+      }
+
+      const i = (y*texSize+x)*4;
+      d[i]=r|0; d[i+1]=g_|0; d[i+2]=b|0; d[i+3]=255;
+    }
+  }
+  g.putImageData(img,0,0);
+  return t;
+}
+
+function hslToRgb(h,s,l){
+  let r,g,b;
+  if(s===0){r=g=b=l;}
+  else{
+    const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};
+    const q=l<0.5?l*(1+s):l+s-l*s;
+    const p=2*l-q;
+    r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
+  }
+  return [r*255,g*255,b*255];
+}
+
+textures[0] = makeTexture(0);
+textures[1] = makeTexture(1);
+textures[2] = makeTexture(2); // 3rd neon shape texture
+
+let lightMul = 1.25;
+
+// ===================== INPUT + COLLISION =====================
+const keys = {};
+onkeydown = e => { keys[e.key.toLowerCase()] = true; };
+onkeyup   = e => keys[e.key.toLowerCase()] = false;
+
+let pointerLocked = false;
+canvas.onclick = () => canvas.requestPointerLock();
+document.onpointerlockchange = () => pointerLocked = !!document.pointerLockElement;
+onmousemove = e => { if (pointerLocked) pa += e.movementX * 0.0022; };
+
+function canMove(nx, ny) {
+  const m = 13;
+  const pts = [[nx-m,ny-m],[nx+m,ny-m],[nx-m,ny+m],[nx+m,ny+m]];
+  for (const [x,y] of pts) {
+    const mx = Math.floor(x/TILE), my = Math.floor(y/TILE);
+    if (mx<0||my<0||mx>=mapW||my>=mapH) return false;
+    if (floors[currentFloor][my][mx] === 1) return false;
+  }
+  return true;
+}
+
+function handleStairsAndArea() {
+  const mx = Math.floor(px/TILE);
+  const my = Math.floor(py/TILE);
+  const cell = floors[currentFloor][my]?.[mx];
+  const code = areaCodes[currentFloor][my]?.[mx] || 0;
+
+  document.getElementById('area').textContent = `Area Code: ${shapeNames[code]}`;
+
+  if (cell === 2 && currentFloor < floors.length-1) {
+    currentFloor++;
+    floorTransition = 70;
+    document.getElementById('floor').textContent = `Current Floor: ${['Ground','Gallery','Throne'][currentFloor]}`;
+    document.getElementById('msg').textContent = 'Climbed – new shape area unlocked';
+  } else if (cell === 3 && currentFloor > 0) {
+    currentFloor--;
+    floorTransition = -70;
+    document.getElementById('floor').textContent = `Current Floor: ${['Ground','Gallery','Throne'][currentFloor]}`;
+    document.getElementById('msg').textContent = 'Descended to lower shape zone';
+  }
+}
+
+// ===================== UPGRADE BUTTONS =====================
+function upgradeTextures() {
+  texLevel = (texLevel + 1) % 3;
+  document.getElementById('msg').textContent = texLevel===2
+    ? '3rd Neon Holographic Shape Textures ACTIVE'
+    : `Texture set ${texLevel+1} active`;
+}
+function upgradeLighting() {
+  lightMul = Math.min(2.1, lightMul + 0.2);
+  document.getElementById('msg').textContent = `Lighting → ${lightMul.toFixed(2)}x`;
+}
+function addRectangleRoom() {
+  // Add a rectangle-block room (uses shape code 3)
+  const f = floors[currentFloor];
+  const a = areaCodes[currentFloor];
+  for (let y=3; y<mapH-4; y++) {
+    for (let x=3; x<mapW-4; x++) {
+      if (f[y][x]===1 && f[y][x+1]===1 && f[y+1][x]===1) {
+        f[y][x]=0; f[y][x+1]=0; f[y+1][x]=0; f[y+1][x+1]=0;
+        a[y][x]=3; a[y][x+1]=3; a[y+1][x]=3; a[y+1][x+1]=3;
+        document.getElementById('msg').textContent = 'Rectangle/Cube block room added (Area Code 3)';
+        return;
+      }
+    }
+  }
+}
+function addStairs() {
+  const f = floors[currentFloor];
+  for (let y=2; y<mapH-2; y++) {
+    for (let x=2; x<mapW-2; x++) {
+      if (f[y][x]===0) {
+        f[y][x] = currentFloor < floors.length-1 ? 2 : 3;
+        document.getElementById('msg').textContent = 'Extra stairs placed';
+        return;
+      }
+    }
+  }
+}
+
+// ===================== RENDER LOOP =====================
+function frame() {
+  let dx=0, dy=0;
+  if (keys['w']||keys['arrowup'])    { dx+=Math.cos(pa); dy+=Math.sin(pa); }
+  if (keys['s']||keys['arrowdown'])  { dx-=Math.cos(pa); dy-=Math.sin(pa); }
+  if (keys['a']||keys['arrowleft'])  { dx+=Math.cos(pa-Math.PI/2); dy+=Math.sin(pa-Math.PI/2); }
+  if (keys['d']||keys['arrowright']) { dx+=Math.cos(pa+Math.PI/2); dy+=Math.sin(pa+Math.PI/2); }
+  if (keys[' ']) pHeight = Math.min(50, pHeight+5);
+
+  const len = Math.hypot(dx,dy)||1;
+  dx = (dx/len)*moveSpeed; dy = (dy/len)*moveSpeed;
+  if (canMove(px+dx, py)) px+=dx;
+  if (canMove(px, py+dy)) py+=dy;
+
+  handleStairsAndArea();
+  pHeight *= 0.87;
+  floorTransition *= 0.88;
+
+  // Ceiling / floor
+  ctx.fillStyle = currentFloor===2 ? '#120e18' : currentFloor===1 ? '#0e1018' : '#0c0c12';
+  ctx.fillRect(0,0,W,H/2 + pHeight*0.3 + floorTransition*0.35);
+  ctx.fillStyle = currentFloor===2 ? '#1e1828' : '#181820';
+  ctx.fillRect(0,H/2 + pHeight*0.3 + floorTransition*0.35,W,H);
+
+  const FOV = Math.PI/2.85;
+  const numRays = W;
+  const maxDist = 20*TILE;
+
+  for (let r=0; r<numRays; r++) {
+    const rayAngle = pa - FOV/2 + (r/numRays)*FOV;
+    let dist=0, hit=false, hitSide=0, texX=0;
+    const cosA=Math.cos(rayAngle), sinA=Math.sin(rayAngle);
+
+    while (!hit && dist<maxDist) {
+      dist += 1.7;
+      const rx = px + cosA*dist;
+      const ry = py + sinA*dist;
+      const mx = Math.floor(rx/TILE);
+      const my = Math.floor(ry/TILE);
+      if (mx<0||my<0||mx>=mapW||my>=mapH || floors[currentFloor][my][mx]===1) {
+        hit = true;
+        const prevX = Math.floor((px + cosA*(dist-1.7))/TILE);
+        hitSide = (prevX !== mx) ? 0 : 1;
+        texX = hitSide===0 ? (ry%TILE) : (rx%TILE);
+        if ((hitSide===0 && cosA<0) || (hitSide===1 && sinA>0)) texX = TILE-texX;
+      }
+    }
+
+    dist *= Math.cos(rayAngle-pa);
+    const wallH = Math.min(H*1.55, (TILE*1.08*H)/dist);
+    const wallTop = (H-wallH)/2 - pHeight*0.5 - floorTransition*0.45;
+    const shade = Math.max(0.1, Math.min(1, (1-dist/maxDist)*lightMul*(1-currentFloor*0.06)));
+
+    const tex = textures[texLevel];
+    const sx = Math.floor((texX/TILE)*texSize) % texSize;
+    ctx.drawImage(tex, sx, 0, 1, texSize, r, wallTop, 1, wallH);
+
+    ctx.fillStyle = `rgba(0,0,0,${1-shade})`;
+    ctx.fillRect(r, wallTop, 1, wallH);
+  }
+
+  // Crosshair
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.beginPath();
+  ctx.moveTo(W/2-8,H/2); ctx.lineTo(W/2+8,H/2);
+  ctx.moveTo(W/2,H/2-8); ctx.lineTo(W/2,H/2+8);
+  ctx.stroke();
+
+  requestAnimationFrame(frame);
+}
+frame();
+
+onresize = () => {
+  W = canvas.width = innerWidth;
+  H = canvas.height = innerHeight;
+};
+</script>
+</body>
+</html>
