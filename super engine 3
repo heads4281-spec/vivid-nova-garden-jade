@@ -1,0 +1,33 @@
+// SuperEngine.hpp
+#pragma once
+#include "MathTypes.hpp"
+#include "GameEntities.hpp"
+#include "RHI.hpp"
+#include <memory>
+#include <vector>
+#include <string>
+
+class SuperEngine {
+public:
+    bool init(GraphicsAPI api, void* nativeWindow, int width, int height);
+    void update(float dt);
+    void render();
+    void shutdown();
+
+    // Game-specific
+    void spawnSovereign();
+    void spawnWave(int count);          // uses the “15” theme
+    Entity* getPlayer() { return player; }
+
+private:
+    std::unique_ptr<IRHI> rhi;
+    std::vector<Entity> entities;
+    Entity* player = nullptr;
+
+    mat4_t view, proj;
+    vec3_t cameraPos{0.f, 3.5f, 12.f};
+    vec3_t cameraTarget{0.f, 1.f, 0.f};
+
+    int width = 1920, height = 1080;
+    float time = 0.f;
+};
