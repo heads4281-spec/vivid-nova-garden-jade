@@ -1,0 +1,25 @@
+// SuperEngine.cpp (key filled-out parts)
+#include "SuperEngine.hpp"
+#include <iostream>
+
+bool SuperEngine::init(GraphicsAPI api, void* nativeWindow, int w, int h) {
+    width = w; height = h;
+    // Factory – expand for Vulkan / DX12
+    rhi = std::make_unique<OpenGLRHI>(); // implement this class
+    if (!rhi->init(nativeWindow, w, h)) return false;
+
+    proj = mat4_t::perspective(1.047f /*60°*/, float(w)/h, 0.1f, 250.f);
+
+    spawnSovereign();
+
+    // 15 GateOfSovereign relics scattered for the campaign structure
+    for (int i = 0; i < 15; ++i) {
+        Entity gate;
+        gate.type = EntityType::GateOfSovereign;
+        gate.name = "Gate of the Crimson Throne #" + std::to_string(i + 1);
+        gate.position = {
+            (i % 5) * 8.f - 16.f,
+            0.f,
+            (i / 5) * 8.f - 8.f
+        };
+        gate.scale = {1.5
