@@ -13,3 +13,632 @@ auto wraithMesh = MeshLoader::loadOBJShared("assets/models/wraith.obj");
 // Then in your spawn functions:
 gate.mesh = gateMesh.get();
 e.mesh = wraithMesh.get();
+#pragma once
+#include "GameEntities.hpp"
+#include <string>
+#include <vector>
+#include <memory>
+
+class MeshLoader {
+public:
+    static bool loadOBJ(const std::string& filepath, Mesh& outMesh);
+    static std::shared_ptr<Mesh> loadOBJShared(const std::string& filepath);
+
+private:
+    struct Vertex  { float x, y, z; };
+    struct TexCoord{ float u, v; };
+    struct Normal  { float x, y, z; };
+    struct FaceIndex {
+        int v  = -1;
+        int vt = -1;
+        int vn = -1;
+    };
+
+    static bool parseFace(const std::string& token, FaceIndex& out);
+
+    // New: generate smooth vertex normals from triangle geometry
+    static void generateNormals(
+        const std::vector<Vertex>& positions,
+        const std::vector<std::array<int, 3>>& triIndices, // pure vertex indices
+        std::vector<Normal>& outNormals);
+};
+
+#include "MeshLoader.hpp"
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <unordered_map>
+#include <array>
+#include <cmath>
+
+// ------------------------------------------------------------------
+// Automatic normal generation (smooth vertex normals)
+// ------------------------------------------------------------------
+void MeshLoader::generateNormals(
+    const std::vector<Vertex>& positions,
+    const std::vector<std::array<int, 3>>& triIndices,
+    std::vector<Normal>& outNormals)
+{
+    outNormals.assign(positions.size(), {0.f, 0.f, 0.f});
+
+    for (const auto& tri : triIndices) {
+        const Vertex& a = positions[tri[0]];
+        const Vertex& b = positions[tri[1]];
+        const Vertex& c = positions[tri[2]];
+
+        // Edge vectors
+        float e1x = b.x - a.x, e1y = b.y - a.y, e1z = b.z - a.z;
+        float e2x = c.x - a.x, e2y = c.y - a.y, e2z = c.z - a.z;
+
+        // Cross product → face normal
+        float nx = e1y * e2z - e1z * e2y;
+        float ny = e1z * e2x - e1x * e2z;
+        float nz = e1x * e2y - e1y * e2x;
+
+        // Accumulate (area-weighted)
+        outNormals[tri[0]].x += nx; outNormals[tri[0]].y += ny; outNormals[tri[0]].z += nz;
+        outNormals[tri[1]].x += nx; outNormals[tri[1]].y += ny; outNormals[tri[1]].z += nz;
+        outNormals[tri[2]].x += nx; outNormals[tri[2]].y += ny; outNormals[tri[2]].z += nz;
+    }
+
+    // Normalize
+    for (auto& n : outNormals) {
+        float len = std::sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
+        if (len > 1e-6f) {
+            n.x /= len; n.y /= len; n.z /= len;
+        } else {
+            n = {0.f, 1.f, 0.f}; // degenerate fallback
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// parseFace stays the same
+// ------------------------------------------------------------------
+bool MeshLoader::parseFace(const std::string& token, FaceIndex& out) {
+    out = {};
+    std::stringstream ss(token);
+    std::string part;
+    int idx = 0;
+    while (std::getline(ss, part, '/')) {
+        if (!part.empty()) {
+            int value = std::stoi(part);
+            if (value < 0) return false; // relative indices not supported in this version
+            value -= 1;
+            if (idx == 0) out.v  = value;
+            else if (idx == 1) out.vt = value;
+            else if (idx == 2) out.vn = value;
+        }
+        ++idx;
+    }
+    return out.v >= 0;
+}
+
+// ------------------------------------------------------------------
+// Main loader – now with automatic normal generation
+// ------------------------------------------------------------------
+bool MeshLoader::loadOBJ(const std::string& filepath, Mesh& outMesh) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        std::cerr << "[MeshLoader] Failed to open: " << filepath << std::endl;
+        return false;
+    }
+
+    std::vector<Vertex>   positions;
+    std::vector<TexCoord> texcoords;
+    std::vector<Normal>   normals;          // from file (may be empty)
+    std::vector<std::array<FaceIndex, 3>> triangles;
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == '#') continue;
+
+        std::stringstream ss(line);
+        std::string prefix;
+        ss >> prefix;
+
+        if (prefix == "v") {
+            Vertex v{};
+            ss >> v.x >> v.y >> v.z;
+            positions.push_back(v);
+        }
+        else if (prefix == "vt") {
+            TexCoord t{};
+            ss >> t.u >> t.v;
+            texcoords.push_back(t);
+        }
+        else if (prefix == "vn") {
+            Normal n{};
+            ss >> n.x >> n.y >> n.z;
+            normals.push_back(n);
+        }
+        else if (prefix == "f") {
+            std::vector<FaceIndex> face;
+            std::string token;
+            while (ss >> token) {
+                FaceIndex fi;
+                if (parseFace(token, fi))
+                    face.push_back(fi);
+            }
+            if (face.size() >= 3) {
+                for (size_t i = 1; i + 1 < face.size(); ++i)
+                    triangles.push_back({face[0], face[i], face[i+1]});
+            }
+        }
+    }
+    file.close();
+
+    if (positions.empty() || triangles.empty()) {
+        std::cerr << "[MeshLoader] No geometry found in: " << filepath << std::endl;
+        return false;
+    }
+
+    // ---------------------------------------------------------------
+    // Automatic normal generation when file has no (or incomplete) normals
+    // ---------------------------------------------------------------
+    bool needGenerate = normals.empty();
+    if (!needGenerate) {
+        // Also generate if many faces are missing vn
+        size_t missing = 0;
+        for (const auto& t : triangles)
+            for (int i = 0; i < 3; ++i)
+                if (t[i].vn < 0) ++missing;
+        if (missing > triangles.size()) // heuristic
+            needGenerate = true;
+    }
+
+    std::vector<Normal> generatedNormals;
+    if (needGenerate) {
+        // Build pure position-index triangles for the generator
+        std::vector<std::array<int, 3>> posTris;
+        posTris.reserve(triangles.size());
+        for (const auto& t : triangles)
+            posTris.push_back({t[0].v, t[1].v, t[2].v});
+
+        generateNormals(positions, posTris, generatedNormals);
+        std::cout << "[MeshLoader] Generated smooth normals for " << filepath << std::endl;
+    }
+
+    // ---------------------------------------------------------------
+    // Build interleaved vertex buffer (same as before)
+    // ---------------------------------------------------------------
+    struct IndexKey {
+        int v, vt, vn;
+        bool operator==(const IndexKey& o) const {
+            return v == o.v && vt == o.vt && vn == o.vn;
+        }
+    };
+    struct IndexKeyHash {
+        size_t operator()(const IndexKey& k) const {
+            return ((size_t)k.v * 73856093u) ^
+                   ((size_t)k.vt * 19349663u) ^
+                   ((size_t)k.vn * 83492791u);
+        }
+    };
+
+    std::unordered_map<IndexKey, uint32_t, IndexKeyHash> uniqueMap;
+    outMesh.vertices.clear();
+    outMesh.indices.clear();
+
+    auto addVertex = [&](const FaceIndex& fi) -> uint32_t {
+        // When we generated normals we force vn = position index
+        int vn = fi.vn;
+        if (needGenerate) vn = fi.v;
+
+        IndexKey key{fi.v, fi.vt, vn};
+        auto it = uniqueMap.find(key);
+        if (it != uniqueMap.end()) return it->second;
+
+        // Position
+        const Vertex& p = positions[fi.v];
+        outMesh.vertices.push_back(p.x);
+        outMesh.vertices.push_back(p.y);
+        outMesh.vertices.push_back(p.z);
+
+        // Normal
+        if (needGenerate) {
+            const Normal& n = generatedNormals[fi.v];
+            outMesh.vertices.push_back(n.x);
+            outMesh.vertices.push_back(n.y);
+            outMesh.vertices.push_back(n.z);
+        }
+        else if (fi.vn >= 0 && fi.vn < (int)normals.size()) {
+            const Normal& n = normals[fi.vn];
+            outMesh.vertices.push_back(n.x);
+            outMesh.vertices.push_back(n.y);
+            outMesh.vertices.push_back(n.z);
+        }
+        else {
+            outMesh.vertices.push_back(0.f);
+            outMesh.vertices.push_back(1.f);
+            outMesh.vertices.push_back(0.f);
+        }
+
+        // UV
+        if (fi.vt >= 0 && fi.vt < (int)texcoords.size()) {
+            const TexCoord& t = texcoords[fi.vt];
+            outMesh.vertices.push_back(t.u);
+            outMesh.vertices.push_back(t.v);
+        } else {
+            outMesh.vertices.push_back(0.f);
+            outMesh.vertices.push_back(0.f);
+        }
+
+        uint32_t idx = static_cast<uint32_t>(uniqueMap.size());
+        uniqueMap[key] = idx;
+        return idx;
+    };
+
+    for (const auto& tri : triangles) {
+        outMesh.indices.push_back(addVertex(tri[0]));
+        outMesh.indices.push_back(addVertex(tri[1]));
+        outMesh.indices.push_back(addVertex(tri[2]));
+    }
+
+    std::cout << "[MeshLoader] Loaded " << filepath
+              << " | verts: " << (outMesh.vertices.size() / 8)
+              << " | tris: " << (outMesh.indices.size() / 3)
+              << (needGenerate ? " | normals: generated" : " | normals: from file")
+              << std::endl;
+
+    return true;
+}
+
+std::shared_ptr<Mesh> MeshLoader::loadOBJShared(const std::string& filepath) {
+    auto mesh = std::make_shared<Mesh>();
+    if (loadOBJ(filepath, *mesh))
+        return mesh;
+    return nullptr;
+};
+struct Mesh {
+    // Interleaved: pos3 + normal3 + uv2 + tangent4  (12 floats per vertex)
+    std::vector<float> vertices;
+    std::vector<uint32_t> indices;
+};
+#pragma once
+#include "GameEntities.hpp"
+#include <string>
+#include <vector>
+#include <memory>
+#include <array>
+
+class MeshLoader {
+public:
+    static bool loadOBJ(const std::string& filepath, Mesh& outMesh);
+    static std::shared_ptr<Mesh> loadOBJShared(const std::string& filepath);
+
+private:
+    struct Vertex   { float x, y, z; };
+    struct TexCoord { float u, v; };
+    struct Normal   { float x, y, z; };
+    struct Tangent  { float x, y, z, w; }; // w = handedness
+    struct FaceIndex {
+        int v  = -1;
+        int vt = -1;
+        int vn = -1;
+    };
+
+    static bool parseFace(const std::string& token, FaceIndex& out);
+
+    static void generateNormals(
+        const std::vector<Vertex>& positions,
+        const std::vector<std::array<int, 3>>& triIndices,
+        std::vector<Normal>& outNormals);
+
+    // New: length-weighted tangent generation (Mikktspace-inspired)
+    static void generateTangents(
+        const std::vector<Vertex>& positions,
+        const std::vector<TexCoord>& texcoords,
+        const std::vector<Normal>& normals,
+        const std::vector<std::array<FaceIndex, 3>>& triangles,
+        std::vector<Tangent>& outTangents);
+#include "MeshLoader.hpp"
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <unordered_map>
+#include <array>
+#include <cmath>
+#include <algorithm>
+
+// ------------------------------------------------------------------
+// Automatic normal generation (unchanged from previous version)
+// ------------------------------------------------------------------
+void MeshLoader::generateNormals(
+    const std::vector<Vertex>& positions,
+    const std::vector<std::array<int, 3>>& triIndices,
+    std::vector<Normal>& outNormals)
+{
+    outNormals.assign(positions.size(), {0.f, 0.f, 0.f});
+
+    for (const auto& tri : triIndices) {
+        const Vertex& a = positions[tri[0]];
+        const Vertex& b = positions[tri[1]];
+        const Vertex& c = positions[tri[2]];
+
+        float e1x = b.x - a.x, e1y = b.y - a.y, e1z = b.z - a.z;
+        float e2x = c.x - a.x, e2y = c.y - a.y, e2z = c.z - a.z;
+
+        float nx = e1y * e2z - e1z * e2y;
+        float ny = e1z * e2x - e1x * e2z;
+        float nz = e1x * e2y - e1y * e2x;
+
+        outNormals[tri[0]].x += nx; outNormals[tri[0]].y += ny; outNormals[tri[0]].z += nz;
+        outNormals[tri[1]].x += nx; outNormals[tri[1]].y += ny; outNormals[tri[1]].z += nz;
+        outNormals[tri[2]].x += nx; outNormals[tri[2]].y += ny; outNormals[tri[2]].z += nz;
+    }
+
+    for (auto& n : outNormals) {
+        float len = std::sqrt(n.x*n.x + n.y*n.y + n.z*n.z);
+        if (len > 1e-6f) {
+            n.x /= len; n.y /= len; n.z /= len;
+        } else {
+            n = {0.f, 1.f, 0.f};
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// Tangent space generation (length-weighted)
+// ------------------------------------------------------------------
+void MeshLoader::generateTangents(
+    const std::vector<Vertex>& positions,
+    const std::vector<TexCoord>& texcoords,
+    const std::vector<Normal>& normals,
+    const std::vector<std::array<FaceIndex, 3>>& triangles,
+    std::vector<Tangent>& outTangents)
+{
+    // We store one tangent per unique position index for simplicity
+    // (works well for most game assets)
+    const size_t vertexCount = positions.size();
+    outTangents.assign(vertexCount, {0.f, 0.f, 0.f, 1.f});
+
+    std::vector<float> tan1(vertexCount * 3, 0.f); // temporary tan accumulators
+    std::vector<float> tan2(vertexCount * 3, 0.f); // bitangent accumulators
+
+    for (const auto& tri : triangles) {
+        int i0 = tri[0].v;
+        int i1 = tri[1].v;
+        int i2 = tri[2].v;
+
+        // Skip if any vertex is invalid
+        if (i0 < 0 || i1 < 0 || i2 < 0) continue;
+
+        const Vertex& v0 = positions[i0];
+        const Vertex& v1 = positions[i1];
+        const Vertex& v2 = positions[i2];
+
+        // UVs – fallback to 0 if missing
+        TexCoord t0 = {0,0}, t1 = {0,0}, t2 = {0,0};
+        if (tri[0].vt >= 0 && tri[0].vt < (int)texcoords.size()) t0 = texcoords[tri[0].vt];
+        if (tri[1].vt >= 0 && tri[1].vt < (int)texcoords.size()) t1 = texcoords[tri[1].vt];
+        if (tri[2].vt >= 0 && tri[2].vt < (int)texcoords.size()) t2 = texcoords[tri[2].vt];
+
+        float x1 = v1.x - v0.x, x2 = v2.x - v0.x;
+        float y1 = v1.y - v0.y, y2 = v2.y - v0.y;
+        float z1 = v1.z - v0.z, z2 = v2.z - v0.z;
+
+        float s1 = t1.u - t0.u, s2 = t2.u - t0.u;
+        float t1_ = t1.v - t0.v, t2_ = t2.v - t0.v;
+
+        float r = (s1 * t2_ - s2 * t1_);
+        if (std::abs(r) < 1e-6f) r = 1.f;
+        else r = 1.f / r;
+
+        float sdirx = (t2_ * x1 - t1_ * x2) * r;
+        float sdiry = (t2_ * y1 - t1_ * y2) * r;
+        float sdirz = (t2_ * z1 - t1_ * z2) * r;
+
+        float tdirx = (s1 * x2 - s2 * x1) * r;
+        float tdiry = (s1 * y2 - s2 * y1) * r;
+        float tdirz = (s1 * z2 - s2 * z1) * r;
+
+        // Accumulate
+        tan1[i0*3+0] += sdirx; tan1[i0*3+1] += sdiry; tan1[i0*3+2] += sdirz;
+        tan1[i1*3+0] += sdirx; tan1[i1*3+1] += sdiry; tan1[i1*3+2] += sdirz;
+        tan1[i2*3+0] += sdirx; tan1[i2*3+1] += sdiry; tan1[i2*3+2] += sdirz;
+
+        tan2[i0*3+0] += tdirx; tan2[i0*3+1] += tdiry; tan2[i0*3+2] += tdirz;
+        tan2[i1*3+0] += tdirx; tan2[i1*3+1] += tdiry; tan2[i1*3+2] += tdirz;
+        tan2[i2*3+0] += tdirx; tan2[i2*3+1] += tdiry; tan2[i2*3+2] += tdirz;
+    }
+
+    // Orthogonalize and compute handedness
+    for (size_t i = 0; i < vertexCount; ++i) {
+        const Normal& n = normals[i];
+        float tx = tan1[i*3+0], ty = tan1[i*3+1], tz = tan1[i*3+2];
+
+        // Gram-Schmidt
+        float ndott = n.x*tx + n.y*ty + n.z*tz;
+        tx -= n.x * ndott;
+        ty -= n.y * ndott;
+        tz -= n.z * ndott;
+
+        float len = std::sqrt(tx*tx + ty*ty + tz*tz);
+        if (len > 1e-6f) {
+            tx /= len; ty /= len; tz /= len;
+        } else {
+            // Fallback tangent
+            if (std::abs(n.y) < 0.9f) { tx = 1.f; ty = 0.f; tz = 0.f; }
+            else { tx = 0.f; ty = 0.f; tz = 1.f; }
+        }
+
+        // Handedness
+        float bx = tan2[i*3+0], by = tan2[i*3+1], bz = tan2[i*3+2];
+        float crossX = n.y*tz - n.z*ty;
+        float crossY = n.z*tx - n.x*tz;
+        float crossZ = n.x*ty - n.y*tx;
+        float w = (crossX*bx + crossY*by + crossZ*bz) < 0.f ? -1.f : 1.f;
+
+        outTangents[i] = {tx, ty, tz, w};
+    }
+}
+
+// ------------------------------------------------------------------
+// parseFace (unchanged)
+// ------------------------------------------------------------------
+bool MeshLoader::parseFace(const std::string& token, FaceIndex& out) {
+    out = {};
+    std::stringstream ss(token);
+    std::string part;
+    int idx = 0;
+    while (std::getline(ss, part, '/')) {
+        if (!part.empty()) {
+            int value = std::stoi(part);
+            if (value < 0) return false;
+            value -= 1;
+            if (idx == 0) out.v  = value;
+            else if (idx == 1) out.vt = value;
+            else if (idx == 2) out.vn = value;
+        }
+        ++idx;
+    }
+    return out.v >= 0;
+}
+
+// ------------------------------------------------------------------
+// Main loader with normals + tangents
+// ------------------------------------------------------------------
+bool MeshLoader::loadOBJ(const std::string& filepath, Mesh& outMesh) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        std::cerr << "[MeshLoader] Failed to open: " << filepath << std::endl;
+        return false;
+    }
+
+    std::vector<Vertex>   positions;
+    std::vector<TexCoord> texcoords;
+    std::vector<Normal>   fileNormals;
+    std::vector<std::array<FaceIndex, 3>> triangles;
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::stringstream ss(line);
+        std::string prefix;
+        ss >> prefix;
+
+        if (prefix == "v") {
+            Vertex v{}; ss >> v.x >> v.y >> v.z;
+            positions.push_back(v);
+        }
+        else if (prefix == "vt") {
+            TexCoord t{}; ss >> t.u >> t.v;
+            texcoords.push_back(t);
+        }
+        else if (prefix == "vn") {
+            Normal n{}; ss >> n.x >> n.y >> n.z;
+            fileNormals.push_back(n);
+        }
+        else if (prefix == "f") {
+            std::vector<FaceIndex> face;
+            std::string token;
+            while (ss >> token) {
+                FaceIndex fi;
+                if (parseFace(token, fi)) face.push_back(fi);
+            }
+            if (face.size() >= 3) {
+                for (size_t i = 1; i + 1 < face.size(); ++i)
+                    triangles.push_back({face[0], face[i], face[i+1]});
+            }
+        }
+    }
+    file.close();
+
+    if (positions.empty() || triangles.empty()) {
+        std::cerr << "[MeshLoader] No geometry found in: " << filepath << std::endl;
+        return false;
+    }
+
+    // ----- Normals -----
+    bool needGenerateNormals = fileNormals.empty();
+    std::vector<Normal> normals;
+    if (needGenerateNormals) {
+        std::vector<std::array<int, 3>> posTris;
+        for (const auto& t : triangles)
+            posTris.push_back({t[0].v, t[1].v, t[2].v});
+        generateNormals(positions, posTris, normals);
+        std::cout << "[MeshLoader] Generated smooth normals\n";
+    } else {
+        normals = fileNormals;
+        // Ensure size matches (pad if necessary)
+        if (normals.size() < positions.size())
+            normals.resize(positions.size(), {0.f, 1.f, 0.f});
+    }
+
+    // ----- Tangents -----
+    std::vector<Tangent> tangents;
+    generateTangents(positions, texcoords, normals, triangles, tangents);
+    std::cout << "[MeshLoader] Generated tangent space\n";
+
+    // ----- Build interleaved buffer (12 floats) -----
+    struct IndexKey {
+        int v, vt, vn;
+        bool operator==(const IndexKey& o) const {
+            return v == o.v && vt == o.vt && vn == o.vn;
+        }
+    };
+    struct IndexKeyHash {
+        size_t operator()(const IndexKey& k) const {
+            return ((size_t)k.v * 73856093u) ^
+                   ((size_t)k.vt * 19349663u) ^
+                   ((size_t)k.vn * 83492791u);
+        }
+    };
+
+    std::unordered_map<IndexKey, uint32_t, IndexKeyHash> uniqueMap;
+    outMesh.vertices.clear();
+    outMesh.indices.clear();
+
+    auto addVertex = [&](const FaceIndex& fi) -> uint32_t {
+        int vn = needGenerateNormals ? fi.v : fi.vn;
+        if (vn < 0) vn = fi.v;
+
+        IndexKey key{fi.v, fi.vt, vn};
+        auto it = uniqueMap.find(key);
+        if (it != uniqueMap.end()) return it->second;
+
+        // Position
+        const Vertex& p = positions[fi.v];
+        outMesh.vertices.insert(outMesh.vertices.end(), {p.x, p.y, p.z});
+
+        // Normal
+        const Normal& n = normals[std::min(vn, (int)normals.size()-1)];
+        outMesh.vertices.insert(outMesh.vertices.end(), {n.x, n.y, n.z});
+
+        // UV
+        if (fi.vt >= 0 && fi.vt < (int)texcoords.size()) {
+            const TexCoord& t = texcoords[fi.vt];
+            outMesh.vertices.insert(outMesh.vertices.end(), {t.u, t.v});
+        } else {
+            outMesh.vertices.insert(outMesh.vertices.end(), {0.f, 0.f});
+        }
+
+        // Tangent
+        const Tangent& tan = tangents[fi.v];
+        outMesh.vertices.insert(outMesh.vertices.end(), {tan.x, tan.y, tan.z, tan.w});
+
+        uint32_t idx = static_cast<uint32_t>(uniqueMap.size());
+        uniqueMap[key] = idx;
+        return idx;
+    };
+
+    for (const auto& tri : triangles) {
+        outMesh.indices.push_back(addVertex(tri[0]));
+        outMesh.indices.push_back(addVertex(tri[1]));
+        outMesh.indices.push_back(addVertex(tri[2]));
+    }
+
+    std::cout << "[MeshLoader] Loaded " << filepath
+              << " | verts: " << (outMesh.vertices.size() / 12)
+              << " | tris: " << (outMesh.indices.size() / 3)
+              << " | format: pos3+nrm3+uv2+tan4\n";
+
+    return true;
+}
+
+std::shared_ptr<Mesh> MeshLoader::loadOBJShared(const std::string& filepath) {
+    auto mesh = std::make_shared<Mesh>();
+    if (loadOBJ(filepath, *mesh)) return mesh;
+    return nullptr;
+};
