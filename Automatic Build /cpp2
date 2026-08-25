@@ -1,0 +1,117 @@
+// SuperEngine.cpp
+#include "SuperEngine.hpp"
+#include <iostream>
+#include <cstdlib>
+
+bool SuperEngine::init(GraphicsAPI api, void* window, int w, int h) {
+    width = w; height = h;
+    // TODO: switch on api and create correct RHI (OpenGLRHI / VulkanRHI / bridge to Three.js)
+    // For now assume you implement OpenGLRHI or map to your existing renderer
+    rhi = std::make_unique</*YourRHI*/>();
+    if (!rhi || !rhi->init(window, w, h)) return false;
+
+    proj = mat4_t::perspective(1.047f, float(w)/h, 0.1f, 250.f);
+
+    livesAPI.configure(3, 7, 40.f, 6.5f, 25.f, false);
+    livesAPI.onLifeEvent([](const LifeEvent& e) {
+        switch (e.type) {
+            case LifeEvent::Gained:   std::cout << "[UI] +" << e.amount << " life (" << e.reason << ")\n"; break;
+            case LifeEvent::Lost:     std::cout << "[UI] -" << e.amount << " life (" << e.reason << ")\n"; break;
+            case LifeEvent::Revived:  std::cout << "[VFX] Crimson resurrection!\n"; break;
+            case LifeEvent::Regenerated: std::cout << "[UI] Auto-regen life\n"; break;
+            default: break;
+        }
+    });
+
+    spawnSovereign();
+
+    // 15 Gates of the Crimson Throne
+    for (int i = 0; i < 15; ++i) {
+        Entity gate;
+        gate.type = EntityType::GateOfSovereign;
+        gate.name = "Gate #" + std::to_string(i+1);
+        gate.position = {(i%5)*8.f - 16.f, 0.f, (i/5)*8.f - 8.f};
+        gate.scale = {1.5f, 3.f, 1.5f};
+        gate.material.albedo = {0.9f, 0.05f, 0.12f};
+        gate.crimsonPower = 25.f + i*5.f;
+        entities.push_back(gate);
+    }
+
+    spawnWave(8);
+    std::cout << "[Crimson Sovereign] Super Engine + Full Automatic Lives online – 15 Gates ready.\n";
+    return true;
+}
+
+void SuperEngine::spawnSovereign() {
+    Entity sov;
+    sov.type = EntityType::Sovereign;
+    sov.name = "Crimson Sovereign";
+    sov.position = {0,0,0};
+    sov.scale = {1.2f,1.2f,1.2f};
+    sov.material.albedo = {0.95f, 0.08f, 0.18f};
+    sov.material.metallic = 0.7f;
+    sov.health = 200.f;
+    sov.crimsonPower = 100.f;
+    entities.push_back(sov);
+    player = &entities.back();
+}
+
+void SuperEngine::spawnWave(int count) {
+    for (int i = 0; i < count; ++i) {
+        Entity e;
+        e.type = EntityType::CrimsonWraith;
+        e.name = "Wraith " + std::to_string(entities.size());
+        e.position = {(rand()%40-20)*1.f, 0.f, (rand()%40-20)*1.f};
+        e.material.albedo = {0.6f, 0.02f, 0.08f};
+        e.health = 40.f + (rand()%30);
+        entities.push_back(e);
+    }
+}
+
+void SuperEngine::claimGate(int index) {
+    if (index >= 0 && index < 15)
+        livesAPI.onGateClaimed(index);
+}
+
+void SuperEngine::update(float dt) {
+    time += dt;
+    cameraPos.x = std::sin(time * 0.25f) * 14.f;
+    cameraPos.z = std::cos(time * 0.25f) * 14.f;
+    cameraPos.y = 4.f + std::sin(time * 0.4f) * 1.5f;
+    cameraTarget = player ? player->position : vec3_t{0,1,0};
+    view = mat4_t::lookAt(cameraPos, cameraTarget, {0,1,0});
+
+    // Automatic lives system
+    livesAPI.update(dt, player);
+
+    // Simple AI + death handling
+    for (auto& e : entities) {
+        if (e.type == EntityType::CrimsonWraith && player) {
+            vec3_t dir = (player->position - e.position).normalized();
+            e.position = e.position + dir * (dt * 1.8f);
+        }
+        e.crimsonPower = std::fmod(e.crimsonPower + dt * 10.f, 100.f);
+    }
+
+    if (player && player->health <= 0.f && livesAPI.isAlive()) {
+        livesAPI.loseLife(1, "fatal wound");
+        if (livesAPI.isAlive()) player->health = 80.f;
+    }
+}
+
+void SuperEngine::render() {
+    if (!rhi) return;
+    rhi->beginFrame();
+    mat4_t viewProj = proj * view;
+    for (const auto& e : entities) {
+        mat4_t model = mat4_t::translate(e.position) * mat4_t::scale(e.scale);
+        rhi->draw(e, model, viewProj);
+    }
+    rhi->endFrame();
+}
+
+void SuperEngine::shutdown() {
+    if (rhi) rhi->shutdown();
+    entities.clear();
+    player = nullptr;
+}
