@@ -1,0 +1,33 @@
+#pragma once
+#include "GameEntities.hpp"
+#include <string>
+#include <vector>
+#include <memory>
+
+class MeshLoader {
+public:
+    // Load a .obj file into a Mesh.
+    // Returns true on success. The Mesh is fully populated and ready for OpenGLRHI.
+    static bool loadOBJ(const std::string& filepath, Mesh& outMesh);
+
+    // Convenience: load and return a shared_ptr (useful for Entity ownership)
+    static std::shared_ptr<Mesh> loadOBJShared(const std::string& filepath);
+
+private:
+    struct Vertex {
+        float x, y, z;
+    };
+    struct TexCoord {
+        float u, v;
+    };
+    struct Normal {
+        float x, y, z;
+    };
+    struct FaceIndex {
+        int v = -1;   // vertex
+        int vt = -1;  // texcoord
+        int vn = -1;  // normal
+    };
+
+    static bool parseFace(const std::string& token, FaceIndex& out);
+};
