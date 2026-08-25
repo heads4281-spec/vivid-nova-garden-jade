@@ -1,0 +1,95 @@
+// LivesAPI.cpp
+#include "LivesAPI.hpp"
+#include <algorithm>
+
+void LivesAPI::configure(int start, int maxBase, float regenSec,
+                         float reviveCD, float reviveCost, bool infinite) {
+    lives_ = start; maxBase_ = maxBase; regenInterval_ = regenSec;
+    reviveCooldown_ = reviveCD; reviveCost_ = reviveCost; infinite_ = infinite;
+    clamp();
+}
+
+int  LivesAPI::getLives() const       { return lives_; }
+int  LivesAPI::getMaxLives() const    { return maxBase_ + bonusFromGates_; }
+bool LivesAPI::isAlive() const        { return !isDead_ && (infinite_ || lives_ > 0); }
+bool LivesAPI::isInvulnerable() const { return invulnTimer_ > 0.f; }
+bool LivesAPI::canAutoRevive() const  { return isDead_ && reviveTimer_ <= 0.f; }
+
+void LivesAPI::addLives(int amount, const std::string& reason) {
+    if (amount <= 0) return;
+    int old = lives_;
+    lives_ += amount; clamp();
+    if (lives_ > old) {
+        emit({LifeEvent::Gained, lives_ - old, reason});
+        if (lives_ >= getMaxLives()) emit({LifeEvent::MaxReached, 0, "max lives"});
+    }
+}
+
+bool LivesAPI::loseLife(int amount, const std::string& reason) {
+    if (infinite_ || isInvulnerable() || amount <= 0) return false;
+    lives_ -= amount;
+    emit({LifeEvent::Lost, amount, reason});
+    if (lives_ <= 0) {
+        lives_ = 0; isDead_ = true; reviveTimer_ = reviveCooldown_;
+        std::cout << "[LivesAPI] Sovereign fallen – auto-revive in " << reviveCooldown_ << "s\n";
+    }
+    clamp(); return true;
+}
+
+void LivesAPI::setLives(int v) {
+    lives_ = v; clamp();
+    isDead_ = (lives_ <= 0 && !infinite_);
+}
+
+void LivesAPI::forceRevive(Entity* player) {
+    if (!player) return;
+    player->crimsonPower = std::max(0.f, player->crimsonPower - reviveCost_);
+    player->health = 100.f;
+    lives_ = std::max(1, lives_);
+    isDead_ = false; invulnTimer_ = 2.5f; reviveTimer_ = 0.f;
+    emit({LifeEvent::Revived, 1, "Crimson Sovereign rises"});
+    std::cout << "[LivesAPI] AUTO-REVIVE – Lives: " << lives_ << "\n";
+}
+
+void LivesAPI::onGateClaimed(int gateIndex) {
+    int newBonus = (gateIndex + 1) / 3;
+    if (newBonus > bonusFromGates_) {
+        int gained = newBonus - bonusFromGates_;
+        bonusFromGates_ = newBonus;
+        addLives(gained, "Gate of the Crimson Throne claimed");
+    }
+}
+
+void LivesAPI::update(float dt, Entity* player) {
+    if (!player) return;
+    if (invulnTimer_ > 0.f) invulnTimer_ = std::max(0.f, invulnTimer_ - dt);
+
+    if (isAlive() && lives_ < getMaxLives()) {
+        regenTimer_ += dt;
+        float powerBonus = player->crimsonPower / 200.f;
+        if (regenTimer_ >= regenInterval_ / (1.f + powerBonus)) {
+            regenTimer_ = 0.f;
+            addLives(1, "auto-regeneration");
+            emit({LifeEvent::Regenerated, 1, "crimson energy restored a life"});
+        }
+    }
+
+    if (isDead_) {
+        reviveTimer_ -= dt;
+        if (reviveTimer_ <= 0.f && player->crimsonPower >= reviveCost_)
+            forceRevive(player);
+    }
+}
+
+void LivesAPI::onLifeEvent(EventCallback cb) { listeners_.push_back(std::move(cb)); }
+void LivesAPI::emit(const LifeEvent& e) { for (auto& cb : listeners_) cb(e); }
+void LivesAPI::clamp() { lives_ = std::clamp(lives_, 0, getMaxLives()); }
+void LivesAPI::enableInfiniteLives(bool on) { infinite_ = on; if (on) isDead_ = false; }
+
+void LivesAPI::save(std::ostream& out) const {
+    out << lives_ << " " << bonusFromGates_ << " " << (infinite_ ? 1 : 0) << "\n";
+}
+void LivesAPI::load(std::istream& in) {
+    int inf = 0; in >> lives_ >> bonusFromGates_ >> inf;
+    infinite_ = (inf != 0); clamp(); isDead_ = (lives_ <= 0 && !infinite_);
+}
