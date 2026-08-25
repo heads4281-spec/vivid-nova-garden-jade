@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUPER AI QUANTUM LIVE AUTO HTML5 ENGINE — Type VII Palace</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#000;font-family:system-ui,sans-serif;color:#f44}
+#blocker{position:absolute;inset:0;background:rgba(0,0,0,.93);display:flex;align-items:center;justify-content:center;z-index:30;cursor:pointer}
+#blocker .panel{max-width:640px;padding:48px;border:2px solid #c00;border-radius:18px;background:linear-gradient(145deg,#1a0008,#050005);text-align:center}
+h1{font-size:2.6rem;color:#ff2a2a;letter-spacing:3px;margin-bottom:14px}
+#crosshair{position:absolute;top:50%;left:50%;width:24px;height:24px;transform:translate(-50%,-50%);pointer-events:none;z-index:15;opacity:0}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:#0f0;box-shadow:0 0 8px #0f0}
+#crosshair::before{width:2px;height:100%;left:11px}#crosshair::after{height:2px;width:100%;top:11px}
+#hud{position:absolute;bottom:28px;left:28px;color:#0f0;font-size:15px;text-shadow:0 0 10px #0f0;z-index:15;opacity:0;line-height:1.5}
+#ammo{position:absolute;bottom:28px;right:28px;color:#ff0;font-size:17px;z-index:15;opacity:0}
+#muzzle{position:absolute;top:50%;left:50%;width:160px;height:160px;transform:translate(-50%,-50%);background:radial-gradient(circle,#ff5500 0%,transparent 70%);opacity:0;pointer-events:none;z-index:8;transition:opacity .05s}
+#status{position:absolute;top:18px;left:18px;color:#0ff;font-size:13px;z-index:15;opacity:0;text-shadow:0 0 6px #0ff}
+</style>
+</head>
+<body>
+<div id="blocker">
+  <div class="panel">
+    <h1>SUPER AI QUANTUM</h1>
+    <p style="color:#ccc;margin:18px 0;line-height:1.6">Live Auto HTML5 Engine<br>Type VII Palace of Living Runes<br>Textures • VideoTextures • Animation API • Graphics Auto-Update</p>
+    <p style="margin-top:22px"><strong>CLICK TO ENTER</strong></p>
+    <p style="font-size:.85rem;opacity:.75;margin-top:14px">0 = Auto Graphics / AI Adaptive ON/OFF<br>1 = Quantum Live Effects + Video Textures ON/OFF<br>WASD • Mouse • Click Shoot • Space Jump</p>
+  </div>
+</div>
+<div id="crosshair"></div>
+<div id="muzzle"></div>
+<div id="status">AI:ON | QUANTUM:ON | GFX:AUTO</div>
+<div id="hud">SCORE: <span id="score">0</span><br>HEALTH: <span id="health">100</span><br>ENGINE: SUPER QUANTUM LIVE</div>
+<div id="ammo">AMMO ∞</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+/* ============================================================
+   SUPER AI QUANTUM LIVE AUTO HTML5 ENGINE
+   Full modular APIs: TextureAPI, VideoAPI, AnimationAPI,
+   GraphicsAPI, QuantumAIAPI, GameEngine
+   Binary toggles: key 0 and key 1
+   Automatic rendering update + living rune palace
+   ============================================================ */
+
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+// ------------------------------------------------------------
+// 1. GLOBAL STATE + BINARY TOGGLES (0 / 1)
+// ------------------------------------------------------------
+const STATE = {
+  autoGraphics: true,      // toggled by key 0
+  quantumLive: true,       // toggled by key 1
+  score: Number(localStorage.getItem('sq_score') || 0),
+  health: 100,
+  canJump: false,
+  time: 0
+};
+
+// ------------------------------------------------------------
+// 2. SUPER BIG ART / TEXTURE API
+// ------------------------------------------------------------
+const TextureAPI = {
+  cache: new Map(),
+  makeRune(base = '#6a0000', size = 1024, intensity = 1) {
+    const key = `rune_${base}_${size}_${intensity}`;
+    if (this.cache.has(key)) return this.cache.get(key);
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, size, size);
+    // noise layer
+    for (let i = 0; i < 14000 * intensity; i++) {
+      ctx.fillStyle = `rgba(${30 + Math.random() * 90},0,${15 + Math.random() * 50},${0.12 + Math.random() * 0.45})`;
+      ctx.fillRect(Math.random() * size, Math.random() * size, 1 + Math.random() * 3, 1 + Math.random() * 2);
+    }
+    // living rune strokes
+    ctx.strokeStyle = `rgba(255,${60 + Math.random() * 80},${30 + Math.random() * 40},0.6)`;
+    ctx.lineWidth = 1.5 + Math.random();
+    for (let i = 0; i < 55; i++) {
+      ctx.beginPath();
+      const x = Math.random() * size, y = Math.random() * size;
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + (Math.random() - 0.5) * 220, y + (Math.random() - 0.5) * 220);
+      ctx.stroke();
+    }
+    // geometric seals
+    ctx.strokeStyle = 'rgba(255,140,60,0.75)';
+    for (let i = 0; i < 30; i++) {
+      const x = Math.random() * size, y = Math.random() * size, s = 18 + Math.random() * 50;
+      ctx.strokeRect(x, y, s, s);
+      ctx.beginPath();
+      ctx.arc(x + s / 2, y + s / 2, s / 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.anisotropy = 16;
+    tex.needsUpdate = true;
+    this.cache.set(key, tex);
+    return tex;
+  },
+  apply(mesh, tex, repeatX = 1, repeatY = 1) {
+    if (!mesh.material) return;
+    mesh.material.map = tex;
+    if (tex.repeat) {
+      tex.repeat.set(repeatX, repeatY);
+    }
+    mesh.material.needsUpdate = true;
+  }
+};
+
+// ------------------------------------------------------------
+// 3. VIDEO TEXTURE API (auto + live)
+// ------------------------------------------------------------
+const VideoAPI = {
+  videos: [],
+  createProceduralVideo(width = 512, height = 512, colorShift = 0) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const video = document.createElement('video');
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    // We simulate a live video stream with canvas animation (no external file needed)
+    let t = 0;
+    const stream = canvas.captureStream(30);
+    video.srcObject = stream;
+    const update = () => {
+      if (!STATE.quantumLive) return;
+      t += 0.04;
+      ctx.fillStyle = `rgb(${40 + Math.sin(t) * 30},${10},${20 + Math.cos(t + colorShift) * 40})`;
+      ctx.fillRect(0, 0, width, height);
+      for (let i = 0; i < 80; i++) {
+        ctx.fillStyle = `rgba(255,${80 + Math.random() * 100},40,${0.3 + Math.random() * 0.5})`;
+        const x = (Math.sin(t * 0.7 + i) * 0.5 + 0.5) * width;
+        const y = (Math.cos(t * 0.5 + i * 0.3) * 0.5 + 0.5) * height;
+        ctx.beginPath();
+        ctx.arc(x, y, 2 + Math.random() * 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // rune pulse
+      ctx.strokeStyle = `rgba(255,120,40,${0.4 + Math.sin(t * 2) * 0.3})`;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(40 + Math.sin(t) * 20, 40, width - 80, height - 80);
+    };
+    setInterval(update, 33);
+    video.play().catch(() => {});
+    this.videos.push({ video, canvas, update });
+    const tex = new THREE.VideoTexture(video);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    return tex;
+  }
+};
+
+// ------------------------------------------------------------
+// 4. ANIMATION API
+// ------------------------------------------------------------
+const AnimationAPI = {
+  tweens: [],
+  spin(obj, speed = 1) {
+    this.tweens.push({ type: 'spin', obj, speed, axis: 'z' });
+  },
+  pulseEmissive(mat, base = 0.2, amp = 0.6, speed = 2) {
+    this.tweens.push({ type: 'pulse', mat, base, amp, speed, t: 0 });
+  },
+  update(dt) {
+    this.tweens.forEach(tw => {
+      if (tw.type === 'spin' && tw.obj) {
+        tw.obj.rotation[tw.axis] += dt * tw.speed;
+      }
+      if (tw.type === 'pulse' && tw.mat) {
+        tw.t += dt * tw.speed;
+        tw.mat.emissiveIntensity = tw.base + Math.sin(tw.t) * tw.amp;
+      }
+    });
+  }
+};
+
+// ------------------------------------------------------------
+// 5. GRAPHICS / RENDERING API (auto update)
+// ------------------------------------------------------------
+const GraphicsAPI = {
+  renderer: null,
+  quality: 1.0,
+  lastUpdate: 0,
+  init(r) {
+    this.renderer = r;
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.2;
+  },
+  autoUpdate(dt, fps) {
+    if (!STATE.autoGraphics) return;
+    this.lastUpdate += dt;
+    if (this.lastUpdate > 1.5) {
+      this.lastUpdate = 0;
+      // simple adaptive quality
+      if (fps < 40 && this.quality > 0.6) {
+        this.quality -= 0.1;
+        this.renderer.setPixelRatio(Math.min(devicePixelRatio * this.quality, 1.5));
+      } else if (fps > 55 && this.quality < 1.0) {
+        this.quality += 0.05;
+        this.renderer.setPixelRatio(Math.min(devicePixelRatio * this.quality, 2));
+      }
+    }
+  }
+};
+
+// ------------------------------------------------------------
+// 6. QUANTUM AI API (live simulated quantum + adaptive)
+// ------------------------------------------------------------
+const QuantumAIAPI = {
+  seed: Math.random() * 99999,
+  quantumRandom() {
+    // simple deterministic quasi-quantum noise
+    this.seed = (this.seed * 16807) % 2147483647;
+    return (this.seed - 1) / 2147483646;
+  },
+  decide(threshold = 0.5) {
+    return this.quantumRandom() > threshold;
+  },
+  adaptEnemySpeed(base) {
+    if (!STATE.quantumLive) return base;
+    return base * (0.85 + this.quantumRandom() * 0.4);
+  },
+  liveParticleForce() {
+    if (!STATE.quantumLive) return 0;
+    return (this.quantumRandom() - 0.5) * 0.02;
+  }
+};
+
+// ------------------------------------------------------------
+// 7. CORE SCENE + ENGINE
+// ------------------------------------------------------------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x030008);
+scene.fog = new THREE.FogExp2(0x120010, 0.011);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 900);
+camera.position.set(0, 1.7, 14);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+GraphicsAPI.init(renderer);
+
+// Lights
+scene.add(new THREE.HemisphereLight(0xff3355, 0x080010, 0.5));
+const sun = new THREE.DirectionalLight(0xff7744, 1.25);
+sun.position.set(35, 55, 25);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+scene.add(sun);
+const portalLight = new THREE.PointLight(0xff3300, 3.2, 70);
+portalLight.position.set(0, 7, -18);
+scene.add(portalLight);
+
+// Floor
+const floorTex = TextureAPI.makeRune('#4a0000', 1024, 1.2);
+floorTex.repeat.set(16, 16);
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(240, 240, 48, 48),
+  new THREE.MeshStandardMaterial({
+    map: floorTex,
+    roughness: 0.72,
+    metalness: 0.18,
+    emissive: 0x1a0000,
+    emissiveIntensity: 0.18
+  })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Palace structures
+function box(x, y, z, w, h, d, tex, em = 0x150000) {
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshStandardMaterial({
+      map: tex,
+      roughness: 0.68,
+      metalness: 0.22,
+      emissive: em,
+      emissiveIntensity: 0.28
+    })
+  );
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+
+const wallTex = TextureAPI.makeRune('#2a0000', 512, 1);
+const pillarTex = TextureAPI.makeRune('#5a1010', 512, 1.1);
+
+box(0, 6.5, -24, 24, 13, 9, wallTex, 0x2a0000);
+box(-10, 4.5, -19, 7, 9, 5, wallTex);
+box(10, 4.5, -19, 7, 9, 5, wallTex);
+box(-42, 5.5, 0, 9, 11, 48, wallTex);
+box(42, 5.5, 0, 9, 11, 48, wallTex);
+box(0, 4.5, -52, 55, 9, 7, wallTex);
+
+// Portal
+const portalGeo = new THREE.TorusGeometry(3.4, 0.38, 18, 56);
+const portalMat = new THREE.MeshStandardMaterial({
+  color: 0xffaa22,
+  emissive: 0xff6600,
+  emissiveIntensity: 1.9,
+  roughness: 0.25
+});
+const portal = new THREE.Mesh(portalGeo, portalMat);
+portal.position.set(0, 4.8, -18.8);
+portal.rotation.x = Math.PI / 2;
+scene.add(portal);
+AnimationAPI.spin(portal, 0.85);
+AnimationAPI.pulseEmissive(portalMat, 1.4, 0.7, 1.8);
+
+// Video texture on portal inner plane
+const videoTex = VideoAPI.createProceduralVideo(512, 512, 1.2);
+const portalPlane = new THREE.Mesh(
+  new THREE.CircleGeometry(2.9, 48),
+  new THREE.MeshBasicMaterial({ map: videoTex, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+);
+portalPlane.position.copy(portal.position);
+portalPlane.position.z += 0.2;
+scene.add(portalPlane);
+
+// Pillars + crystals
+[[-20, -10], [20, -10], [-28, 8], [28, 8], [-14, 18], [14, 18]].forEach(([x, z]) => {
+  const p = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.5, 1.7, 12, 14),
+    new THREE.MeshStandardMaterial({ map: pillarTex, roughness: 0.6, emissive: 0x220000, emissiveIntensity: 0.35 })
+  );
+  p.position.set(x, 6, z);
+  p.castShadow = true;
+  scene.add(p);
+  const cone = new THREE.Mesh(
+    new THREE.ConeGeometry(1.9, 3.8, 9),
+    new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0xff5500, emissiveIntensity: 1.1 })
+  );
+  cone.position.set(x, 13.2, z);
+  scene.add(cone);
+});
+
+for (let i = 0; i < 22; i++) {
+  const crystal = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.55 + Math.random() * 0.9, 0),
+    new THREE.MeshStandardMaterial({
+      color: 0xff4422,
+      emissive: 0xff2200,
+      emissiveIntensity: 1.3,
+      transparent: true,
+      opacity: 0.88
+    })
+  );
+  crystal.position.set((Math.random() - 0.5) * 100, 2.5 + Math.random() * 9, (Math.random() - 0.5) * 90);
+  scene.add(crystal);
+  AnimationAPI.pulseEmissive(crystal.material, 0.9, 0.6, 1.5 + Math.random());
+}
+
+// ------------------------------------------------------------
+// 8. CONTROLS + INPUT (0 and 1 toggles)
+// ------------------------------------------------------------
+const controls = new PointerLockControls(camera, document.body);
+const blocker = document.getElementById('blocker');
+const crosshair = document.getElementById('crosshair');
+const hud = document.getElementById('hud');
+const ammoEl = document.getElementById('ammo');
+const statusEl = document.getElementById('status');
+const muzzle = document.getElementById('muzzle');
+
+blocker.addEventListener('click', () => controls.lock());
+controls.addEventListener('lock', () => {
+  blocker.style.display = 'none';
+  crosshair.style.opacity = '1';
+  hud.style.opacity = '1';
+  ammoEl.style.opacity = '1';
+  statusEl.style.opacity = '1';
+});
+controls.addEventListener('unlock', () => {
+  blocker.style.display = 'flex';
+  crosshair.style.opacity = '0';
+  hud.style.opacity = '0';
+  ammoEl.style.opacity = '0';
+  statusEl.style.opacity = '0';
+});
+
+const keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space' && STATE.canJump) {
+    velocity.y = 11.5;
+    STATE.canJump = false;
+  }
+  // Binary toggles
+  if (e.code === 'Digit0' || e.code === 'Numpad0') {
+    STATE.autoGraphics = !STATE.autoGraphics;
+    updateStatus();
+  }
+  if (e.code === 'Digit1' || e.code === 'Numpad1') {
+    STATE.quantumLive = !STATE.quantumLive;
+    updateStatus();
+  }
+});
+document.addEventListener('keyup', e => keys[e.code] = false);
+
+function updateStatus() {
+  statusEl.textContent = `AI:${STATE.autoGraphics ? 'ON' : 'OFF'} | QUANTUM:${STATE.quantumLive ? 'ON' : 'OFF'} | GFX:AUTO`;
+}
+
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+
+// ------------------------------------------------------------
+// 9. ENEMIES + COMBAT
+// ------------------------------------------------------------
+const enemies = [];
+function spawnEnemy() {
+  const e = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.55, 1.35, 4, 8),
+    new THREE.MeshStandardMaterial({ color: 0xaa1111, emissive: 0x440000, emissiveIntensity: 0.65 })
+  );
+  const ang = Math.random() * Math.PI * 2;
+  const dist = 30 + Math.random() * 40;
+  e.position.set(Math.cos(ang) * dist, 1.65, Math.sin(ang) * dist);
+  e.userData = { hp: 3, speed: QuantumAIAPI.adaptEnemySpeed(3.6 + Math.random() * 2) };
+  e.castShadow = true;
+  scene.add(e);
+  enemies.push(e);
+}
+for (let i = 0; i < 8; i++) spawnEnemy();
+
+document.getElementById('score').textContent = STATE.score;
+
+const raycaster = new THREE.Raycaster();
+function shoot() {
+  if (!controls.isLocked) return;
+  muzzle.style.opacity = '0.95';
+  setTimeout(() => muzzle.style.opacity = '0', 60);
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const hits = raycaster.intersectObjects(enemies);
+  if (hits.length) {
+    const e = hits[0].object;
+    e.userData.hp--;
+    e.material.emissive.setHex(0xff0000);
+    setTimeout(() => { if (e.userData.hp > 0) e.material.emissive.setHex(0x440000); }, 100);
+    if (e.userData.hp <= 0) {
+      scene.remove(e);
+      enemies.splice(enemies.indexOf(e), 1);
+      STATE.score += 100;
+      document.getElementById('score').textContent = STATE.score;
+      localStorage.setItem('sq_score', STATE.score);
+      setTimeout(spawnEnemy, 1600 + Math.random() * 2800);
+    }
+  }
+}
+document.addEventListener('mousedown', e => { if (e.button === 0) shoot(); });
+
+// ------------------------------------------------------------
+// 10. MAIN LOOP — FULL ENGINE
+// ------------------------------------------------------------
+const clock = new THREE.Clock();
+let prevTime = performance.now();
+let frames = 0;
+let fps = 60;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min((now - prevTime) / 1000, 0.05);
+  prevTime = now;
+  STATE.time += dt;
+  frames++;
+  if (frames % 30 === 0) fps = Math.round(1 / dt);
+
+  AnimationAPI.update(dt);
+  GraphicsAPI.autoUpdate(dt, fps);
+
+  if (controls.isLocked) {
+    velocity.x -= velocity.x * 9.5 * dt;
+    velocity.z -= velocity.z * 9.5 * dt;
+    velocity.y -= 23 * dt;
+
+    direction.z = Number(keys['KeyW']) - Number(keys['KeyS']);
+    direction.x = Number(keys['KeyD']) - Number(keys['KeyA']);
+    direction.normalize();
+
+    if (keys['KeyW'] || keys['KeyS']) velocity.z -= direction.z * 34 * dt;
+    if (keys['KeyA'] || keys['KeyD']) velocity.x -= direction.x * 34 * dt;
+
+    controls.moveRight(-velocity.x * dt);
+    controls.moveForward(-velocity.z * dt);
+    controls.getObject().position.y += velocity.y * dt;
+
+    if (controls.getObject().position.y < 1.7) {
+      velocity.y = 0;
+      controls.getObject().position.y = 1.7;
+      STATE.canJump = true;
+    }
+
+    // Quantum-influenced enemy AI
+    const pp = controls.getObject().position;
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      const dir = new THREE.Vector3().subVectors(pp, e.position).normalize();
+      const spd = e.userData.speed * (STATE.quantumLive ? (0.9 + QuantumAIAPI.quantumRandom() * 0.25) : 1);
+      e.position.addScaledVector(dir, spd * dt);
+      e.lookAt(pp.x, e.position.y, pp.z);
+      if (e.position.distanceTo(pp) < 1.75) {
+        STATE.health -= 16 * dt;
+        document.getElementById('health').textContent = Math.max(0, Math.floor(STATE.health));
+        if (STATE.health <= 0) {
+          controls.unlock();
+          alert('The living runes have claimed this cycle.\nScore: ' + STATE.score);
+          STATE.health = 100;
+          STATE.score = 0;
+          localStorage.setItem('sq_score', 0);
+          document.getElementById('score').textContent = 0;
+          document.getElementById('health').textContent = 100;
+        }
+      }
+    }
+  }
+
+  // Quantum live particle drift on crystals (subtle)
+  if (STATE.quantumLive) {
+    scene.traverse(obj => {
+      if (obj.isMesh && obj.geometry.type === 'OctahedronGeometry') {
+        obj.position.y += QuantumAIAPI.liveParticleForce();
+      }
+    });
+  }
+
+  renderer.render(scene, camera);
