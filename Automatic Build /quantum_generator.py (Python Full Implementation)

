@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""
+Quantum Formation + Live API Generator
+Generates game_formation.json compatible with the Quantum Super Engine
+"""
+
+import json
+import random
+import math
+from datetime import datetime
+from pathlib import Path
+
+class QuantumGenerator:
+    def __init__(self, seed=None):
+        self.seed = seed or random.randint(1000, 999999)
+        random.seed(self.seed)
+
+    def generate(self, game_type="crimson_arena", difficulty=1.3):
+        config = {
+            "meta": {
+                "title": f"Quantum Crimson – {game_type}",
+                "seed": self.seed,
+                "generated": datetime.now().isoformat(),
+                "game_type": game_type,
+                "api": "QuantumLiveAPI"
+            },
+            "player": {
+                "name": "Crimson Sovereign",
+                "health": 200,
+                "lives": 3,
+                "crimsonPower": 100,
+                "speed": 4.3,
+                "position": [0, 0]
+            },
+            "world": {
+                "background": "#0a0508"
+            },
+            "systems": {
+                "ai_enabled": 1,
+                "lives_enabled": True,
+                "quantum_mode": "INVERTED"
+            },
+            "gates": [],
+            "entities": []
+        }
+
+        # 15 Quantum Gates
+        for i in range(15):
+            angle = (i / 15) * math.pi * 2
+            radius = 400 + random.uniform(-30, 50)
+            config["gates"].append({
+                "id": i,
+                "name": f"Quantum Gate #{i+1}",
+                "type": "GateOfSovereign",
+                "x": round(math.cos(angle) * radius, 1),
+                "y": round(math.sin(angle) * radius, 1),
+                "health": 300 + i * 25,
+                "crimsonPower": 40 + i * 5
+            })
+
+        # Entities
+        for i in range(18):
+            config["entities"].append({
+                "type": "CrimsonWraith",
+                "name": f"Wraith_{i}",
+                "x": round(random.uniform(-450, 450), 1),
+                "y": round(random.uniform(-300, 300), 1),
+                "health": int(55 + difficulty * 30 + random.randint(0, 40)),
+                "speed": round(1.8 + difficulty * 0.7, 2),
+                "damage": round(11 + difficulty * 5, 1),
+                "crimsonPower": random.randint(20, 90)
+            })
+
+        # Boss
+        config["entities"].append({
+            "type": "Boss",
+            "name": "Quantum Blood Knight",
+            "x": 0,
+            "y": -380,
+            "health": int(900 * difficulty),
+            "speed": 1.5,
+            "damage": 24,
+            "crimsonPower": 100
+        })
+
+        return config
+
+    def save(self, config, path="game_formation.json"):
+        Path(path).write_text(json.dumps(config, indent=2))
+        print(f"[QuantumGenerator] Written → {path}")
+        print(f"Seed: {config['meta']['seed']} | Gates: {len(config['gates'])} | Entities: {len(config['entities'])}")
+
+if __name__ == "__main__":
+    gen = QuantumGenerator()
+    config = gen.generate(difficulty=1.4)
+    gen.save(config)
