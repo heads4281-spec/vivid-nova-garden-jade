@@ -1,0 +1,52 @@
+// LivesAPI.hpp
+#pragma once
+#include "GameEntities.hpp"
+#include <functional>
+#include <string>
+#include <vector>
+#include <iostream>
+
+struct LifeEvent {
+    enum Type { Gained, Lost, Regenerated, Revived, MaxReached };
+    Type type;
+    int amount = 0;
+    std::string reason;
+};
+
+class LivesAPI {
+public:
+    void configure(int start = 3, int maxBase = 7, float regenSec = 40.f,
+                   float reviveCD = 6.5f, float reviveCost = 25.f, bool infinite = false);
+
+    int  getLives() const;
+    int  getMaxLives() const;
+    bool isAlive() const;
+    bool isInvulnerable() const;
+    bool canAutoRevive() const;
+
+    void addLives(int amount, const std::string& reason = "manual");
+    bool loseLife(int amount = 1, const std::string& reason = "damage");
+    void setLives(int value);
+    void forceRevive(Entity* player);
+    void onGateClaimed(int gateIndex);          // +1 max life every 3 of the 15 Gates
+    void enableInfiniteLives(bool on);
+
+    void update(float dt, Entity* player);      // call every frame – fully automatic
+
+    using EventCallback = std::function<void(const LifeEvent&)>;
+    void onLifeEvent(EventCallback cb);
+
+    void save(std::ostream& out) const;
+    void load(std::istream& in);
+
+private:
+    int lives_ = 3, maxBase_ = 7, bonusFromGates_ = 0;
+    float regenTimer_ = 0.f, regenInterval_ = 40.f;
+    float reviveTimer_ = 0.f, reviveCooldown_ = 6.5f, reviveCost_ = 25.f;
+    float invulnTimer_ = 0.f;
+    bool infinite_ = false, isDead_ = false;
+    std::vector<EventCallback> listeners_;
+
+    void emit(const LifeEvent& e);
+    void clamp();
+};
