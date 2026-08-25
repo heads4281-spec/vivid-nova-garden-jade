@@ -20,3 +20,6 @@ console.log(JSON.stringify({ pos, bag, atlas, pulse }));
 if (Math.abs(pos.z - 68) > 3 || bag < 1 || atlas < 1 || pulse < 1) process.exit(1);
 console.log("PASS");
 await browser.close();
+// ---------- Atlas / Extra Maps integration ----------
+const ATLAS_URL = 'html5/holographic-atlas.html';
+const EXTRA_MAPS_URL = 'html5/extra-maps.html'; }
