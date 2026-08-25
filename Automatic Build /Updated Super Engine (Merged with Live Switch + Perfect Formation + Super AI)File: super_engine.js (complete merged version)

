@@ -1,0 +1,223 @@
+class SuperEngine {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext("2d");
+        this.width = this.canvas.width = 1280;
+        this.height = this.canvas.height = 720;
+
+        this.entities = [];
+        this.gates = [];
+        this.player = null;
+        this.config = null;
+        this.time = 0;
+        this.camera = { x: 0, y: 0 };
+        this.keys = {};
+
+        // Live Switch is the single source of truth
+        this.switch = window.LiveSwitch;
+
+        this.setupInput();
+        this.setupSwitchListeners();
+    }
+
+    setupSwitchListeners() {
+        this.switch.onChange(e => {
+            // Live reaction to any switch change
+            if (e.name === "ai") {
+                console.log(`Smart AI is now ${e.state}`);
+            }
+        });
+    }
+
+    async loadFormation(url = "game_formation.json") {
+        const res = await fetch(url);
+        this.config = await res.json();
+        this.buildFromConfig();
+        console.log("[SuperEngine] Perfect Formation loaded:", this.config.meta.title);
+    }
+
+    buildFromConfig() {
+        this.entities = [];
+        this.gates = [];
+
+        const p = this.config.player;
+        this.player = {
+            type: "Sovereign",
+            name: p.name,
+            x: p.position[0],
+            y: p.position[1],
+            health: p.health,
+            maxHealth: p.health,
+            crimsonPower: p.crimsonPower,
+            speed: p.speed,
+            radius: 18,
+            color: "#ff2244"
+        };
+
+        (this.config.gates || []).forEach(g => {
+            this.gates.push({ ...g, radius: 28, color: "#cc1144" });
+        });
+
+        (this.config.entities || []).forEach(e => {
+            this.entities.push({
+                ...e,
+                radius: e.type === "Boss" ? 36 : 14,
+                color: e.type === "Boss" ? "#ff0066" : "#aa2233",
+                state: "idle",
+                attackTimer: 0,
+                maxHealth: e.health
+            });
+        });
+
+        // Apply initial switches from formation (if present)
+        if (this.config.systems) {
+            this.switch.set("ai", this.config.systems.ai_enabled ?? 1);
+            this.switch.set("lives", this.config.systems.lives_enabled ? 1 : 0);
+        }
+    }
+
+    setupInput() {
+        window.addEventListener("keydown", e => {
+            this.keys[e.key.toLowerCase()] = true;
+
+            // Live hotkeys for 0/1 switches
+            if (e.key === "F1") this.switch.toggle("ai");
+            if (e.key === "F2") this.switch.toggle("formations");
+            if (e.key === "F3") this.switch.toggle("lives");
+            if (e.key === "0")  this.switch.set("ai", 0);
+            if (e.key === "1")  this.switch.set("ai", 1);
+        });
+        window.addEventListener("keyup", e => this.keys[e.key.toLowerCase()] = false);
+    }
+
+    // ========== SUPER AI (controlled by Live Switch 0/1) ==========
+    updateAI(dt) {
+        if (!this.switch.isOn("ai")) return;   // 0 = completely OFF
+
+        this.entities.forEach(e => {
+            if (e.health <= 0) return;
+
+            const dx = this.player.x - e.x;
+            const dy = this.player.y - e.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const dirX = dx / dist;
+            const dirY = dy / dist;
+            const healthPct = e.health / (e.maxHealth || 100);
+
+            if (healthPct < 0.25 && dist < 300) {
+                e.x -= dirX * e.speed * 1.7 * dt * 60;
+                e.y -= dirY * e.speed * 1.7 * dt * 60;
+                e.state = "flee";
+            } else if (dist < 40) {
+                e.attackTimer -= dt;
+                if (e.attackTimer <= 0) {
+                    this.player.health -= (e.damage || 11);
+                    e.attackTimer = 0.95;
+                    e.state = "attack";
+                }
+            } else if (dist < 340) {
+                e.x += dirX * e.speed * dt * 60;
+                e.y += dirY * e.speed * dt * 60;
+                e.state = "chase";
+            } else {
+                e.state = "idle";
+            }
+
+            e.crimsonPower = (e.crimsonPower + dt * 18) % 100;
+        });
+    }
+
+    updatePlayer(dt) {
+        let mx = 0, my = 0;
+        if (this.keys["w"] || this.keys["arrowup"])    my -= 1;
+        if (this.keys["s"] || this.keys["arrowdown"])  my += 1;
+        if (this.keys["a"] || this.keys["arrowleft"])  mx -= 1;
+        if (this.keys["d"] || this.keys["arrowright"]) mx += 1;
+
+        const len = Math.hypot(mx, my) || 1;
+        this.player.x += (mx / len) * this.player.speed * dt * 60;
+        this.player.y += (my / len) * this.player.speed * dt * 60;
+
+        this.camera.x += (this.player.x - this.camera.x) * 0.09;
+        this.camera.y += (this.player.y - this.camera.y) * 0.09;
+
+        // Lives system (only if switch is ON)
+        if (this.switch.isOn("lives") && this.player.health <= 0) {
+            // Simple life loss – you can expand with full LivesAPI later
+            this.player.health = this.player.maxHealth * 0.65;
+            this.player.x = 0;
+            this.player.y = 0;
+            console.log("[Lives] Auto-revived (Lives system ON)");
+        }
+    }
+
+    update(dt) {
+        this.time += dt;
+        this.updatePlayer(dt);
+        this.updateAI(dt);
+    }
+
+    // ========== Rendering ==========
+    drawCircle(x, y, r, color, glow = false) {
+        const sx = x - this.camera.x + this.width / 2;
+        const sy = y - this.camera.y + this.height / 2;
+
+        if (glow) {
+            this.ctx.shadowBlur = 20;
+            this.ctx.shadowColor = color;
+        }
+        this.ctx.beginPath();
+        this.ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        this.ctx.fillStyle = color;
+        this.ctx.fill();
+        this.ctx.shadowBlur = 0;
+    }
+
+    render() {
+        this.ctx.fillStyle = this.config?.world?.background || "#0a0508";
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        // Perfect Formations only render strongly when switch is ON
+        const formationAlpha = this.switch.isOn("formations") ? 1.0 : 0.25;
+
+        this.gates.forEach(g => {
+            this.ctx.globalAlpha = formationAlpha;
+            this.drawCircle(g.x, g.y, g.radius, g.color, true);
+            this.ctx.globalAlpha = 1.0;
+        });
+
+        this.entities.forEach(e => {
+            if (e.health <= 0) return;
+            this.drawCircle(e.x, e.y, e.radius, e.color, e.state === "attack");
+        });
+
+        this.drawCircle(this.player.x, this.player.y, this.player.radius, this.player.color, true);
+
+        // HUD – Live Switch status
+        this.ctx.fillStyle = "#ffccdd";
+        this.ctx.font = "17px monospace";
+        this.ctx.fillText(`AI: ${this.switch.isOn("ai") ? "ON (1)" : "OFF (0)"}`, 20, 30);
+        this.ctx.fillText(`Formations: ${this.switch.isOn("formations") ? "ON (1)" : "OFF (0)"}`, 20, 55);
+        this.ctx.fillText(`Lives: ${this.switch.isOn("lives") ? "ON (1)" : "OFF (0)"}`, 20, 80);
+        this.ctx.fillText(`Health: ${Math.max(0, this.player.health|0)}`, 20, 105);
+        this.ctx.fillText(`Crimson Power: ${this.player.crimsonPower|0}`, 20, 130);
+
+        if (this.config) {
+            this.ctx.fillText(this.config.meta.title, 20, this.height - 25);
+        }
+    }
+
+    start() {
+        let last = performance.now();
+        const loop = (now) => {
+            const dt = Math.min((now - last) / 1000, 0.05);
+            last = now;
+            this.update(dt);
+            this.render();
+            requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+    }
+}
+
+window.SuperEngine = SuperEngine;
