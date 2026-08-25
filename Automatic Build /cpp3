@@ -1,0 +1,15 @@
+#include "MeshLoader.hpp"
+
+// Example: load a model for the Sovereign
+auto sovereignMesh = MeshLoader::loadOBJShared("assets/models/sovereign.obj");
+if (sovereignMesh) {
+    player->mesh = sovereignMesh.get();   // or keep the shared_ptr alive
+}
+
+// Or load gates / wraiths
+auto gateMesh = MeshLoader::loadOBJShared("assets/models/gate.obj");
+auto wraithMesh = MeshLoader::loadOBJShared("assets/models/wraith.obj");
+
+// Then in your spawn functions:
+gate.mesh = gateMesh.get();
+e.mesh = wraithMesh.get();
