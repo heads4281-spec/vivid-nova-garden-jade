@@ -1,0 +1,53 @@
+class LiveSwitchAPI {
+    constructor() {
+        this.switches = {
+            ai: 1,
+            formations: 1,
+            lives: 1,
+            particles: 1,
+            debug: 0
+        };
+        this.listeners = [];
+    }
+
+    set(name, value) {
+        const v = value ? 1 : 0;
+        const old = this.switches[name];
+        this.switches[name] = v;
+        if (old !== v) {
+            this.emit({ name, value: v, state: v === 1 ? "ON" : "OFF" });
+        }
+        return v;
+    }
+
+    get(name) {
+        return this.switches[name] ?? 0;
+    }
+
+    toggle(name) {
+        return this.set(name, 1 - this.get(name));
+    }
+
+    isOn(name) {
+        return this.get(name) === 1;
+    }
+
+    setMany(obj) {
+        for (const [k, v] of Object.entries(obj)) this.set(k, v);
+    }
+
+    onChange(cb) {
+        this.listeners.push(cb);
+    }
+
+    emit(event) {
+        this.listeners.forEach(fn => fn(event));
+        console.log(`[LiveSwitch] ${event.name.toUpperCase()} → ${event.state} (${event.value})`);
+    }
+
+    snapshot() {
+        return { ...this.switches };
+    }
+}
+
+window.LiveSwitch = new LiveSwitchAPI();
