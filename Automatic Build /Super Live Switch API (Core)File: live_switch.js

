@@ -1,0 +1,75 @@
+/**
+ * Super Live Switch API
+ * Perfect unified 0 / 1 control system
+ * 0 = OFF
+ * 1 = ON
+ * Works for AI, Formations, Systems, Lives, etc.
+ */
+class LiveSwitchAPI {
+    constructor() {
+        this.switches = {
+            ai: 1,              // Smart AI
+            formations: 1,      // Perfect Formation system
+            lives: 1,           // Automatic Lives
+            particles: 1,
+            debug: 0
+        };
+
+        this.listeners = [];
+    }
+
+    // Set any switch: 0 = OFF, 1 = ON
+    set(name, value) {
+        const v = value ? 1 : 0;          // force clean 0 or 1
+        const old = this.switches[name];
+        this.switches[name] = v;
+
+        if (old !== v) {
+            this.emit({
+                name,
+                value: v,
+                state: v === 1 ? "ON" : "OFF"
+            });
+        }
+        return v;
+    }
+
+    // Get current value (always 0 or 1)
+    get(name) {
+        return this.switches[name] ?? 0;
+    }
+
+    // Toggle between 0 and 1
+    toggle(name) {
+        return this.set(name, 1 - this.get(name));
+    }
+
+    // Check if ON
+    isOn(name) {
+        return this.get(name) === 1;
+    }
+
+    // Bulk set
+    setMany(obj) {
+        for (const [k, v] of Object.entries(obj)) {
+            this.set(k, v);
+        }
+    }
+
+    onChange(callback) {
+        this.listeners.push(callback);
+    }
+
+    emit(event) {
+        this.listeners.forEach(fn => fn(event));
+        console.log(`[LiveSwitch] ${event.name.toUpperCase()} → ${event.state} (${event.value})`);
+    }
+
+    // Debug snapshot
+    snapshot() {
+        return { ...this.switches };
+    }
+}
+
+// Global instance
+window.LiveSwitch = new LiveSwitchAPI();
