@@ -1,0 +1,49 @@
+#pragma once
+#include "RHI.hpp"          // your IRHI declaration
+#include "GameEntities.hpp"
+#include "MathTypes.hpp"
+#include <glad/glad.h>      // or your GL loader
+#include <GLFW/glfw3.h>
+#include <string>
+#include <unordered_map>
+
+class OpenGLRHI : public IRHI {
+public:
+    OpenGLRHI() = default;
+    ~OpenGLRHI() override { shutdown(); }
+
+    bool init(void* nativeWindow, int width, int height) override;
+    void beginFrame() override;
+    void draw(const Entity& e, const mat4_t& model, const mat4_t& viewProj) override;
+    void endFrame() override;
+    void shutdown() override;
+
+private:
+    GLFWwindow* window_ = nullptr;
+    int width_ = 0, height_ = 0;
+
+    // Shader
+    GLuint program_ = 0;
+    GLint locModel_ = -1;
+    GLint locViewProj_ = -1;
+    GLint locAlbedo_ = -1;
+    GLint locMetallic_ = -1;
+    GLint locRoughness_ = -1;
+    GLint locPulse_ = -1;
+
+    // Simple cube mesh (fallback when Entity has no mesh)
+    GLuint cubeVAO_ = 0, cubeVBO_ = 0, cubeEBO_ = 0;
+    GLsizei cubeIndexCount_ = 0;
+
+    // Per-entity mesh cache (optional – expands as you add real meshes)
+    struct GPUMesh {
+        GLuint vao = 0, vbo = 0, ebo = 0;
+        GLsizei indexCount = 0;
+    };
+    std::unordered_map<const Mesh*, GPUMesh> meshCache_;
+
+    bool createShaderProgram();
+    void createFallbackCube();
+    GPUMesh& getOrUploadMesh(const Mesh* mesh);
+    void setUniforms(const Entity& e, const mat4_t& model, const mat4_t& viewProj);
+};
