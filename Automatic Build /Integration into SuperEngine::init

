@@ -1,0 +1,20 @@
+// Inside SuperEngine::init
+#include "OpenGLRHI.hpp"
+
+bool SuperEngine::init(GraphicsAPI api, void* nativeWindow, int w, int h) {
+    width = w; height = h;
+
+    if (api == GraphicsAPI::OpenGL) {
+        rhi = std::make_unique<OpenGLRHI>();
+    }
+    // else if (api == GraphicsAPI::Vulkan) { ... }
+    // else if (api == GraphicsAPI::ThreeJS) { /* bridge later */ }
+
+    if (!rhi || !rhi->init(nativeWindow, w, h)) {
+        std::cerr << "[SuperEngine] RHI init failed\n";
+        return false;
+    }
+
+    // ... rest of the existing init (LivesAPI, spawnSovereign, 15 Gates, etc.)
+    // (keep everything from the previous full SuperEngine code)
+}
