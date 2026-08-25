@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Crimson Sovereign – Super Engine</title>
+    <style>
+        body {
+            margin: 0;
+            background: #050208;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: monospace;
+            color: #ffaabb;
+        }
+        canvas {
+            border: 2px solid #aa2244;
+            box-shadow: 0 0 50px #ff004466;
+        }
+        .panel {
+            margin-top: 18px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            background: #1a0810;
+            color: #ff6688;
+            border: 1px solid #aa2244;
+            padding: 9px 18px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        button:hover { background: #3a1222; }
+        .info {
+            margin-top: 12px;
+            font-size: 13px;
+            opacity: 0.85;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Crimson Sovereign</h1>
+    <h3>Super HTML Engine + Super AI + Live Switch (0 = OFF / 1 = ON)</h3>
+
+    <canvas id="game" width="1280" height="720"></canvas>
+
+    <div class="panel">
+        <button onclick="LiveSwitch.set('ai', 1)">AI ON (1)</button>
+        <button onclick="LiveSwitch.set('ai', 0)">AI OFF (0)</button>
+        <button onclick="LiveSwitch.toggle('ai')">Toggle AI</button>
+
+        <button onclick="LiveSwitch.set('formations', 1)">Formations ON (1)</button>
+        <button onclick="LiveSwitch.set('formations', 0)">Formations OFF (0)</button>
+
+        <button onclick="LiveSwitch.set('lives', 1)">Lives ON (1)</button>
+        <button onclick="LiveSwitch.set('lives', 0)">Lives OFF (0)</button>
+    </div>
+
+    <div class="info">
+        Hotkeys: <b>F1</b> Toggle AI &nbsp;|&nbsp; <b>0</b> = AI OFF &nbsp;|&nbsp; <b>1</b> = AI ON<br>
+        <b>F2</b> Formations &nbsp;|&nbsp; <b>F3</b> Lives &nbsp;|&nbsp; WASD / Arrow Keys to move
+    </div>
+
+    <script src="live_switch.js"></script>
+    <script src="super_engine.js"></script>
+    <script>
+        const engine = new SuperEngine("game");
+        engine.loadFormation("game_formation.json")
+              .then(() => engine.start())
+              .catch(err => {
+                  console.error("Failed to load formation:", err);
+                  alert("Could not load game_formation.json");
+              });
+    </script>
+</body>
+</html>
