@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quantum Super Engine – Live API</title>
+    <style>
+        body {
+            margin: 0;
+            background: #050208;
+            color: #ffaabb;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        canvas {
+            border: 2px solid #aa2244;
+            box-shadow: 0 0 50px #ff004466;
+        }
+        .panel {
+            margin-top: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            max-width: 980px;
+        }
+        button {
+            background: #1a0810;
+            color: #ff6688;
+            border: 1px solid #aa2244;
+            padding: 8px 14px;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        button:hover { background: #3a1222; }
+        .info {
+            margin-top: 14px;
+            text-align: center;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <h1>Crimson Sovereign</h1>
+    <h3>Quantum Live API + Super Engine</h3>
+
+    <canvas id="game" width="1280" height="720"></canvas>
+
+    <div class="panel">
+        <button onclick="QuantumLive.set('ai', 0)">AI 0</button>
+        <button onclick="QuantumLive.set('ai', 1)">AI 1</button>
+        <button onclick="QuantumLive.toggle('ai')">Toggle AI</button>
+
+        <button onclick="QuantumLive.set('formations', 0)">Form 0</button>
+        <button onclick="QuantumLive.set('formations', 1)">Form 1</button>
+
+        <button onclick="QuantumLive.set('lives', 0)">Lives 0</button>
+        <button onclick="QuantumLive.set('lives', 1)">Lives 1</button>
+
+        <button onclick="QuantumLive.cycleMode()">Cycle Mode (Q)</button>
+        <button onclick="QuantumLive.enableAutoPulse(!QuantumLive.autoPulse)">Auto Pulse (P)</button>
+    </div>
+
+    <div class="info">
+        <b>NORMAL</b>: 0=OFF 1=ON &nbsp;|&nbsp;
+        <b>INVERTED</b>: 0=ON 1=OFF &nbsp;|&nbsp;
+        <b>QUANTUM</b>: 0/1 randomly flip meaning<br>
+        Hotkeys: 0 / 1 / F1 AI | F2 Formations | F3 Lives | Q = Cycle Mode | P = Auto Pulse | WASD move
+    </div>
+
+    <script src="quantum_live_api.js"></script>
+    <script src="super_engine.js"></script>
+    <script>
+        const engine = new SuperEngine("game");
+        engine.loadFormation("game_formation.json")
+              .then(() => engine.start())
+              .catch(err => alert("Load error: " + err));
+    </script>
+</body>
+</html>
