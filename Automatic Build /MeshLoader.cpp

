@@ -1,0 +1,167 @@
+#include "MeshLoader.hpp"
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <unordered_map>
+#include <array>
+
+bool MeshLoader::parseFace(const std::string& token, FaceIndex& out) {
+    // Formats supported: v, v/vt, v//vn, v/vt/vn
+    out = {};
+    std::stringstream ss(token);
+    std::string part;
+    int idx = 0;
+    while (std::getline(ss, part, '/')) {
+        if (!part.empty()) {
+            int value = std::stoi(part);
+            // OBJ indices are 1-based; convert to 0-based
+            if (value < 0) {
+                // negative indices not fully handled in this simple loader
+                return false;
+            }
+            value -= 1;
+            if (idx == 0) out.v = value;
+            else if (idx == 1) out.vt = value;
+            else if (idx == 2) out.vn = value;
+        }
+        ++idx;
+    }
+    return out.v >= 0;
+}
+
+bool MeshLoader::loadOBJ(const std::string& filepath, Mesh& outMesh) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        std::cerr << "[MeshLoader] Failed to open: " << filepath << std::endl;
+        return false;
+    }
+
+    std::vector<Vertex> positions;
+    std::vector<TexCoord> texcoords;
+    std::vector<Normal> normals;
+    std::vector<std::array<FaceIndex, 3>> triangles; // we force triangulation
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == '#') continue;
+
+        std::stringstream ss(line);
+        std::string prefix;
+        ss >> prefix;
+
+        if (prefix == "v") {
+            Vertex v{};
+            ss >> v.x >> v.y >> v.z;
+            positions.push_back(v);
+        }
+        else if (prefix == "vt") {
+            TexCoord t{};
+            ss >> t.u >> t.v;
+            texcoords.push_back(t);
+        }
+        else if (prefix == "vn") {
+            Normal n{};
+            ss >> n.x >> n.y >> n.z;
+            normals.push_back(n);
+        }
+        else if (prefix == "f") {
+            std::vector<FaceIndex> face;
+            std::string token;
+            while (ss >> token) {
+                FaceIndex fi;
+                if (parseFace(token, fi)) {
+                    face.push_back(fi);
+                }
+            }
+
+            // Triangulate polygon (fan method)
+            if (face.size() >= 3) {
+                for (size_t i = 1; i + 1 < face.size(); ++i) {
+                    triangles.push_back({ face[0], face[i], face[i + 1] });
+                }
+            }
+        }
+    }
+    file.close();
+
+    if (positions.empty() || triangles.empty()) {
+        std::cerr << "[MeshLoader] No geometry found in: " << filepath << std::endl;
+        return false;
+    }
+
+    // Build unique interleaved vertices + indices
+    // Key = (v, vt, vn) combination
+    struct IndexKey {
+        int v, vt, vn;
+        bool operator==(const IndexKey& o) const {
+            return v == o.v && vt == o.vt && vn == o.vn;
+        }
+    };
+    struct IndexKeyHash {
+        size_t operator()(const IndexKey& k) const {
+            return ((size_t)k.v * 73856093u) ^ ((size_t)k.vt * 19349663u) ^ ((size_t)k.vn * 83492791u);
+        }
+    };
+
+    std::unordered_map<IndexKey, uint32_t, IndexKeyHash> uniqueMap;
+    outMesh.vertices.clear();
+    outMesh.indices.clear();
+
+    auto addVertex = [&](const FaceIndex& fi) -> uint32_t {
+        IndexKey key{ fi.v, fi.vt, fi.vn };
+        auto it = uniqueMap.find(key);
+        if (it != uniqueMap.end()) return it->second;
+
+        // Position
+        const Vertex& p = positions[fi.v];
+        outMesh.vertices.push_back(p.x);
+        outMesh.vertices.push_back(p.y);
+        outMesh.vertices.push_back(p.z);
+
+        // Normal
+        if (fi.vn >= 0 && fi.vn < (int)normals.size()) {
+            const Normal& n = normals[fi.vn];
+            outMesh.vertices.push_back(n.x);
+            outMesh.vertices.push_back(n.y);
+            outMesh.vertices.push_back(n.z);
+        } else {
+            outMesh.vertices.push_back(0.f);
+            outMesh.vertices.push_back(1.f);
+            outMesh.vertices.push_back(0.f);
+        }
+
+        // UV
+        if (fi.vt >= 0 && fi.vt < (int)texcoords.size()) {
+            const TexCoord& t = texcoords[fi.vt];
+            outMesh.vertices.push_back(t.u);
+            outMesh.vertices.push_back(t.v);
+        } else {
+            outMesh.vertices.push_back(0.f);
+            outMesh.vertices.push_back(0.f);
+        }
+
+        uint32_t idx = static_cast<uint32_t>(uniqueMap.size());
+        uniqueMap[key] = idx;
+        return idx;
+    };
+
+    for (const auto& tri : triangles) {
+        outMesh.indices.push_back(addVertex(tri[0]));
+        outMesh.indices.push_back(addVertex(tri[1]));
+        outMesh.indices.push_back(addVertex(tri[2]));
+    }
+
+    std::cout << "[MeshLoader] Loaded " << filepath
+              << " | vertices: " << (outMesh.vertices.size() / 8)
+              << " | triangles: " << (outMesh.indices.size() / 3) << std::endl;
+
+    return true;
+}
+
+std::shared_ptr<Mesh> MeshLoader::loadOBJShared(const std::string& filepath) {
+    auto mesh = std::make_shared<Mesh>();
+    if (loadOBJ(filepath, *mesh)) {
+        return mesh;
+    }
+    return nullptr;
+}
