@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extra Maps — CRIMSON SOVEREIGN | Type VII Palace</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #050008;
+    color: #ffb0b0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background glow */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 20%, #3a0015 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 80%, #1a0030 0%, transparent 50%);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  header {
+    text-align: center;
+    padding: 40px 20px 20px;
+  }
+  header h1 {
+    font-size: 2.6rem;
+    letter-spacing: 5px;
+    color: #ff3333;
+    text-shadow: 0 0 25px #ff0000, 0 0 50px #ff000060;
+  }
+  header p {
+    margin-top: 8px;
+    color: #ff8888;
+    opacity: 0.85;
+    font-size: 1rem;
+  }
+
+  .nav {
+    text-align: center;
+    margin: 10px 0 30px;
+  }
+  .nav a {
+    color: #ff6666;
+    text-decoration: none;
+    margin: 0 14px;
+    font-size: 0.9rem;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  .nav a:hover {
+    color: #ffaaaa;
+    border-bottom-color: #ff4444;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 28px;
+  }
+
+  .card {
+    background: linear-gradient(160deg, rgba(40,0,15,0.9), rgba(15,0,8,0.95));
+    border: 1px solid #ff3333;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 0 30px #ff000025;
+    transition: transform 0.25s, box-shadow 0.25s;
+    position: relative;
+  }
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 0 45px #ff000050;
+  }
+
+  .card-header {
+    padding: 22px 22px 12px;
+    border-bottom: 1px solid #ff333340;
+  }
+  .card-header h2 {
+    font-size: 1.45rem;
+    color: #ff5555;
+    margin-bottom: 4px;
+  }
+  .card-header .subtitle {
+    font-size: 0.95rem;
+    color: #ffaa88;
+  }
+
+  .card-body {
+    padding: 18px 22px 22px;
+  }
+  .coords {
+    font-family: monospace;
+    font-size: 1.05rem;
+    color: #0ff;
+    margin: 10px 0;
+    letter-spacing: 1px;
+  }
+  .desc {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: #ffcccc;
+    opacity: 0.9;
+    margin-bottom: 18px;
+  }
+
+  .btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #5a0000, #2a0000);
+    border: 1px solid #ff4444;
+    color: #ffdddd;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .btn:hover {
+    background: linear-gradient(135deg, #7a0000, #3a0000);
+    box-shadow: 0 0 15px #ff000070;
+  }
+  .btn.locked {
+    background: linear-gradient(135deg, #004400, #002200);
+    border-color: #00ff88;
+    color: #aaffcc;
+  }
+
+  .badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: #ff2200;
+    color: #fff;
+    font-size: 0.7rem;
+    padding: 3px 9px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  footer {
+    text-align: center;
+    padding: 30px 20px;
+    color: #ff666666;
+    font-size: 0.85rem;
+  }
+
+  /* Mini holographic glow bars */
+  .glow-bar {
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #ff3333, transparent);
+    margin: 0 22px 12px;
+    opacity: 0.7;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>EXTRA MAPS</h1>
+  <p>Open-World Courts of the Type VII Palace</p>
+</header>
+
+<div class="nav">
+  <a href="holographic-atlas.html">← Holographic Atlas</a>
+  <a href="../index.html">Main Engine</a>
+  <a href="#">Threshold Plaza</a>
+</div>
+
+<div class="container">
+
+  <!-- Kaelith Forge -->
+  <div class="card" id="card-kaelith">
+    <div class="badge">SE</div>
+    <div class="card-header">
+      <h2>Kaelith Forge</h2>
+      <div class="subtitle">Ember Anvil</div>
+    </div>
+    <div class="glow-bar"></div>
+    <div class="card-body">
+      <div class="coords">78 , 68</div>
+      <p class="desc">
+        Southeast of spawn. The living forge where crimson runes are hammered into existence.
+        Rivers of molten light flow beneath the anvil. Guardians of flame still walk the forges.
+        Ideal for gathering ember essence and testing new weapon rites.
+      </p>
+      <button class="btn" onclick="lockWaypoint('kaelith')" id="btn-kaelith">
+        Lock Waypoint
+      </button>
+    </div>
+  </div>
+
+  <!-- Vespera Hollow -->
+  <div class="card" id="card-vespera">
+    <div class="badge">SW</div>
+    <div class="card-header">
+      <h2>Vespera Hollow</h2>
+      <div class="subtitle">Whisper Well</div>
+    </div>
+    <div class="glow-bar"></div>
+    <div class="card-body">
+      <div class="coords">−78 , 68</div>
+      <p class="desc">
+        Southwest of spawn. A deep hollow where the runes speak in echoes.
+        The Whisper Well reflects not your face, but the names you have yet to claim.
+        Shadows move differently here. Bring a hearing rite.
+      </p>
+      <button class="btn" onclick="lockWaypoint('vespera')" id="btn-vespera">
+        Lock Waypoint
+      </button>
+    </div>
+  </div>
+
+  <!-- Ankh Spire -->
+  <div class="card" id="card-ankh">
+    <div class="badge">NE</div>
+    <div class="card-header">
+      <h2>Ankh Spire</h2>
+      <div class="subtitle">Climb of Law</div>
+    </div>
+    <div class="glow-bar"></div>
+    <div class="card-body">
+      <div class="coords">78 , −72</div>
+      <p class="desc">
+        Northeast of Vaelith. A towering spire of black stone and living law.
+        The climb tests both body and will. At the summit the runes rewrite themselves.
+        Only those who carry a claimed Name may pass the final gate.
+      </p>
+      <button class="btn" onclick="lockWaypoint('ankh')" id="btn-ankh">
+        Lock Waypoint
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  CRIMSON SOVEREIGN • Type VII Palace of Living Runes<br>
+  Waypoints sync with Holographic Atlas via localStorage
+</footer>
+
+<script>
+  // ---------- Waypoint System (shared with holographic-atlas.html) ----------
+  const COURTS = {
+    kaelith: { name: "Kaelith Forge", x: 78, z: 68 },
+    vespera: { name: "Vespera Hollow", x: -78, z: 68 },
+    ankh:    { name: "Ankh Spire", x: 78, z: -72 }
+  };
+
+  function lockWaypoint(key) {
+    localStorage.setItem('atlas_waypoint', key);
+    updateButtons();
+    // Visual feedback
+    const card = document.getElementById('card-' + key);
+    if (card) {
+      card.style.boxShadow = '0 0 50px #00ff8840';
+      setTimeout(() => card.style.boxShadow = '', 600);
+    }
+    alert(`Waypoint locked: ${COURTS[key].name}\nCoordinates: ${COURTS[key].x}, ${COURTS[key].z}\n\nReturn to the main engine or Holographic Atlas.`);
+  }
+
+  function updateButtons() {
+    const locked = localStorage.getItem('atlas_waypoint');
+    ['kaelith', 'vespera', 'ankh'].forEach(key => {
+      const btn = document.getElementById('btn-' + key);
+      if (!btn) return;
+      if (locked === key) {
+        btn.textContent = '✓ Waypoint Locked';
+        btn.classList.add('locked');
+      } else {
+        btn.textContent = 'Lock Waypoint';
+        btn.classList.remove('locked');
+      }
+    });
+  }
+
+  // Initialize on load
+  updateButtons();
+</script>
+</body>
+</html>
