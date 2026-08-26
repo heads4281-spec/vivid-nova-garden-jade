@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRIMSON SOVEREIGN • Three Super Engine • JSON / JP / Fraction</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;800&family=Share+Tech+Mono&display=swap');
+  :root { --c1:#00f6ff; --c2:#ff2bd6; --cr:#ff3355; --ok:#7cff6b; --bg:#03020a; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; color:#d9fbff; font-family:Orbitron,system-ui,sans-serif;
+    background:
+      radial-gradient(1000px 480px at 10% -10%, #3a0a18 0%, transparent 55%),
+      radial-gradient(800px 420px at 110% 0%, #0a2438 0%, transparent 50%), var(--bg);
+    padding:16px 12px 36px;
+  }
+  h1 {
+    text-align:center; font-size:clamp(1rem,3.2vw,1.7rem);
+    background:linear-gradient(90deg,var(--c1),var(--cr),var(--c2),var(--c1));
+    background-size:280% auto; -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:shift 5s linear infinite;
+  }
+  @keyframes shift { to { background-position:280% center; } }
+  .sub { text-align:center; font-family:"Share Tech Mono",monospace; opacity:.8; margin:6px 0 14px; font-size:.84rem; }
+  .wrap { width:min(1180px,100%); margin:0 auto; display:grid; gap:12px; }
+  .panel {
+    background:rgba(8,10,22,.78); border:1px solid rgba(0,246,255,.28); border-radius:16px; padding:12px;
+    box-shadow:0 0 28px rgba(255,51,85,.12);
+  }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .qbox { display:flex; align-items:center; gap:8px; background:#0008; border:1px solid #00f6ff55; border-radius:999px; padding:6px 12px; }
+  .bit { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; font-weight:800; cursor:pointer; }
+  .bit.off { background:#161628; color:#667; }
+  .bit.on { background:linear-gradient(135deg,#00f6ff,#2b7cff); color:#021; box-shadow:0 0 14px #00f6ff; }
+  button { font-family:inherit; font-weight:700; border:0; border-radius:10px; color:#fff; padding:8px 12px; cursor:pointer; background:linear-gradient(90deg,#00b7ff,#ff2bd6); }
+  button.offbtn { background:#1a1a28; border:1px solid #667; }
+  a { color:var(--c1); }
+  code, .mono { font-family:"Share Tech Mono",monospace; color:var(--c1); }
+  .grid2 { display:grid; grid-template-columns:1.1fr .9fr; gap:12px; }
+  @media (max-width:900px){ .grid2 { grid-template-columns:1fr; } }
+  #three { width:100%; height:260px; border-radius:12px; overflow:hidden; background:#070714; }
+  pre, .script {
+    height:230px; overflow:auto; white-space:pre-wrap; font-size:.76rem; line-height:1.4;
+    background:#0006; border-radius:10px; padding:10px; border:1px solid #00f6ff22;
+    font-family:"Share Tech Mono",monospace; color:#baf7ff;
+  }
+  .live { color:var(--ok); font-weight:800; }
+</style>
+</head>
+<body>
+  <h1>HTML15 • THREE SUPER ENGINE • JSON / JP / FRACTION</h1>
+  <div class="sub">HTTPS live API · quantum 0/1 · automatic A.I · Python-style textures · Google DNS · SUPER 9999</div>
+
+  <div class="wrap">
+    <div class="panel">
+      <div class="row">
+        <div class="qbox">Q0 <div class="bit off" id="b0" onclick="flip(0)">0</div></div>
+        <div class="qbox">Q1 <div class="bit off" id="b1" onclick="flip(1)">1</div></div>
+        <button onclick="autoAI()">AUTO LIVE A.I SWITCH</button>
+        <button class="offbtn" onclick="allOff()">EXTRA OFF</button>
+        <button onclick="forceUpdate()">AUTO UPDATE</button>
+        <button onclick="fillBoth()">FILL BOTH COMMITS + JSON</button>
+        <button onclick="build9999()">SUPER 9999 WORD SCRIPT</button>
+      </div>
+    </div>
+
+    <div class="panel mono">
+      GitHub:
+      <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade/commit/d6fceb91af6d6df8d23aec40dcff179dcb37e101" target="_blank">d6fceb9 start()</a>
+      ·
+      <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade/commit/9f9f0e3adb87007e80391465cc6aaf79ea3083d4" target="_blank">9f9f0e3 JSON</a><br>
+      DNS / auto API: <code>8.8.8.8</code>×2 · <code>8.8.4.4</code> · <code>9.9.9.9</code> · super <code>16.16.16.16</code>×2<br>
+      Rotation: <code id="rot">0.1.0.1.0.1.0.1.0.1.0</code>
+      · fraction <code id="frac">0.1</code>
+      · JP <code id="jp">クリムゾン・ソブリン</code>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <div id="three"></div>
+        <div class="mono" style="margin-top:8px">
+          A.I <span class="live" id="ai">STANDBY</span>
+          · bits <span id="bits">00</span>
+          · engine <span id="eng">THREE.js</span>
+          · words <span id="wc">0</span>/9999
+          · update <span id="upd">never</span>
+        </div>
+      </div>
+      <div class="panel"><pre id="jsonBox">// press FILL BOTH COMMITS + JSON</pre></div>
+    </div>
+
+    <div class="panel"><div class="script" id="script">> Three super engine online
+> JSON / fraction / JP waiting
+> quantum bits offline
+</div></div>
+  </div>
+
+<script type="module">
+import * as THREE from "three";
+
+const CONFIG = {
+  version: "2.1.0",
+  lastUpdate: "2026-08-23T09:53:00Z",
+  primaryCode: "63821",
+  validCodes: ["63821","62821","99812","15785"],
+  mythCycles: 100000,
+  sovereignLevel: 6294,
+  identifier: "CNLMMR · SOVEREIGN LV 6294 · 10 000 OPEN-WORLD MOMENTS",
+  loreMode: "blood",
+  loreText: "You were never meant to cross the rift. The wound sang in the language of dying stars and living blood. Come home.",
+  codeFlavour: "This code thickens blood in the canals. The Milky Way hungers with the palace.",
+  fog: 42,
+  blood: 67,
+  fraction: 0.1,
+  jp: "クリムゾン・ソブリン / 量子エンジン",
+  playersOnline: 1,
+  news: [
+    "Full merge complete – all old and new codes active",
+    "Automatic GitHub update system online",
+    "Master server controls fully enabled",
+    "Three super engine + JSON fraction + JP locale filled"
+  ],
+  classes: ["Ankh Warden","Night Reaver","Void Gunner","Blood Weaver","Hooded Hunter"],
+  defaultStats: { strength:12, magic:8, attack:15, minerals:40 },
+  dns: ["8.8.8.8","8.8.8.8","8.8.4.4","9.9.9.9","16.16.16.16","16.16.16.16"],
+  rotation: "0.1.0.1.0.1.0.1.0.1.0"
+};
+
+const START = `// d6fceb9 Clean Initialization Order (inside start())
+this.effects = new EffectSystem(this.scene, this.camera);
+this.videoManager = new VideoManager(this.scene);
+this.videoManager.load("ground", "/levels/crimson_ground_alive.mp4", {
+  width:120, height:120, asGround:true,
+  position:new THREE.Vector3(0,-0.02,0), autoplay:true, loop:true
+});
+this.videoManager.load("dragonArena", "/levels/crimson_dragon_arena.mp4", {
+  width:42, height:26, position:new THREE.Vector3(0,9,-32), autoplay:false, loop:true
+});
+this.ninja = new NPCBillboard(this.videoManager, this.camera, "cyberNinja",
+  "/npcs/cyber_ninja_idle.mp4", new THREE.Vector3(14,1.8,9), 2.5, 3.8);
+this.livingGround = new LivingGround(this.scene, "/levels/crimson_ground_alive.mp4");`;
+
+const S = { bits:[0,0], ai:false, rot: CONFIG.rotation, words:0 };
+window.S = S;
+window.CONFIG = CONFIG;
+
+const logEl = document.getElementById("script");
+function log(t){ logEl.textContent += t + "\\n"; logEl.scrollTop = logEl.scrollHeight; }
+function stamp(){ document.getElementById("upd").textContent = new Date().toLocaleTimeString(); }
+function paint(){
+  [0,1].forEach(i=>{
+    const el = document.getElementById("b"+i);
+    el.className = "bit " + (S.bits[i] ? "on" : "off");
+    el.textContent = S.bits[i] ? "1" : "0";
+  });
+  document.getElementById("bits").textContent = S.bits.join("");
+  const f = ((S.bits[0] + S.bits[1]*2) + CONFIG.fraction) / 4;
+  document.getElementById("frac").textContent = f.toFixed(3);
+}
+window.flip = function(i){ S.bits[i] ^= 1; paint(); log("quantum "+i+" -> "+(S.bits[i]?"ON 1":"OFF 0")); };
+window.allOff = function(){
+  S.bits=[0,0]; S.ai=false; clearInterval(window._ai);
+  document.getElementById("ai").textContent="ALL OFF"; paint();
+  log("EXTRA OFF — bits + A.I + distant videos paused");
+};
+function rotate(){
+  S.rot = S.rot.slice(2)+S.rot.slice(0,2);
+  document.getElementById("rot").textContent = S.rot;
+}
+window.autoAI = function(){
+  S.ai = !S.ai;
+  document.getElementById("ai").textContent = S.ai ? "LIVE A.I ACTIVE" : "STANDBY";
+  clearInterval(window._ai);
+  log(S.ai ? "LIVE A.I SWITCH — auto 0/1 + Three engine pulse" : "A.I standby");
+  if(S.ai) window._ai = setInterval(()=>{ window.flip(0); setTimeout(()=>window.flip(1),260); rotate(); stamp(); },1600);
+};
+window.forceUpdate = function(){
+  rotate(); stamp();
+  log("AUTO UPDATE HTML15 / HTTPS live API / "+CONFIG.news.slice(0,3).join(" · "));
+};
+window.fillBoth = function(){
+  document.getElementById("jsonBox").textContent =
+    START + "\\n\\n// 9f9f0e3 JSON + fraction + JP\\n" + JSON.stringify(CONFIG, null, 2);
+  document.getElementById("jp").textContent = CONFIG.jp;
+  log("FORMAT FILL // d6fceb9 start() + 9f9f0e3 JSON");
+  log("JP: "+CONFIG.jp+" · fraction: "+CONFIG.fraction);
+  stamp();
+};
+window.build9999 = function(){
+  const lex = ["json","fraction","jp","three","engine","quantum","holo","crimson","sovereign","html15","https","api","javascript","python","texture","dns","google","rotation","zero","one","off","on","63821","6294","blood","ninja","ground","video"];
+  const words=[];
+  while(words.length<9999){
+    words.push(lex[(words.length*7 + S.bits[0]*3 + S.bits[1]*11)%lex.length]);
+    if(words.length%16===0) words.push("\\n");
+  }
+  logEl.textContent =
+    "SUPER 9999 WORD SCRIPT // THREE + JSON + JP\\n"+
+    "control "+CONFIG.dns.join(" ")+"\\n"+
+    "seed "+S.rot+" bits "+S.bits.join("")+" fraction "+CONFIG.fraction+"\\n\\n"+
+    words.join(" ");
+  S.words=9999; document.getElementById("wc").textContent="9999"; stamp();
+};
+
+/* Three super engine */
+const host = document.getElementById("three");
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+host.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
+camera.position.set(0, 1.2, 4.2);
+const light = new THREE.PointLight(0x00f6ff, 12, 20); light.position.set(2,3,3); scene.add(light);
+scene.add(new THREE.PointLight(0xff3355, 10, 20)).position.set(-3,2,-1);
+
+const ring = new THREE.Mesh(
+  new THREE.TorusGeometry(1.15, 0.045, 16, 80),
+  new THREE.MeshStandardMaterial({ color:0x00f6ff, emissive:0x003344, metalness:0.7, roughness:0.25 })
+);
+scene.add(ring);
+const ring2 = ring.clone(); ring2.scale.set(1.25,1.25,1.25); ring2.rotation.x = Math.PI/2.4;
+ring2.material = new THREE.MeshStandardMaterial({ color:0xff3355, emissive:0x220011, metalness:0.7, roughness:0.25 });
+scene.add(ring2);
+
+const q0 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 24), new THREE.MeshStandardMaterial({ color:0x334455, emissive:0x111 }));
+const q1 = q0.clone(); q0.position.set(-0.7,0,0); q1.position.set(0.7,0,0); scene.add(q0,q1);
+
+function resize(){
+  const w = host.clientWidth, h = host.clientHeight;
+  renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+
+let t=0;
+(function loop(){
+  t += 0.016;
+  ring.rotation.x = t*0.35; ring.rotation.y = t*0.22;
+  ring2.rotation.z = -t*0.28;
+  q0.material.emissive.setHex(S.bits[0] ? 0x00f6ff : 0x111111);
+  q1.material.emissive.setHex(S.bits[1] ? 0xff2bd6 : 0x111111);
+  q0.position.y = Math.sin(t*2)*0.12;
+  q1.position.y = Math.cos(t*2)*0.12;
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
+
+paint();
+</script>
+</body>
+</html>
