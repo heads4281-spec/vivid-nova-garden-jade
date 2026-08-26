@@ -1,0 +1,4 @@
+tex.repeat.set(3, 2);
+tex.offset.set(0.1, 0);
+tex.rotation = Math.PI / 8;
+tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
