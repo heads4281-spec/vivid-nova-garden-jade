@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Three.Jsxthree.Js=20-six.Js.16.16.16.16 • WeLGL API 0.1.0.1.0.1.0</title>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Share+Tech+Mono&display=swap');
+  :root { --c1:#00f6ff; --c2:#ff2bd6; --cr:#ff3355; --ok:#7cff6b; --bg:#03020a; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; color:#d9fbff; font-family:Orbitron,system-ui,sans-serif;
+    background:
+      radial-gradient(900px 420px at 8% -8%, #3a0a18 0%, transparent 55%),
+      radial-gradient(800px 400px at 108% 0%, #082838 0%, transparent 50%), var(--bg);
+    padding:16px 12px 32px;
+  }
+  h1 {
+    text-align:center; font-size:clamp(.95rem,3vw,1.55rem);
+    background:linear-gradient(90deg,var(--c1),var(--cr),var(--c2),var(--c1));
+    background-size:280% auto; -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:s 5s linear infinite;
+  }
+  @keyframes s { to { background-position:280% center; } }
+  .sub { text-align:center; font-family:"Share Tech Mono",monospace; opacity:.8; margin:6px 0 14px; font-size:.82rem; }
+  .wrap { width:min(1180px,100%); margin:0 auto; display:grid; gap:12px; }
+  .panel {
+    background:rgba(8,10,22,.82); border:1px solid rgba(0,246,255,.28); border-radius:16px; padding:12px;
+  }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .qbox { display:flex; align-items:center; gap:8px; background:#0008; border:1px solid #00f6ff55; border-radius:999px; padding:6px 12px; }
+  .bit { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; font-weight:800; cursor:pointer; user-select:none; }
+  .bit.off { background:#161628; color:#667; }
+  .bit.on { background:linear-gradient(135deg,#00f6ff,#2b7cff); color:#021; box-shadow:0 0 14px #00f6ff; }
+  button {
+    font-family:inherit; font-weight:700; border:0; border-radius:10px; color:#fff;
+    padding:8px 12px; cursor:pointer; background:linear-gradient(90deg,#00b7ff,#ff2bd6);
+  }
+  button.offbtn { background:#1a1a28; border:1px solid #667; }
+  code, .mono { font-family:"Share Tech Mono",monospace; color:var(--c1); }
+  #view { width:100%; height:320px; border-radius:12px; overflow:hidden; background:#050510; }
+  .script {
+    height:160px; overflow:auto; white-space:pre-wrap; font-size:.76rem; line-height:1.4;
+    background:#0006; border-radius:10px; padding:10px; border:1px solid #00f6ff22;
+    font-family:"Share Tech Mono",monospace; color:#baf7ff;
+  }
+  .live { color:var(--ok); font-weight:800; }
+  a { color:var(--c1); }
+</style>
+</head>
+<body>
+  <h1>Three.Jsxthree.Js = 20-six.Js.16.16.16.16</h1>
+  <div class="sub">WeLGL · merge node 16.16.16.16 ×2 · API stream 0.1.0.1.0.1.0 · quantum 0/1 · live web</div>
+
+  <div class="wrap">
+    <div class="panel">
+      <div class="row">
+        <div class="qbox">Q0 <div class="bit off" id="b0" onclick="flip(0)">0</div></div>
+        <div class="qbox">Q1 <div class="bit off" id="b1" onclick="flip(1)">1</div></div>
+        <button onclick="autoAI()">AUTO LIVE A.I</button>
+        <button class="offbtn" onclick="allOff()">EXTRA OFF</button>
+        <button onclick="pulseAPI()">API 0.1 PULSE</button>
+        <button onclick="forceUpdate()">AUTO UPDATE</button>
+      </div>
+    </div>
+
+    <div class="panel mono">
+      Engine: <code>three@0.160.0</code> · stamp <code>20-six.Js.16.16.16.16</code><br>
+      Nodes: <code>8.8.8.8</code>×2 · <code>8.8.4.4</code> · <code>9.9.9.9</code> · super <code>16.16.16.16</code>×2 (merged in scene)<br>
+      Stream: <code id="api">0.1.0.1.0.1.0</code>
+      · A.I <span class="live" id="ai">STANDBY</span>
+      · bits <span id="bits">00</span>
+      · WeLGL <span id="gl">—</span>
+    </div>
+
+    <div class="panel"><div id="view"></div></div>
+    <div class="panel"><div class="script" id="log">> Three.Jsxthree.Js boot
+> merging 16.16.16.16 into WebGL scene
+> API 0.1.0.1.0.1.0 ready
+</div></div>
+  </div>
+
+<script type="module">
+import * as THREE from "three";
+
+const S = {
+  bits: [0, 0],
+  ai: false,
+  api: "0.1.0.1.0.1.0",
+  nodes: ["8.8.8.8","8.8.8.8","8.8.4.4","9.9.9.9","16.16.16.16","16.16.16.16"]
+};
+
+const logEl = document.getElementById("log");
+function log(t){ logEl.textContent += t + "\n"; logEl.scrollTop = logEl.scrollHeight; }
+function paintBits(){
+  [0,1].forEach(i=>{
+    const el = document.getElementById("b"+i);
+    el.className = "bit " + (S.bits[i] ? "on" : "off");
+    el.textContent = S.bits[i] ? "1" : "0";
+  });
+  document.getElementById("bits").textContent = S.bits.join("");
+}
+window.flip = function(i){
+  S.bits[i] ^= 1; paintBits();
+  log("quantum "+i+" -> "+(S.bits[i]?"ON 1":"OFF 0"));
+};
+window.allOff = function(){
+  S.bits = [0,0]; S.ai = false; clearInterval(window._ai);
+  document.getElementById("ai").textContent = "ALL OFF";
+  paintBits();
+  log("EXTRA OFF — bits offline · API held");
+};
+function rotateAPI(){
+  S.api = S.api.slice(2) + S.api.slice(0,2);
+  document.getElementById("api").textContent = S.api;
+}
+window.pulseAPI = function(){
+  rotateAPI();
+  log("API PULSE // "+S.api+" // super node 16.16.16.16 active");
+};
+window.autoAI = function(){
+  S.ai = !S.ai;
+  document.getElementById("ai").textContent = S.ai ? "LIVE A.I ACTIVE" : "STANDBY";
+  clearInterval(window._ai);
+  log(S.ai ? "LIVE A.I — auto 0/1 + 0.1 stream" : "A.I standby");
+  if(S.ai){
+    window._ai = setInterval(()=>{
+      window.flip(0);
+      setTimeout(()=>window.flip(1), 240);
+      rotateAPI();
+    }, 1500);
+  }
+};
+window.forceUpdate = function(){
+  rotateAPI();
+  log("AUTO UPDATE // Three.Jsxthree.Js=20-six.Js.16.16.16.16 // WeLGL frame refresh");
+};
+
+/* ——— WeLGL / Three super engine ——— */
+const host = document.getElementById("view");
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x050510, 1);
+host.appendChild(renderer.domElement);
+document.getElementById("gl").textContent = "WebGL ON";
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
+camera.position.set(0, 1.4, 5.2);
+
+scene.add(new THREE.AmbientLight(0x223344, 0.6));
+const L1 = new THREE.PointLight(0x00f6ff, 14, 30); L1.position.set(2.5, 3, 3); scene.add(L1);
+const L2 = new THREE.PointLight(0xff3355, 12, 30); L2.position.set(-3, 2, -1); scene.add(L2);
+
+/* core rings */
+const ringMat = new THREE.MeshStandardMaterial({ color:0x00f6ff, emissive:0x003344, metalness:0.75, roughness:0.22 });
+const ring = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.04, 16, 96), ringMat);
+scene.add(ring);
+const ring2 = new THREE.Mesh(
+  new THREE.TorusGeometry(1.55, 0.035, 16, 96),
+  new THREE.MeshStandardMaterial({ color:0xff3355, emissive:0x220011, metalness:0.75, roughness:0.22 })
+);
+ring2.rotation.x = Math.PI / 2.3;
+scene.add(ring2);
+
+/* quantum bits */
+const q0 = new THREE.Mesh(
+  new THREE.SphereGeometry(0.2, 24, 24),
+  new THREE.MeshStandardMaterial({ color:0x334455, emissive:0x111111 })
+);
+const q1 = q0.clone();
+q0.position.set(-0.85, 0, 0);
+q1.position.set(0.85, 0, 0);
+scene.add(q0, q1);
+
+/* MERGED 16.16.16.16 super nodes (two) */
+function makeNode(label, x, z, color){
+  const g = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.28, 0),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity:0.35, metalness:0.6, roughness:0.3 })
+  );
+  g.add(core);
+  /* simple text sprite via canvas */
+  const c = document.createElement("canvas");
+  c.width = 256; c.height = 64;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#00f6ff";
+  ctx.font = "bold 28px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(label, 128, 40);
+  const tex = new THREE.CanvasTexture(c);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true }));
+  spr.scale.set(1.4, 0.35, 1);
+  spr.position.y = 0.55;
+  g.add(spr);
+  g.position.set(x, 0.15, z);
+  scene.add(g);
+  return { group:g, core };
+}
+const nA = makeNode("16.16.16.16", -2.4, -1.2, 0xffaa33);
+const nB = makeNode("16.16.16.16",  2.4, -1.2, 0x33ffaa);
+
+function resize(){
+  const w = host.clientWidth, h = host.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize);
+resize();
+
+let t = 0;
+(function loop(){
+  t += 0.016;
+  ring.rotation.x = t * 0.32;
+  ring.rotation.y = t * 0.21;
+  ring2.rotation.z = -t * 0.26;
+
+  q0.material.emissive.setHex(S.bits[0] ? 0x00f6ff : 0x111111);
+  q1.material.emissive.setHex(S.bits[1] ? 0xff2bd6 : 0x111111);
+  q0.position.y = Math.sin(t * 2.1) * 0.14;
+  q1.position.y = Math.cos(t * 2.1) * 0.14;
+
+  nA.group.rotation.y = t * 0.4;
+  nB.group.rotation.y = -t * 0.4;
+  nA.core.position.y = Math.sin(t * 1.5) * 0.08;
+  nB.core.position.y = Math.cos(t * 1.5) * 0.08;
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
+
+paintBits();
+log("merge complete: 16.16.16.16 ×2 inside WeLGL scene");
+log("API stream locked: " + S.api);
+</script>
+</body>
+</html>
