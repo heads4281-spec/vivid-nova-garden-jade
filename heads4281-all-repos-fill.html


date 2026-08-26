@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>heads4281-spec • ALL REPOS + COMMITS FILL</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Share+Tech+Mono&display=swap');
+  :root { --c1:#00f6ff; --c2:#ff2bd6; --cr:#ff3355; --ok:#7cff6b; --py:#ffd24d; --bg:#03020a; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; color:#d9fbff; font-family:Orbitron,system-ui,sans-serif;
+    background: radial-gradient(900px 400px at 8% -8%, #3a0a18 0%, transparent 55%), var(--bg);
+    padding:16px 12px 32px;
+  }
+  h1 { text-align:center; font-size:clamp(1rem,3vw,1.5rem);
+    background:linear-gradient(90deg,var(--c1),var(--cr),var(--py),var(--c1));
+    background-size:280% auto; -webkit-background-clip:text; color:transparent;
+    animation:s 5s linear infinite; }
+  @keyframes s { to { background-position:280% center; } }
+  .sub { text-align:center; font-family:"Share Tech Mono",monospace; opacity:.85; margin:6px 0 14px; font-size:.82rem; }
+  .wrap { width:min(1200px,100%); margin:0 auto; display:grid; gap:12px; }
+  .panel { background:rgba(8,10,22,.86); border:1px solid rgba(0,246,255,.28); border-radius:16px; padding:12px; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  button { font-family:inherit; font-weight:700; border:0; border-radius:10px; color:#fff; padding:8px 12px; cursor:pointer; background:linear-gradient(90deg,#00b7ff,#ff2bd6); }
+  button.offbtn { background:#1a1a28; border:1px solid #667; }
+  .qbox { display:flex; gap:8px; align-items:center; border:1px solid #00f6ff55; border-radius:999px; padding:6px 12px; background:#0008; }
+  .bit { width:38px; height:38px; border-radius:50%; display:grid; place-items:center; font-weight:800; cursor:pointer; }
+  .bit.off { background:#161628; color:#667; } .bit.on { background:linear-gradient(135deg,#00f6ff,#2b7cff); color:#021; }
+  a, code, .mono { font-family:"Share Tech Mono",monospace; color:var(--c1); }
+  pre, .log { height:280px; overflow:auto; white-space:pre-wrap; font: .76rem/1.4 "Share Tech Mono",monospace; background:#0007; border-radius:10px; padding:10px; border:1px solid #00f6ff22; color:#baf7ff; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:900px){ .grid2 { grid-template-columns:1fr; } }
+  .live { color:var(--ok); font-weight:800; }
+</style>
+</head>
+<body>
+  <h1>heads4281-spec • ALL C REPOSITORIES • ALL COMMITS FILL</h1>
+  <div class="sub">24 public repos · vivid-nova-garden-jade ledger · JS Auto · Python Auto · API 1.0.1.0.1.0.0 · A&gt;I · 16.16.16.16</div>
+
+  <div class="wrap">
+    <div class="panel">
+      <div class="row">
+        <div class="qbox">Q0 <div class="bit off" id="b0" onclick="flip(0)">0</div></div>
+        <div class="qbox">Q1 <div class="bit off" id="b1" onclick="flip(1)">1</div></div>
+        <button onclick="autoAI()">AUTO A&gt;I</button>
+        <button onclick="toggleLang()">JS ↔ PYTHON</button>
+        <button onclick="fillAll()">FILL ALL REPOS + COMMITS</button>
+        <button onclick="fillCommits()">DUMP COMMIT LEDGER</button>
+        <button class="offbtn" onclick="allOff()">EXTRA OFF</button>
+      </div>
+    </div>
+
+    <div class="panel mono">
+      Profile: <a href="https://github.com/heads4281-spec" target="_blank">github.com/heads4281-spec</a>
+      · created 2026-08-22 · public_repos <code>24</code><br>
+      Primary: <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade" target="_blank">vivid-nova-garden-jade</a> ★1 · pushed 2026-08-26<br>
+      Key commits:
+      <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade/commit/d6fceb91af6d6df8d23aec40dcff179dcb37e101" target="_blank">d6fceb9 start()</a> ·
+      <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade/commit/9f9f0e3adb87007e80391465cc6aaf79ea3083d4" target="_blank">9f9f0e3 JSON</a><br>
+      Mode <span id="mode">JAVASCRIPT</span> · A&gt;I <span class="live" id="ai">STANDBY</span>
+      · API <code id="api">1.0.1.0.1.0.0</code> / <code id="api2">1.0.1.1.0.0</code>
+      · bits <span id="bits">00</span>
+    </div>
+
+    <div class="grid2">
+      <div class="panel"><pre id="reposBox">// press FILL ALL REPOS + COMMITS</pre></div>
+      <div class="panel"><div class="log" id="log">> waiting for full catalog fill
+> 24 repositories indexed
+</div></div>
+    </div>
+  </div>
+
+<script>
+const USER = {
+  login: "heads4281-spec",
+  id: 319777044,
+  html_url: "https://github.com/heads4281-spec",
+  public_repos: 24,
+  created_at: "2026-08-22T09:33:34Z"
+};
+
+const REPOS = [
+  "arrow-arch-crisp-acre","baker-beacon-king-plaza","brave-mist-pearl-civic","brave-rapid-topaz-drum",
+  "dune-cactus-ivory-cactus","earth-iris-olive-autumn","ember-lark-ivory-vivid","fjord-dune-pepper-blue",
+  "giant-clear-plaza-gem","hazel-kite-cabin-autumn","lion-field-plum-cosmic","lotus-craft-wind-garden",
+  "marble-delta-zinc-coral","nova-sand-pine-timber","olive-falcon-apex-thunder","olive-plum-forge-field",
+  "pilot-lake-tundra-solar","pine-bold-dream-drum","quartz-forest-able-pine","river-kind-kind-raven",
+  "velvet-bamboo-spring-winter","vivid-nova-garden-jade","yarrow-earth-apple-opal","zenith-shadow-yonder-scarlet"
+].map(name => ({
+  name, language: "JavaScript",
+  html_url: "https://github.com/heads4281-spec/"+name
+}));
+
+const COMMITS = [
+  ["35a6cc9","Create three-jsx-16-webgl.html","2026-08-26"],
+  ["a723a2e","Create Super Physic JSON","2026-08-26"],
+  ["e26ad01","Create Super files Auto physic","2026-08-26"],
+  ["01d742b","Update HTML 15","2026-08-25"],
+  ["1584956","Update _controls-qa.mjs","2026-08-25"],
+  ["9359e92","Update _map-qa.mjs","2026-08-25"],
+  ["b9b7e10","Create HTML 15","2026-08-25"],
+  ["e8d5cea","Create supernatural energy A.I","2026-08-25"],
+  ["6e6f4d6","Create index.html or html5/super-engine.html","2026-08-25"],
+  ["a4fcbf8","Create super-ai-quantum-engine.html","2026-08-25"],
+  ["16f493f","Create python -m http.server 8000.","2026-08-25"],
+  ["f6687cc","Create python quantum_generator.py","2026-08-25"],
+  ["93a55d5","Create quantum_generator.py (Python Full Implementation)","2026-08-25"],
+  ["b357093","Create index.html (Full HTML API)","2026-08-25"],
+  ["ad988c5","Create super_engine.js Full Super Engine API","2026-08-25"],
+  ["946b120","Create quantum_live_api.js Quantum Automatic Live Switch API","2026-08-25"],
+  ["d1dd9ce","Create quantum_live_api.js","2026-08-25"],
+  ["e81216d","Create Sample game_formation.json","2026-08-25"],
+  ["cd7b7f5","Create Updated Super Engine (Merged Live Switch + Formation + Super AI)","2026-08-25"],
+  ["ca78eba","Create Super Live Switch API (Core) live_switch.js","2026-08-25"],
+  ["6aaa843","Update Implement OBJ mesh loader","2026-08-25"],
+  ["28aed94","Update OpenGLRHI.cpp","2026-08-25"],
+  ["f92567b","Create SuperEngine.hpp + SuperEngine.cpp (full)","2026-08-25"],
+  ["d3215cd","Create LivesAPI.hpp + LivesAPI.cpp (full automatic)","2026-08-25"],
+  ["b48152e","Create MathTypes.hpp (HPML-compatible)","2026-08-25"],
+  ["332d9f8","Create super a.i","2026-08-25"],
+  ["faf49c1","Create super api","2026-08-25"],
+  ["1394745","Create super engine 7","2026-08-24"],
+  ["8a08435","Update LINKS.md with HTML5 hub and merge manifest","2026-08-24"],
+  ["8a50f1d","Merge all heads4281-spec repos: HTML5 hub, textures, holographic worker","2026-08-24"],
+  ["9d9bda9","Merge: add Auto Graphics Fix HTML5 game + MERGE_UPDATE status","2026-08-24"],
+  ["9e6566a","Add extra maps, holographic atlas, and HTML5 pages","2026-08-24"],
+  ["fc89217","HTML5 holographic atlas, extra maps directory, corrected GitHub links","2026-08-24"],
+  ["616ec53","Create crimson-sovereign-full.html","2026-08-24"],
+  ["84ab258","Create crimson-sovereign-palace.html","2026-08-24"],
+  ["35444d8","Create 2D noise python holographic","2026-08-24"],
+  ["7d9a723","Create python map holographics","2026-08-24"],
+  ["c447a3b","Create castle-superart.html","2026-08-24"],
+  ["8bebe98","Create crimson-sovereign-theme-engine.html","2026-08-23"],
+  ["114932b","Update HMTL Fix Texture","2026-08-23"],
+  ["d6fceb9","Create Clean Initialization Order (inside start())","2026-08-23"],
+  ["9f9f0e3","automatic updates / config.json","2026-08-23"]
+];
+
+const S = { bits:[0,0], ai:false, lang:"js", api:"1.0.1.0.1.0.0", api2:"1.0.1.1.0.0" };
+const logEl = document.getElementById("log");
+function log(t){ logEl.textContent += t+"\n"; logEl.scrollTop = logEl.scrollHeight; }
+function paint(){
+  [0,1].forEach(i=>{ const el=document.getElementById("b"+i); el.className="bit "+(S.bits[i]?"on":"off"); el.textContent=S.bits[i]?"1":"0"; });
+  document.getElementById("bits").textContent=S.bits.join("");
+}
+window.flip=i=>{ S.bits[i]^=1; paint(); log((S.lang==="js"?"JS":"PY")+" quantum "+i+" -> "+(S.bits[i]?"ON 1":"OFF 0")); };
+window.allOff=()=>{ S.bits=[0,0]; S.ai=false; clearInterval(window._ai); document.getElementById("ai").textContent="ALL OFF"; paint(); log("EXTRA OFF"); };
+window.toggleLang=()=>{ S.lang=S.lang==="js"?"py":"js"; document.getElementById("mode").textContent=S.lang==="js"?"JAVASCRIPT":"PYTHON"; log("SWITCH "+S.lang.toUpperCase()); };
+window.autoAI=()=>{
+  S.ai=!S.ai; document.getElementById("ai").textContent=S.ai?"A>I LIVE":"STANDBY";
+  clearInterval(window._ai);
+  if(S.ai) window._ai=setInterval(()=>{ window.flip(0); setTimeout(()=>window.flip(1),200);
+    S.api=S.api.slice(2)+S.api.slice(0,2); document.getElementById("api").textContent=S.api; },1300);
+};
+window.fillAll=()=>{
+  const lines = [
+    "USER "+USER.login+" id "+USER.id+" repos "+USER.public_repos,
+    USER.html_url,"",
+    "=== ALL 24 PUBLIC REPOSITORIES ===",
+    ...REPOS.map((r,i)=>(i+1).toString().padStart(2,"0")+"  "+r.name+"  "+r.html_url),
+    "","=== KEY FILES / ENGINES SEEN IN COMMITS ===",
+    "three-jsx-16-webgl.html  super-ai-quantum-engine.html  HTML 15",
+    "quantum_generator.py  quantum_live_api.js  super_engine.js  live_switch.js",
+    "SuperEngine.cpp  LivesAPI.cpp  OpenGLRHI.cpp  MathTypes.hpp",
+    "crimson-sovereign-full.html  holographic-atlas  extra-maps",
+    "config.json version 2.1.0 code 63821 LV 6294"
+  ];
+  document.getElementById("reposBox").textContent = lines.join("\n");
+  log("FILLED all "+REPOS.length+" repositories from "+USER.login);
+  log("primary vivid-nova-garden-jade · "+COMMITS.length+" commit messages indexed");
+};
+window.fillCommits=()=>{
+  const body = COMMITS.map(([sha,msg,d])=>d+"  "+sha+"  "+msg).join("\n");
+  logEl.textContent =
+    "COMMIT LEDGER  repo vivid-nova-garden-jade\n"+
+    "full hashes:\n"+
+    "d6fceb91af6d6df8d23aec40dcff179dcb37e101  Clean Initialization Order\n"+
+    "9f9f0e3adb87007e80391465cc6aaf79ea3083d4  automatic updates config.json\n\n"+
+    body+"\n\n"+
+    "DNS 8.8.8.8 8.8.8.8 8.8.4.4 9.9.9.9 16.16.16.16 16.16.16.16\n"+
+    "API "+S.api+" / "+S.api2+" · Three.Jsxthree.Js=20-six.Js.16.16.16.16\n";
+};
+paint();
+</script>
+</body>
+</html>
