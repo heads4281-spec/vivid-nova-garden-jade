@@ -1,0 +1,4 @@
+PalaceAPI.state          // GET /palace/state
+PalaceAPI.pulse()        // POST /palace/pulse  → rotate 0.1 stream
+PalaceAPI.code("63821")  // POST /palace/code
+PalaceAPI.quantum(1, 0)  // POST /palace/quantum
