@@ -1,0 +1,4 @@
+PalaceAPI.state
+PalaceAPI.texture("throne", 13)   // paste frame 13 onto throne blocks
+PalaceAPI.quantum(1, 1)
+PalaceAPI.pulse()
