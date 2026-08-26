@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRIMSON SOVEREIGN • HTML15 Quantum Holo Fill</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+  :root { --c1:#00f6ff; --c2:#ff2bd6; --c3:#7cff6b; --cr:#ff3355; --bg:#03020a; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; color:#d9fbff; font-family:Orbitron,system-ui,sans-serif;
+    background: radial-gradient(1100px 520px at 12% -8%, #3a0a18 0%, transparent 55%),
+                radial-gradient(900px 480px at 110% 8%, #0a2a44 0%, transparent 50%), var(--bg);
+    padding:20px 14px 40px;
+  }
+  h1 {
+    text-align:center; font-size:clamp(1.05rem,3.2vw,1.85rem); letter-spacing:.05em; margin-bottom:6px;
+    background:linear-gradient(90deg,var(--c1),var(--cr),var(--c2),var(--c1));
+    background-size:280% auto; -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:shift 5s linear infinite;
+  }
+  @keyframes shift { to { background-position:280% center; } }
+  .sub { text-align:center; font-family:"Share Tech Mono",monospace; opacity:.78; margin-bottom:16px; font-size:.88rem; }
+  .wrap { width:min(1120px,100%); margin:0 auto; display:grid; gap:12px; }
+  .panel {
+    background:rgba(8,10,22,.76); border:1px solid rgba(0,246,255,.28); border-radius:16px; padding:14px;
+    box-shadow:0 0 30px rgba(255,51,85,.12), inset 0 0 36px rgba(0,246,255,.04); backdrop-filter:blur(10px);
+  }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .qbox { display:flex; align-items:center; gap:8px; background:#0008; border:1px solid #00f6ff55; border-radius:999px; padding:6px 12px; }
+  .bit { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; font-weight:900; cursor:pointer; user-select:none; }
+  .bit.off { background:#161628; color:#556; }
+  .bit.on { background:linear-gradient(135deg,#00f6ff,#2b7cff); color:#021; box-shadow:0 0 16px #00f6ff; }
+  button { font-family:inherit; font-weight:700; cursor:pointer; border:0; border-radius:10px; color:#fff; padding:9px 12px; background:linear-gradient(90deg,#00b7ff,#ff2bd6); }
+  button.offbtn { background:#1a1a28; border:1px solid #667; }
+  a { color:var(--c1); word-break:break-all; }
+  code, .mono { font-family:"Share Tech Mono",monospace; color:var(--c1); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:800px){ .grid2 { grid-template-columns:1fr; } }
+  .holo { height:200px; border-radius:14px; overflow:hidden; position:relative; background:#070714; }
+  canvas { width:100%; height:100%; display:block; }
+  pre, .script {
+    height:240px; overflow:auto; white-space:pre-wrap; line-height:1.4; font-size:.78rem;
+    background:#0006; border-radius:10px; padding:10px; border:1px solid #00f6ff22;
+    font-family:"Share Tech Mono",monospace; color:#baf7ff;
+  }
+  .checks label { display:block; font-size:.8rem; margin:3px 0; font-family:"Share Tech Mono",monospace; }
+  .live { color:var(--c3); font-weight:800; }
+</style>
+</head>
+<body>
+  <h1>CRIMSON SOVEREIGN • HTML15 QUANTUM FILL</h1>
+  <div class="sub">code 63821 · SOVEREIGN LV 6294 · commits d6fceb9 + 9f9f0e3 · SUPER 9999 word script</div>
+
+  <div class="wrap">
+    <div class="panel">
+      <div class="row">
+        <div class="qbox">Q0 <div class="bit off" id="b0" onclick="flip(0)">0</div></div>
+        <div class="qbox">Q1 <div class="bit off" id="b1" onclick="flip(1)">1</div></div>
+        <button onclick="autoAI()">AUTO LIVE A.I</button>
+        <button class="offbtn" onclick="allOff()">EXTRA OFF</button>
+        <button onclick="forceUpdate()">AUTO UPDATE</button>
+        <button onclick="fillBoth()">FILL BOTH COMMITS</button>
+        <button onclick="build9999()">SUPER 9999 SCRIPT</button>
+      </div>
+    </div>
+
+    <div class="panel mono">
+      Canonical GitHub fills<br>
+      Profile: <a href="https://github.com/heads4281-spec" target="_blank">heads4281-spec</a><br>
+      Repo: <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade" target="_blank">vivid-nova-garden-jade</a><br>
+      A: <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade/commit/d6fceb91af6d6df8d23aec40dcff179dcb37e101" target="_blank">d6fceb9</a> — Clean Initialization Order<br>
+      B: <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade/commit/9f9f0e3adb87007e80391465cc6aaf79ea3083d4" target="_blank">9f9f0e3</a> — automatic updates / config.json<br>
+      Play: <code>https://YOUR-USERNAME.github.io/crimson-sovereign/?code=63821</code><br>
+      DNS / API: <code>8.8.8.8</code>×2 · <code>8.8.4.4</code> · <code>9.9.9.9</code> · super <code>16.16.16.16</code>×2<br>
+      Rotation: <code id="rot">0.1.0.1.0.1.0.1.0.1.0</code>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <div class="holo"><canvas id="holo"></canvas></div>
+        <div style="margin-top:8px;font-size:.84rem">
+          A.I <span class="live" id="ai">STANDBY</span> · bits <span id="bits">00</span> ·
+          update <span id="upd">never</span> · words <span id="wc">0</span>/9999
+        </div>
+      </div>
+      <div class="panel checks" id="checks"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel"><pre id="initFill">// press FILL BOTH COMMITS</pre></div>
+      <div class="panel"><div class="script" id="script">> waiting for format fills
+> d6fceb9 + 9f9f0e3 · CRIMSON SOVEREIGN
+</div></div>
+    </div>
+  </div>
+
+<script>
+const C1 = "d6fceb91af6d6df8d23aec40dcff179dcb37e101";
+const C2 = "9f9f0e3adb87007e80391465cc6aaf79ea3083d4";
+const REPO = "https://github.com/heads4281-spec/vivid-nova-garden-jade";
+const S = { bits:[0,0], ai:false, rot:"0.1.0.1.0.1.0.1.0.1.0", words:0 };
+
+const CONFIG = {
+  version: "2.1.0",
+  lastUpdate: "2026-08-23T09:53:00Z",
+  primaryCode: "63821",
+  validCodes: ["63821","62821","99812","15785"],
+  mythCycles: 100000,
+  sovereignLevel: 6294,
+  identifier: "CNLMMR · SOVEREIGN LV 6294 · 10 000 OPEN-WORLD MOMENTS",
+  loreMode: "blood",
+  loreText: "You were never meant to cross the rift. The wound sang in the language of dying stars and living blood. Come home.",
+  codeFlavour: "This code thickens blood in the canals. The Milky Way hungers with the palace.",
+  fog: 42, blood: 67, playersOnline: 1,
+  news: [
+    "Full merge complete – all old and new codes active",
+    "Automatic GitHub update system online",
+    "Master server controls fully enabled"
+  ],
+  classes: ["Ankh Warden","Night Reaver","Void Gunner","Blood Weaver","Hooded Hunter"],
+  defaultStats: { strength:12, magic:8, attack:15, minerals:40 }
+};
+
+const START = `// d6fceb9 Clean Initialization Order (inside start())
+this.effects = new EffectSystem(this.scene, this.camera);
+this.videoManager = new VideoManager(this.scene);
+
+this.videoManager.load("ground", "/levels/crimson_ground_alive.mp4", {
+  width:120, height:120, asGround:true,
+  position:new THREE.Vector3(0,-0.02,0), autoplay:true, loop:true
+});
+this.videoManager.load("dragonArena", "/levels/crimson_dragon_arena.mp4", {
+  width:42, height:26, position:new THREE.Vector3(0,9,-32), autoplay:false, loop:true
+});
+this.ninja = new NPCBillboard(this.videoManager, this.camera, "cyberNinja",
+  "/npcs/cyber_ninja_idle.mp4", new THREE.Vector3(14,1.8,9), 2.5, 3.8);
+this.livingGround = new LivingGround(this.scene, "/levels/crimson_ground_alive.mp4");
+
+// update loop
+this.effects.update(dt);
+this.ninja?.update();
+if (this.camera.position.distanceTo(this.ninja.position) > 40) this.ninja.pause();
+else this.ninja.play();`;
+
+const FILES = [
+  "src/game/engine.ts","src/game/effects.ts","src/game/video-manager.ts",
+  "src/game/living-ground.ts","src/game/npc-billboard.ts","src/game/recoil.ts",
+  "src/game/arsenal.ts","src/game/world.ts"
+];
+const CHECKS = [
+  "Weapon switch has weight + crimson flash",
+  "Gunfire has strong muzzle flash + better sparks",
+  "Recoil feels punchier","Reload has feedback",
+  "Living ground video playing under solid collision",
+  "Cyber-ninja stands in the world and faces the player",
+  "VideoManager controls everything cleanly",
+  "Performance friendly (videos can be paused when far)"
+];
+
+document.getElementById("checks").innerHTML =
+  "<strong>Number 5 – Full Polish Pass</strong><br>" +
+  CHECKS.map(c=>`<label><input type="checkbox" checked> ${c}</label>`).join("") +
+  "<br><strong>config.json (9f9f0e3)</strong><br>" +
+  `<div class="mono">v${CONFIG.version} · code ${CONFIG.primaryCode} · LV ${CONFIG.sovereignLevel}<br>` +
+  `classes: ${CONFIG.classes.join(", ")}</div>`;
+
+function log(t){ const el=document.getElementById("script"); el.textContent+=t+"\n"; el.scrollTop=el.scrollHeight; }
+function paint(){
+  [0,1].forEach(i=>{ const el=document.getElementById("b"+i); el.className="bit "+(S.bits[i]?"on":"off"); el.textContent=S.bits[i]?"1":"0"; });
+  document.getElementById("bits").textContent=S.bits.join("");
+}
+function flip(i){ S.bits[i]^=1; paint(); log("quantum "+i+" -> "+(S.bits[i]?"ON 1":"OFF 0")); }
+function allOff(){ S.bits=[0,0]; S.ai=false; clearInterval(window._ai); document.getElementById("ai").textContent="ALL OFF"; paint(); log("EXTRA OFF — bits + A.I offline"); }
+function rotate(){ S.rot=S.rot.slice(2)+S.rot.slice(0,2); document.getElementById("rot").textContent=S.rot; }
+function stamp(){ document.getElementById("upd").textContent=new Date().toLocaleTimeString(); }
+function autoAI(){
+  S.ai=!S.ai; document.getElementById("ai").textContent=S.ai?"LIVE A.I ACTIVE":"STANDBY";
+  clearInterval(window._ai);
+  log(S.ai?"LIVE A.I — auto 0/1 + VideoManager tick":"A.I standby");
+  if(S.ai) window._ai=setInterval(()=>{ flip(0); setTimeout(()=>flip(1),260); rotate(); stamp(); },1600);
+}
+function forceUpdate(){
+  rotate(); stamp();
+  log("AUTO UPDATE // GitHub system online // "+CONFIG.news.join(" · "));
+}
+function fillBoth(){
+  document.getElementById("initFill").textContent =
+    START + "\n\n// structure\n" + FILES.join("\n") +
+    "\n\n// config.json from 9f9f0e3\n" + JSON.stringify(CONFIG, null, 2);
+  log("FORMAT FILL from both commits");
+  log(REPO+"/commit/"+C1);
+  log(REPO+"/commit/"+C2);
+  log("primaryCode "+CONFIG.primaryCode+" · sovereignLevel "+CONFIG.sovereignLevel);
+  log(CONFIG.loreText);
+  stamp();
+}
+const LEX=["quantum","holo","crimson","sovereign","aelith","threshold","ninja","ground","video","recoil","muzzle","spark","atlas","ankh","warden","reaver","gunner","weaver","hunter","blood","javascript","python","https","html15","dns","google","rotation","zero","one","off","on","palace","rune","cycle","63821","6294"];
+function build9999(){
+  const words=[];
+  while(words.length<9999){ words.push(LEX[(words.length*7+S.bits[0]*3+S.bits[1]*11)%LEX.length]); if(words.length%16===0) words.push("\n"); }
+  document.getElementById("script").textContent =
+    "SUPER 9999 WORD SCRIPT // "+REPO+"\n"+C1+"\n"+C2+"\n"+
+    "control 8.8.8.8 8.8.8.8 8.8.4.4 9.9.9.9 16.16.16.16 16.16.16.16\n"+
+    "seed "+S.rot+" bits "+S.bits.join("")+" code "+CONFIG.primaryCode+" LV "+CONFIG.sovereignLevel+"\n\n"+words.join(" ");
+  S.words=9999; document.getElementById("wc").textContent="9999"; stamp();
+}
+
+const c=document.getElementById("holo"), x=c.getContext("2d");
+function size(){ c.width=c.clientWidth*devicePixelRatio; c.height=c.clientHeight*devicePixelRatio; }
+size(); addEventListener("resize", size);
+let t=0;
+(function draw(){
+  t+=0.018; const w=c.width,h=c.height;
+  x.fillStyle="rgba(8,4,10,0.22)"; x.fillRect(0,0,w,h);
+  for(let i=0;i<16;i++){
+    const a=t+i*0.34;
+    x.strokeStyle=i%2?"rgba(0,246,255,.34)":"rgba(255,51,85,.30)";
+    x.lineWidth=1.2*devicePixelRatio;
+    x.beginPath();
+    x.ellipse(w*0.5+Math.sin(a)*w*0.12,h*0.52,w*0.17+i*6,h*0.21+i*3,a*0.4,0,Math.PI*2);
+    x.stroke();
+  }
+  x.fillStyle=S.bits[0]?"#00f6ff":"#334";
+  x.beginPath(); x.arc(w*0.34,h*0.5,10*devicePixelRatio,0,Math.PI*2); x.fill();
+  x.fillStyle=S.bits[1]?"#ff2bd6":"#334";
+  x.beginPath(); x.arc(w*0.66,h*0.5,10*devicePixelRatio,0,Math.PI*2); x.fill();
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
