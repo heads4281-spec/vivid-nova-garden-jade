@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUPERVISOR · JS Auto · Python Auto · API 1.0.1.0.1.0.0 · A&gt;I</title>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Share+Tech+Mono&display=swap');
+  :root { --c1:#00f6ff; --c2:#ff2bd6; --cr:#ff3355; --ok:#7cff6b; --py:#ffd24d; --bg:#03020a; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; color:#d9fbff; font-family:Orbitron,system-ui,sans-serif;
+    background:
+      radial-gradient(900px 420px at 8% -8%, #3a0a18 0%, transparent 55%),
+      radial-gradient(800px 400px at 108% 0%, #082838 0%, transparent 50%), var(--bg);
+    padding:16px 12px 32px;
+  }
+  h1 {
+    text-align:center; font-size:clamp(.95rem,3vw,1.45rem);
+    background:linear-gradient(90deg,var(--c1),var(--py),var(--c2),var(--c1));
+    background-size:280% auto; -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:s 5s linear infinite;
+  }
+  @keyframes s { to { background-position:280% center; } }
+  .sub { text-align:center; font-family:"Share Tech Mono",monospace; opacity:.85; margin:6px 0 14px; font-size:.8rem; }
+  .wrap { width:min(1180px,100%); margin:0 auto; display:grid; gap:12px; }
+  .panel {
+    background:rgba(8,10,22,.85); border:1px solid rgba(0,246,255,.28); border-radius:16px; padding:12px;
+  }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .qbox { display:flex; align-items:center; gap:8px; background:#0008; border:1px solid #00f6ff55; border-radius:999px; padding:6px 12px; }
+  .bit { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; font-weight:800; cursor:pointer; user-select:none; }
+  .bit.off { background:#161628; color:#667; }
+  .bit.on { background:linear-gradient(135deg,#00f6ff,#2b7cff); color:#021; box-shadow:0 0 14px #00f6ff; }
+  button {
+    font-family:inherit; font-weight:700; border:0; border-radius:10px; color:#fff;
+    padding:8px 12px; cursor:pointer; background:linear-gradient(90deg,#00b7ff,#ff2bd6);
+  }
+  button.py { background:linear-gradient(90deg,#c9a227,#ffd24d); color:#1a1200; }
+  button.offbtn { background:#1a1a28; border:1px solid #667; color:#ccc; }
+  button.fill { background:linear-gradient(90deg,#0a7,#0cf); }
+  code, .mono { font-family:"Share Tech Mono",monospace; color:var(--c1); }
+  #view { width:100%; height:280px; border-radius:12px; overflow:hidden; background:#050510; }
+  .script, pre {
+    height:180px; overflow:auto; white-space:pre-wrap; font-size:.74rem; line-height:1.4;
+    background:#0006; border-radius:10px; padding:10px; border:1px solid #00f6ff22;
+    font-family:"Share Tech Mono",monospace; color:#baf7ff;
+  }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:900px){ .grid2 { grid-template-columns:1fr; } }
+  .live { color:var(--ok); font-weight:800; }
+  .mode-js { color:var(--c1); }
+  .mode-py { color:var(--py); }
+  a { color:var(--c1); }
+</style>
+</head>
+<body>
+  <h1>SUPERVISOR · JavaScript Auto · Python Auto · A&gt;I</h1>
+  <div class="sub">API 1.0.1.0.1.0.0 · switch 1.0.1.1.0.0 · Three.Jsxthree.Js=20-six.Js.16.16.16.16 · WeLGL · heads4281-spec fills</div>
+
+  <div class="wrap">
+    <div class="panel">
+      <div class="row">
+        <div class="qbox">Q0 <div class="bit off" id="b0" onclick="flip(0)">0</div></div>
+        <div class="qbox">Q1 <div class="bit off" id="b1" onclick="flip(1)">1</div></div>
+        <button onclick="autoAI()">AUTO A&gt;I</button>
+        <button onclick="toggleLang()">JS ↔ PYTHON SWITCH</button>
+        <button class="py" onclick="pythonAuto()">PYTHON AUTO</button>
+        <button onclick="jsAuto()">JS AUTO ×2</button>
+        <button class="offbtn" onclick="allOff()">EXTRA OFF</button>
+        <button onclick="pulseAPI()">API PULSE</button>
+        <button class="fill" onclick="fillAll()">FILL ALL REPOS</button>
+        <button class="fill" onclick="fillCommits()">FILL COMMITS</button>
+        <button class="fill" onclick="fillConfig()">FILL config.json + start()</button>
+      </div>
+    </div>
+
+    <div class="panel mono">
+      Supervisor: <a href="https://github.com/heads4281-spec" target="_blank">heads4281-spec</a>
+      · repos <code>24</code>
+      · primary <a href="https://github.com/heads4281-spec/vivid-nova-garden-jade" target="_blank">vivid-nova-garden-jade</a><br>
+      Mode: <span id="mode" class="mode-js">JAVASCRIPT</span>
+      · A&gt;I <span class="live" id="ai">STANDBY</span>
+      · bits <span id="bits">00</span><br>
+      API control: <code id="api">1.0.1.0.1.0.0</code>
+      · alt stream <code id="api2">1.0.1.1.0.0</code><br>
+      Nodes: <code>8.8.8.8</code>×2 · <code>8.8.4.4</code> · <code>9.9.9.9</code> · super <code>16.16.16.16</code>×2<br>
+      Engine: <code>Three.Jsxthree.Js=20-six.Js.16.16.16.16</code> · WeLGL <span id="gl">—</span>
+    </div>
+
+    <div class="panel"><div id="view"></div></div>
+
+    <div class="grid2">
+      <div class="panel"><pre id="fillBox">// press FILL ALL REPOS / COMMITS / config</pre></div>
+      <div class="panel"><div class="script" id="log">> SUPERVISOR online
+> JS Auto layer ready
+> Python Auto layer ready (browser sim)
+> API control 1.0.1.0.1.0.0
+> switch target 1.0.1.1.0.0
+> waiting for GitHub fills
+</div></div>
+    </div>
+  </div>
+
+<script type="module">
+import * as THREE from "three";
+
+const USER = { login:"heads4281-spec", public_repos:24, url:"https://github.com/heads4281-spec" };
+
+const REPOS = [
+  "arrow-arch-crisp-acre","baker-beacon-king-plaza","brave-mist-pearl-civic","brave-rapid-topaz-drum",
+  "dune-cactus-ivory-cactus","earth-iris-olive-autumn","ember-lark-ivory-vivid","fjord-dune-pepper-blue",
+  "giant-clear-plaza-gem","hazel-kite-cabin-autumn","lion-field-plum-cosmic","lotus-craft-wind-garden",
+  "marble-delta-zinc-coral","nova-sand-pine-timber","olive-falcon-apex-thunder","olive-plum-forge-field",
+  "pilot-lake-tundra-solar","pine-bold-dream-drum","quartz-forest-able-pine","river-kind-kind-raven",
+  "velvet-bamboo-spring-winter","vivid-nova-garden-jade","yarrow-earth-apple-opal","zenith-shadow-yonder-scarlet"
+];
+
+const COMMITS = [
+  ["35a6cc9","Create three-jsx-16-webgl.html"],
+  ["a723a2e","Create Super Physic JSON"],
+  ["e26ad01","Create Super files Auto physic"],
+  ["01d742b","Update HTML 15"],
+  ["b9b7e10","Create HTML 15"],
+  ["e8d5cea","Create supernatural energy A.I"],
+  ["a4fcbf8","Create super-ai-quantum-engine.html"],
+  ["93a55d5","Create quantum_generator.py (Python Full Implementation)"],
+  ["ad988c5","Create super_engine.js Full Super Engine API"],
+  ["946b120","Create quantum_live_api.js Quantum Automatic Live Switch API"],
+  ["cd7b7f5","Updated Super Engine (Live Switch + Formation + Super AI)"],
+  ["f92567b","Create SuperEngine.hpp + SuperEngine.cpp (full)"],
+  ["d3215cd","Create LivesAPI.hpp + LivesAPI.cpp (full automatic)"],
+  ["8a50f1d","Merge all heads4281-spec repos: HTML5 hub, textures, holographic worker"],
+  ["9e6566a","Add extra maps, holographic atlas, and HTML5 pages"],
+  ["616ec53","Create crimson-sovereign-full.html"],
+  ["35444d8","Create 2D noise python holographic"],
+  ["d6fceb91af6d6df8d23aec40dcff179dcb37e101","Clean Initialization Order (inside start())"],
+  ["9f9f0e3adb87007e80391465cc6aaf79ea3083d4","automatic updates / config.json"]
+];
+
+const CONFIG = {
+  version: "2.1.0",
+  primaryCode: "63821",
+  validCodes: ["63821","62821","99812","15785"],
+  mythCycles: 100000,
+  sovereignLevel: 6294,
+  identifier: "CNLMMR · SOVEREIGN LV 6294 · 10 000 OPEN-WORLD MOMENTS",
+  loreMode: "blood",
+  loreText: "You were never meant to cross the rift. The wound sang in the language of dying stars and living blood. Come home.",
+  fog: 42, blood: 67, playersOnline: 1,
+  news: [
+    "Full merge complete – all old and new codes active",
+    "Automatic GitHub update system online",
+    "Master server controls fully enabled"
+  ],
+  classes: ["Ankh Warden","Night Reaver","Void Gunner","Blood Weaver","Hooded Hunter"],
+  defaultStats: { strength:12, magic:8, attack:15, minerals:40 },
+  dns: ["8.8.8.8","8.8.8.8","8.8.4.4","9.9.9.9","16.16.16.16","16.16.16.16"],
+  engine: "Three.Jsxthree.Js=20-six.Js.16.16.16.16",
+  api: "1.0.1.0.1.0.0",
+  api2: "1.0.1.1.0.0"
+};
+
+const START = `// d6fceb9 Clean Initialization Order (inside start())
+this.effects = new EffectSystem(this.scene, this.camera);
+this.videoManager = new VideoManager(this.scene);
+this.videoManager.load("ground", "/levels/crimson_ground_alive.mp4", {
+  width:120, height:120, asGround:true,
+  position:new THREE.Vector3(0,-0.02,0), autoplay:true, loop:true
+});
+this.videoManager.load("dragonArena", "/levels/crimson_dragon_arena.mp4", {
+  width:42, height:26, position:new THREE.Vector3(0,9,-32), autoplay:false, loop:true
+});
+this.ninja = new NPCBillboard(this.videoManager, this.camera, "cyberNinja",
+  "/npcs/cyber_ninja_idle.mp4", new THREE.Vector3(14,1.8,9), 2.5, 3.8);
+this.livingGround = new LivingGround(this.scene, "/levels/crimson_ground_alive.mp4");`;
+
+const S = {
+  bits: [0, 0],
+  ai: false,
+  lang: "js",
+  api:  "1.0.1.0.1.0.0",
+  api2: "1.0.1.1.0.0",
+  jsAuto: false,
+  pyAuto: false
+};
+
+const logEl = document.getElementById("log");
+const fillBox = document.getElementById("fillBox");
+function log(t){ logEl.textContent += t + "\n"; logEl.scrollTop = logEl.scrollHeight; }
+
+function paintBits(){
+  [0,1].forEach(i=>{
+    const el = document.getElementById("b"+i);
+    el.className = "bit " + (S.bits[i] ? "on" : "off");
+    el.textContent = S.bits[i] ? "1" : "0";
+  });
+  document.getElementById("bits").textContent = S.bits.join("");
+}
+function paintMode(){
+  const m = document.getElementById("mode");
+  m.textContent = S.lang === "js" ? "JAVASCRIPT" : "PYTHON";
+  m.className = S.lang === "js" ? "mode-js" : "mode-py";
+}
+
+window.flip = function(i){
+  S.bits[i] ^= 1;
+  paintBits();
+  log((S.lang==="js"?"JS":"PY") + " quantum "+i+" -> "+(S.bits[i]?"ON 1":"OFF 0"));
+};
+window.allOff = function(){
+  S.bits = [0,0];
+  S.ai = S.jsAuto = S.pyAuto = false;
+  clearInterval(window._ai); clearInterval(window._js); clearInterval(window._py);
+  document.getElementById("ai").textContent = "ALL OFF";
+  paintBits();
+  log("EXTRA OFF — JS Auto + Python Auto + A>I halted");
+};
+function rotate(key){
+  S[key] = S[key].slice(2) + S[key].slice(0,2);
+  document.getElementById(key === "api" ? "api" : "api2").textContent = S[key];
+}
+window.pulseAPI = function(){
+  rotate("api"); rotate("api2");
+  log("API CONTROL // primary "+S.api+" // switch "+S.api2);
+};
+window.toggleLang = function(){
+  S.lang = S.lang === "js" ? "py" : "js";
+  paintMode();
+  log("SWITCH → "+(S.lang==="js"?"JavaScript":"Python")+" runtime focus");
+  rotate("api2");
+};
+window.jsAuto = function(){
+  S.jsAuto = !S.jsAuto;
+  clearInterval(window._js);
+  log(S.jsAuto ? "JavaScript Auto ×2 ONLINE" : "JavaScript Auto OFF");
+  if(S.jsAuto){
+    window._js = setInterval(()=>{
+      if(S.lang !== "js") return;
+      window.flip(0);
+      setTimeout(()=>window.flip(1), 200);
+      rotate("api");
+    }, 1400);
+  }
+};
+window.pythonAuto = function(){
+  S.pyAuto = !S.pyAuto;
+  clearInterval(window._py);
+  log(S.pyAuto ? "Python Auto ONLINE (browser sim: py_loop())" : "Python Auto OFF");
+  if(S.pyAuto){
+    window._py = setInterval(()=>{
+      if(S.lang !== "py") return;
+      log("py> tick bits="+S.bits.join("")+" api="+S.api2);
+      window.flip(1);
+      setTimeout(()=>window.flip(0), 220);
+      rotate("api2");
+    }, 1600);
+  }
+};
+window.autoAI = function(){
+  S.ai = !S.ai;
+  document.getElementById("ai").textContent = S.ai ? "A>I LIVE" : "STANDBY";
+  clearInterval(window._ai);
+  log(S.ai ? "Automatic A>I engaged — cross-controls JS+Python streams" : "A>I standby");
+  if(S.ai){
+    window._ai = setInterval(()=>{
+      window.flip(0);
+      setTimeout(()=>window.flip(1), 180);
+      rotate("api");
+      if(Math.random() > 0.5) rotate("api2");
+    }, 1200);
+  }
+};
+
+window.fillAll = function(){
+  fillBox.textContent =
+    "SUPERVISOR FILL — ALL REPOS\n"+
+    USER.url+" · public_repos "+USER.public_repos+"\n\n"+
+    REPOS.map((n,i)=>String(i+1).padStart(2,"0")+"  "+n+"\n    https://github.com/heads4281-spec/"+n).join("\n");
+  log("FILLED all "+REPOS.length+" repositories under "+USER.login);
+};
+window.fillCommits = function(){
+  fillBox.textContent =
+    "COMMIT LEDGER — vivid-nova-garden-jade\n\n"+
+    COMMITS.map(([sha,msg])=>sha+"  "+msg).join("\n")+"\n\n"+
+    "full:\nhttps://github.com/heads4281-spec/vivid-nova-garden-jade/commit/d6fceb91af6d6df8d23aec40dcff179dcb37e101\n"+
+    "https://github.com/heads4281-spec/vivid-nova-garden-jade/commit/9f9f0e3adb87007e80391465cc6aaf79ea3083d4";
+  log("FILLED commit ledger ("+COMMITS.length+" entries)");
+};
+window.fillConfig = function(){
+  fillBox.textContent = START + "\n\n// 9f9f0e3 config.json\n" + JSON.stringify(CONFIG, null, 2);
+  log("FILLED start() + config.json · code "+CONFIG.primaryCode+" · LV "+CONFIG.sovereignLevel);
+};
+
+/* ——— Three / WeLGL ——— */
+const host = document.getElementById("view");
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x050510, 1);
+host.appendChild(renderer.domElement);
+document.getElementById("gl").textContent = "ON";
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
+camera.position.set(0, 1.35, 5.0);
+scene.add(new THREE.AmbientLight(0x223344, 0.55));
+scene.add(Object.assign(new THREE.PointLight(0x00f6ff, 14, 28), { position: new THREE.Vector3(2.4,3,3) }));
+scene.add(Object.assign(new THREE.PointLight(0xff3355, 11, 28), { position: new THREE.Vector3(-3,2,-1) }));
+scene.add(Object.assign(new THREE.PointLight(0xffd24d, 8, 20), { position: new THREE.Vector3(0,2.5,-2) }));
+
+const ring = new THREE.Mesh(
+  new THREE.TorusGeometry(1.15, 0.04, 16, 96),
+  new THREE.MeshStandardMaterial({ color:0x00f6ff, emissive:0x003344, metalness:0.75, roughness:0.22 })
+);
+scene.add(ring);
+const ring2 = new THREE.Mesh(
+  new THREE.TorusGeometry(1.5, 0.035, 16, 96),
+  new THREE.MeshStandardMaterial({ color:0xffd24d, emissive:0x332200, metalness:0.7, roughness:0.25 })
+);
+ring2.rotation.x = Math.PI/2.3;
+scene.add(ring2);
+
+const q0 = new THREE.Mesh(new THREE.SphereGeometry(0.2,24,24), new THREE.MeshStandardMaterial({ color:0x334, emissive:0x111 }));
+const q1 = q0.clone();
+q0.position.set(-0.85,0,0); q1.position.set(0.85,0,0);
+scene.add(q0,q1);
+
+function node(label,x,z,color){
+  const g = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.26,0),
+    new THREE.MeshStandardMaterial({ color, emissive:color, emissiveIntensity:0.35, metalness:0.6, roughness:0.3 })
+  );
+  g.add(core);
+  const c = document.createElement("canvas"); c.width=256; c.height=64;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#00f6ff"; ctx.font = "bold 26px monospace"; ctx.textAlign="center";
+  ctx.fillText(label,128,40);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(c), transparent:true }));
+  spr.scale.set(1.35,0.34,1); spr.position.y = 0.52; g.add(spr);
+  g.position.set(x,0.12,z); scene.add(g);
+  return { g, core };
+}
+const nA = node("16.16.16.16", -2.35, -1.15, 0xffaa33);
+const nB = node("16.16.16.16",  2.35, -1.15, 0x33ffaa);
+
+function resize(){
+  const w = host.clientWidth, h = host.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize); resize();
+
+let t = 0;
+(function loop(){
+  t += 0.016;
+  ring.rotation.x = t*0.3; ring.rotation.y = t*0.2;
+  ring2.rotation.z = -t*0.25;
+  ring.material.color.setHex(S.lang==="js" ? 0x00f6ff : 0xffd24d);
+  q0.material.emissive.setHex(S.bits[0] ? (S.lang==="js"?0x00f6ff:0xffd24d) : 0x111);
+  q1.material.emissive.setHex(S.bits[1] ? 0xff2bd6 : 0x111);
+  q0.position.y = Math.sin(t*2)*0.12;
+  q1.position.y = Math.cos(t*2)*0.12;
+  nA.g.rotation.y = t*0.4; nB.g.rotation.y = -t*0.4;
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
+
+paintBits(); paintMode();
+log("SUPERVISOR merge: JS Auto + Python Auto + A>I + 16.16.16.16 WeLGL + GitHub fills online");
+</script>
+</body>
+</html>
