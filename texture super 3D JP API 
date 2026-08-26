@@ -1,0 +1,4 @@
+TextureAPI.list()
+TextureAPI.mode("tri")
+TextureAPI.frame(13)
+TextureAPI.wrap("Clamp")
