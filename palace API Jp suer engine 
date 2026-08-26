@@ -1,0 +1,4 @@
+PalaceAPI.claim()
+PalaceAPI.cycleCode()
+PalaceAPI.code("51632")
+PalaceAPI.state.claimed
